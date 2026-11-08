@@ -100,3 +100,27 @@ test('stopping the mounted controller aborts its read and ignores a late reply',
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(store.getSnapshot().skills, null);
 });
+
+test('stopping aborts a pending mutation and ignores its result after remount', async t => {
+  let finish;
+  let writeSignal;
+  const store = createCatalog((body, signal) => {
+    if (body.action === 'setEnabled') {
+      writeSignal = signal;
+      return new Promise(resolve => { finish = resolve; });
+    }
+    return Promise.resolve(catalog());
+  });
+  t.after(() => store.stop());
+  await store.refresh();
+  const writing = store.mutate({ action: 'setEnabled', id: skill.id, enabled: true });
+  store.stop();
+  assert.equal(writeSignal.aborted, true);
+  store.start();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(store.getSnapshot().busy, false);
+  finish({});
+  assert.equal(await writing, false);
+  assert.equal(store.getSnapshot().skills[0].enabled, false);
+  assert.equal(store.getSnapshot().mutationError, null);
+});

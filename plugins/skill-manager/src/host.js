@@ -130,9 +130,12 @@ export function createSkillManager({ home, agentsHome, skills, workspaceRegistry
     rows.push(...[...byName.values()].map(skill => catalogRow(skill, provenance, sync?.entries)));
     rows.sort((left, right) => left.name.localeCompare(right.name) || Number(right.group === 'imported') - Number(left.group === 'imported'));
     const syncError = sync?.error ?? Object.values(sync?.entries ?? {}).find(entry => entry.error)?.error;
+    const stopped = sync && !sync.error && (!Number.isFinite(Date.parse(sync.health?.lastAttemptAt)) || Date.now() - Date.parse(sync.health.lastAttemptAt) > 15000);
+    const healthError = stopped ? 'sharedStopped' : sync?.health?.status === 'unavailable' ? 'sharedUnavailable' : null;
     return {
+      ...(sync?.health && { syncHealth: sync.health }),
       skills: rows, workspaces, complete: catalog.complete && managed.complete,
-      ...(syncError && { syncError: syncError === 'conflict' ? 'sharedConflict' : 'sharedUnavailable' }),
+      ...((healthError || syncError) && { syncError: healthError ?? (syncError === 'conflict' ? 'sharedConflict' : 'sharedUnavailable') }),
     };
   }
 

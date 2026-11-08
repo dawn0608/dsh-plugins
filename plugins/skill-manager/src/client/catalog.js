@@ -3,9 +3,10 @@ import { request, SkillError } from './api.js';
 export function createCatalog(send = request) {
   const listeners = new Set();
   let snapshot = {
-    skills: null, listError: null, mutationError: null, busy: false, savingId: null,
+    skills: null, syncHealth: null, listError: null, mutationError: null, busy: false, savingId: null,
   };
   let reading;
+  let writing;
   let timer;
   let stopped = false;
   let hasCompleteCatalog = false;
@@ -34,7 +35,7 @@ export function createCatalog(send = request) {
       }
       if (result.complete) {
         hasCompleteCatalog = true;
-        publish({ skills: result.skills, listError: result.syncError ?? null });
+        publish({ skills: result.skills, syncHealth: result.syncHealth ?? null, listError: result.syncError ?? null });
       } else if (!hasCompleteCatalog) {
         publish({ skills: result.skills, listError: 'incomplete' });
       } else {
@@ -50,9 +51,13 @@ export function createCatalog(send = request) {
   async function mutate(action) {
     if (snapshot.busy || stopped) return false;
     cancelRefresh();
+    const pending = new AbortController();
+    writing = pending;
     publish({ busy: true, savingId: action.action === 'setEnabled' ? action.id : null, mutationError: null });
     try {
-      await send({ ...action, workspaceId: null }, AbortSignal.timeout(30000));
+      await send({ ...action, workspaceId: null }, AbortSignal.any([pending.signal, AbortSignal.timeout(30000)]));
+      if (writing !== pending || stopped) return false;
+      writing = undefined;
       let { skills } = snapshot;
       if (skills && action.action === 'setEnabled') {
         skills = skills.map(skill => skill.id === action.id ? { ...skill, enabled: action.enabled } : skill);
@@ -63,6 +68,8 @@ export function createCatalog(send = request) {
       void refresh();
       return true;
     } catch (error) {
+      if (writing !== pending || stopped) return false;
+      writing = undefined;
       publish({ mutationError: error.code ?? 'unavailable', busy: false, savingId: null });
       if (error.code === 'conflict' || error.code === 'not-found') void refresh();
       return false;
@@ -93,6 +100,9 @@ export function createCatalog(send = request) {
       clearInterval(timer);
       timer = undefined;
       cancelRefresh();
+      writing?.abort();
+      writing = undefined;
+      snapshot = { ...snapshot, busy: false, savingId: null };
     },
   };
 }

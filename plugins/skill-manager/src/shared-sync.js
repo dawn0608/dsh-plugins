@@ -1,8 +1,20 @@
 import { constants, watchFile, unwatchFile } from 'node:fs';
 import { lstat, open, readdir, realpath } from 'node:fs/promises';
 import { createConnection } from 'node:net';
-import { dirname, join } from 'node:path';
+import { homedir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import { isManagedName, isRecord, ManagerError, MAX_BUNDLE_BYTES, parseSkillFile } from './host-bundle.js';
+
+export function resolveSyncHomes(env = process.env, userHome = homedir()) {
+  const expand = (value, fallback) => {
+    const path = value || join(userHome, fallback);
+    if (path === '~') return userHome;
+    if (path.startsWith('~/')) return resolve(userHome, path.slice(2));
+    return resolve(path);
+  };
+  return { home: expand(env.DSH_HOME, '.dsh'), agentsHome: expand(env.DSH_AGENTS_HOME, '.agents'),
+    codexHome: expand(env.CODEX_HOME, '.codex'), claudeHome: expand(env.CLAUDE_CONFIG_DIR, '.claude') };
+}
 
 export const syncDirectory = home => join(home, 'skill-manager', 'shared-sync');
 export const syncSocket = home => join(syncDirectory(home), 'control.sock');

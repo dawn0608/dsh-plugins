@@ -152,7 +152,7 @@ export function createPage(locale, controls, createStore = createCatalog) {
       setDetail(null);
     }
 
-    const { skills, busy, savingId, listError, mutationError } = state;
+    const { skills, busy, savingId, listError, mutationError, syncHealth } = state;
     const currentSkill = detail && (skills?.find(skill => skill.id === detail.id) ?? detail);
     return h('div', { className: 'dshskill_page', 'data-detail': currentSkill ? '' : undefined, ref: pageRef },
       h('div', { className: 'dshskill_content' },
@@ -170,6 +170,8 @@ export function createPage(locale, controls, createStore = createCatalog) {
                 onChange: event => setQuery(event.currentTarget.value),
               })),
             listError && h('p', { role: 'alert', className: 'dshskill_error' }, t(listError)),
+            syncHealth?.lastSuccessAt && h('p', { className: 'dshskill_muted' },
+              t('sharedLastSuccess', { time: syncHealth.lastSuccessAt })),
             skills === null
               ? !listError && h('p', { role: 'status', className: 'dshskill_muted' }, t('loading'))
               : h(CatalogRows, { skills, query, translate: t, busy, savingId, store, openDetail, controls })),

@@ -504,3 +504,21 @@ test('registers only the authenticated streaming route and bounds JSON requests'
     status: 413, result: { ok: false, code: 'too-large' },
   });
 });
+
+test('reports stopped and failed daemon health without removing disabled shared policy state', async t => {
+  const { home, request } = await host(t);
+  const directory = join(home, 'skill-manager', 'shared-sync');
+  await mkdir(directory, { recursive: true });
+  const state = { version: 1, projects: {}, entries: {}, health: {
+    status: 'ok', lastAttemptAt: '2000-01-01T00:00:00.000Z', lastSuccessAt: '2000-01-01T00:00:00.000Z',
+  } };
+  await writeFile(join(directory, 'state.json'), JSON.stringify(state));
+  let result = await request({ action: 'list' });
+  assert.equal(result.syncError, 'sharedStopped');
+  assert.equal(result.syncHealth.lastSuccessAt, state.health.lastSuccessAt);
+  state.health.status = 'unavailable';
+  state.health.lastAttemptAt = new Date().toISOString();
+  await writeFile(join(directory, 'state.json'), JSON.stringify(state));
+  result = await request({ action: 'list' });
+  assert.equal(result.syncError, 'sharedUnavailable');
+});

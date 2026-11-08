@@ -1,14 +1,13 @@
 import { spawn } from 'node:child_process';
 import { chmod, lstat, mkdir, readlink, realpath, rename, symlink, unlink, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
-import { homedir } from 'node:os';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { createInterface } from 'node:readline';
 import { parse as parseToml } from 'smol-toml';
 import { isManagedName, isRecord, ManagerError } from './host-bundle.js';
-import { readSyncState, regularFile, requestSync, sharedSkills, syncDirectory, syncSocket, syncStateFile } from './shared-sync.js';
+import { readSyncState, regularFile, requestSync, resolveSyncHomes, sharedSkills, syncDirectory, syncSocket, syncStateFile } from './shared-sync.js';
 
 const LIMIT = 2 * 1024 * 1024;
 const missing = error => {
@@ -36,6 +35,10 @@ async function writeDocument({ path, bytes }, value) {
   } finally {
     await unlink(temp).catch(missing);
   }
+}
+
+async function writeDocumentSafe(path, value) {
+  await writeDocument(await readDocument(path), value);
 }
 
 function overrides(document) {
@@ -105,25 +108,37 @@ export async function writeCodex(binary, codexHome, path, enabled) {
   }
 }
 
-async function reconcileLink(claudeRoot, skill) {
+function linkIdentity(stat) {
+  return { dev: stat.dev, ino: stat.ino, birthtimeMs: stat.birthtimeMs };
+}
+
+function sameLink(stat, identity) {
+  return identity && stat.dev === identity.dev && stat.ino === identity.ino && stat.birthtimeMs === identity.birthtimeMs;
+}
+
+async function reconcileLink(claudeRoot, skill, old) {
   const link = join(claudeRoot, skill.name);
   const target = dirname(skill.path);
   const existing = await lstat(link).catch(missing);
-  if (existing) return existing.isSymbolicLink() && await realpath(link).catch(missing) === target;
+  if (existing) {
+    const valid = existing.isSymbolicLink() && await realpath(link).catch(missing) === target;
+    return { valid, owned: Boolean(valid && old?.linkOwned && sameLink(existing, old.linkIdentity)),
+      ...(valid && old?.linkOwned && sameLink(existing, old.linkIdentity) && { identity: old.linkIdentity }) };
+  }
   try {
     await symlink(target, link, 'dir');
-    return true;
+    return { valid: true, owned: true, identity: linkIdentity(await lstat(link)) };
   } catch (error) {
-    if (error.code === 'EEXIST') return false;
+    if (error.code === 'EEXIST') return { valid: false, owned: false };
     throw error;
   }
 }
 
 async function dropLink(root, entry, skillPath) {
-  if (!entry.linkOwned || !isManagedName(entry.name)) return;
+  if (!entry.linkOwned || !entry.linkIdentity || !isManagedName(entry.name)) return;
   const link = join(root, entry.name);
   const existing = await lstat(link).catch(missing);
-  if (!existing?.isSymbolicLink()) return;
+  if (!existing?.isSymbolicLink() || !sameLink(existing, entry.linkIdentity)) return;
   if (resolve(root, await readlink(link)) === dirname(skillPath)) await unlink(link).catch(missing);
 }
 
@@ -165,7 +180,7 @@ function localIntents(projects, name) {
   });
 }
 
-export async function createCoordinator({ home, agentsHome, claudeHome, codexHome, codexBinary, writeSkill = writeCodex }) {
+export async function createCoordinator({ home, agentsHome, claudeHome, codexHome, codexBinary, writeSkill = writeCodex, writeClaude = updateClaude }) {
   const statePath = syncStateFile(home);
   const claudeRoot = join(claudeHome, 'skills');
   await mkdir(claudeRoot, { recursive: true, mode: 0o700 });
@@ -219,7 +234,8 @@ export async function createCoordinator({ home, agentsHome, claudeHome, codexHom
       const old = previous.entries[path];
       const codex = readCodex(native, skill);
       const claude = initialClaude[name] ?? null;
-      const linkOk = await reconcileLink(claudeRoot, skill).catch(() => false);
+      const link = await reconcileLink(claudeRoot, skill, old).catch(() => ({ valid: false, owned: false }));
+      const linkOk = link.valid;
       const rawIntents = localIntents(projects, name);
       const local = [];
       let projectCollision = false;
@@ -238,16 +254,23 @@ export async function createCoordinator({ home, agentsHome, claudeHome, codexHom
       if (old && !old.pending && claude !== old.claude && (claude === 'off' || old.claude === 'off')) {
         intents.add(claude !== 'off');
       }
+      const diverged = old?.pending && (
+        (codex.enabled !== old.codex && codex.enabled !== old.enabled) ||
+        (claude !== old.claude && claude !== (old.enabled ? null : 'off')) ||
+        local.some(intent => (intent.value === 'on') !== old.enabled));
+      const contested = !explicit && (diverged || intents.size > 1 || old?.contested);
       const conflict = !linkOk || projectCollision || (codex.byName && !codex.enabled) ||
-        (!explicit && (intents.size > 1 || (old?.contested && intents.size === 0)));
+        contested;
       const enabled = explicit ? action.enabled
         : old?.pending ? old.enabled
         : intents.size === 1 && !conflict ? [...intents][0]
         : old?.enabled ?? (codex.enabled && claude !== 'off');
       const entry = {
         name, enabled: conflict ? old?.enabled ?? enabled : enabled,
-        codex: codex.enabled, claude, linkOwned: Boolean(old?.linkOwned || linkOk),
-        ...(!explicit && (intents.size > 1 || old?.contested && intents.size === 0) && { contested: true }),
+        codex: old?.pending && !explicit ? old.codex : codex.enabled,
+        claude: old?.pending && !explicit ? old.claude : claude,
+        linkOwned: link.owned, ...(link.identity && { linkIdentity: link.identity }),
+        ...(contested && { contested: true }),
         ...(conflict && { error: 'conflict' }),
       };
       if (!conflict) {
@@ -260,7 +283,9 @@ export async function createCoordinator({ home, agentsHome, claudeHome, codexHom
       }
       entries[path] = entry;
     }
-    const state = { version: 1, entries, projects: enrollment };
+    const state = { version: 1, entries, projects: enrollment, health: { ...previous.health,
+      status: 'syncing', lastAttemptAt: new Date().toISOString() } };
+    const checkpoint = () => writeDocumentSafe(statePath, state);
     // Persist the desired state before fan-out so a crash can retry without treating echoes as input.
     await writeDocument(stateDocument, state);
 
@@ -277,14 +302,17 @@ export async function createCoordinator({ home, agentsHome, claudeHome, codexHom
             const confirmed = readCodex(await codexRules(await readDocument(codexPath, parseToml)), skill);
             if (confirmed.enabled !== enabled) throw new ManagerError('conflict');
           }
+          entry.codex = enabled;
+          await checkpoint();
           const settings = await readDocument(claudePath);
           const currentClaude = overrides(settings)[name] ?? null;
           if ((currentClaude !== 'off') !== enabled) {
             if (currentClaude !== entry.claude) throw new ManagerError('conflict');
-            await updateClaude(settings, name, enabled ? undefined : 'off');
+            await writeClaude(settings, name, enabled ? undefined : 'off');
           }
-          entry.codex = enabled;
           entry.claude = overrides(await readDocument(claudePath))[name] ?? null;
+          if ((entry.claude !== 'off') !== enabled) throw new ManagerError('conflict');
+          await checkpoint();
           delete entry.pending;
         }
         for (const intent of cleanup.get(path) ?? []) {
@@ -295,18 +323,32 @@ export async function createCoordinator({ home, agentsHome, claudeHome, codexHom
         }
       } catch (error) {
         entry.error = error.code === 'conflict' ? 'conflict' : 'unavailable';
+        if (entry.error === 'conflict') entry.contested = true;
+        await checkpoint();
       }
     }
     for (const [path, old] of Object.entries(previous.entries)) {
       if (!skills.has(path)) await dropLink(claudeRoot, old, path);
     }
-    await writeDocument(await readDocument(statePath), state);
+    state.health.status = Object.values(entries).some(entry => entry.error) ? 'degraded' : 'ok';
+    if (state.health.status === 'ok') state.health.lastSuccessAt = new Date().toISOString();
+    await checkpoint();
     const result = action.type === 'set' ? entries[action.path] : undefined;
     if (result?.error) throw new ManagerError(result.error);
     return result?.enabled;
   }
 
-  return action => serial(() => tick(action));
+  return action => serial(async () => {
+    try { return await tick(action); } catch (error) {
+      const document = await readDocument(statePath);
+      const state = document.bytes ? document.value : { version: 1, entries: {}, projects: {} };
+      if (state.version === 1 && isRecord(state.entries)) {
+        state.health = { ...state.health, status: error.code === 'conflict' ? 'degraded' : 'unavailable', lastAttemptAt: new Date().toISOString() };
+        await writeDocument(document, state);
+      }
+      throw error;
+    }
+  });
 }
 
 export async function serve(options) {
@@ -325,6 +367,9 @@ export async function serve(options) {
   }
 
   const sync = await createCoordinator(options);
+  const installId = process.env.DSH_SKILL_SYNC_INSTALL_ID;
+  const activated = async () => !installId ||
+    (await readDocument(join(directory, 'runtime', 'ready.json')).catch(() => null))?.value.installId === installId;
   const server = createServer(socket => {
     socket.setEncoding('utf8');
     socket.setTimeout(10000, () => socket.destroy());
@@ -335,9 +380,10 @@ export async function serve(options) {
       if (buffer.length > 8192) return socket.destroy();
       if (!buffer.includes('\n')) return;
       socket.off('data', receive);
-      Promise.resolve().then(() => {
+      Promise.resolve().then(async () => {
         const request = JSON.parse(buffer);
-        if (request.type === 'ping') return true;
+        if (request.type === 'ping') return { installId: installId ?? null };
+        if (!await activated()) throw new ManagerError('unavailable');
         if (request.type !== 'set' && request.type !== 'enroll') throw new ManagerError('invalid');
         return sync(request);
       }).then(result => socket.end(JSON.stringify({ ok: true, result }) + '\n'),
@@ -350,6 +396,7 @@ export async function serve(options) {
   let lastError;
   const poll = async () => {
     try {
+      if (!await activated()) return;
       await sync();
       lastError = undefined;
     } catch (error) {
@@ -383,10 +430,7 @@ export async function serve(options) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const options = {
-    home: process.env.DSH_HOME ?? join(homedir(), '.dsh'),
-    agentsHome: process.env.DSH_AGENTS_HOME ?? join(homedir(), '.agents'),
-    claudeHome: process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude'),
-    codexHome: process.env.CODEX_HOME ?? join(homedir(), '.codex'),
+    ...resolveSyncHomes(),
     codexBinary: process.env.DSH_SKILL_SYNC_CODEX ?? 'codex',
   };
   try {
