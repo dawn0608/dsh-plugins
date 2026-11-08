@@ -1,10 +1,14 @@
 # MCP Management
 
-View and toggle MCP servers for the current Desktop profile under **Settings → MCP Management**. The panel supports local `stdio` and remote Streamable HTTP servers.
+[中文](README.zh.md) | English
 
-- Each row shows the server name, transport (STDIO or Streamable HTTP), and enablement switch.
-- Give the provider’s setup instructions to your AI assistant so it can update the profile’s `cordis.patch.yml`. The panel automatically picks up configuration changes while open.
-- The switch updates the selected row’s `disabled` state under the profile writer lock. Harness hot reloads the change, and external synchronizers pick it up on their next poll.
+In DeepSeek Harness, open **Settings → MCP Management** to see the servers configured in the current profile's user patch. Each row shows the server name, transport (STDIO or Streamable HTTP), and whether the server is enabled.
+
+## Manage servers
+
+- Use the switch on an editable row to enable or disable the server. The switch updates the row's `disabled` setting, and Harness hot reloads the change.
+- Add, edit, or remove servers in the profile's `cordis.patch.yml`. You can give your assistant the provider's setup instructions and ask it to edit that file. The panel refreshes while it is open.
+- Rows outside a top-level `insert` list, with missing or duplicate IDs, with conditional `disabled` values, or with another unsupported shape are read-only. The panel also flags duplicate server names.
 
 ## Credentials
 
@@ -21,6 +25,8 @@ References resolve against the Harness process environment.
 
 ## Install
 
+Requires DeepSeek Harness `>=0.2.2-rc.1 <0.3.0`.
+
 In Desktop, open **Plugins → Add plugin** and enter `@dawn0608/dsh-mcp-manager`. For a CLI-managed profile, run:
 
 ```bash
@@ -32,8 +38,8 @@ You can also download the `.tgz` from [GitHub Releases](https://github.com/dawn0
 To install from source, build from the repository root:
 
 ```bash
-npm install
-npm run build
+npm ci
+npm run build --workspace @dawn0608/dsh-mcp-manager
 ```
 
 Then select the local `plugins/mcp-manager` directory in the plugin picker. If an older installation is present, remove it before switching installation sources. Open **Settings → MCP Management** after installation and restart Harness if prompted.
@@ -53,11 +59,7 @@ Use `patchPath` only for a non-standard profile layout; the default derives from
 
 ## Limitations
 
-- Only the current profile's **user patch file** is managed; bundle-provided rows, Codex/Claude configuration, and other profiles are out of scope.
-- Rows must sit in a top-level `insert` list, carry a unique id, and use a boolean `disabled`; entries that cannot be safely toggled are shown as read-only.
-- The list flags duplicate names in the same file.
-- Rows using `!!js`, `headers`, or a non-portable environment are skipped by the three-end synchronizer by design: credentials stay local.
-- `yaml` is used at build time and inlined into `lib/index.js`, so the runtime has no extra dependency; see the upstream `eemeli/yaml` repository for its ISC license.
+The panel manages the current profile's user patch. Bundle-provided services, other profiles, and the Codex and Claude Code configurations are managed separately.
 
 ## Development
 
@@ -65,6 +67,8 @@ Use `patchPath` only for a non-standard profile layout; the default derives from
 npm test          # builds first; covers patch editing, validation, references, locking and atomic writes, and the state API
 npm run verify    # from the repository root
 ```
+
+The host bundle includes the ISC-licensed `yaml` dependency. [Upstream license](https://github.com/eemeli/yaml/blob/main/LICENSE)
 
 ## License
 

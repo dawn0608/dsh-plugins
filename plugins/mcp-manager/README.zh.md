@@ -1,10 +1,14 @@
 # MCP 管理
 
-在 DeepSeek Harness「设置 → MCP 管理」中查看当前 Desktop profile 的 MCP 服务，并启用或停用服务。
+[English](README.md) | 中文
 
-- 每行显示服务名、传输方式（STDIO 或 Streamable HTTP）和启停开关。
-- 可把服务提供方的安装说明交给 AI，让它更新当前 profile 的 `cordis.patch.yml`。面板打开时会自动同步配置变化。
-- 开关通过 profile 写锁和原子写入修改目标条目的 `disabled` 状态。Harness 热加载变更，监听该文件的同步器会在后续轮询时读取它。
+在 DeepSeek Harness 打开「设置 → MCP 管理」，查看当前 profile 用户补丁中的 MCP 服务。每行显示服务名、传输方式（STDIO 或 Streamable HTTP）和启用状态。
+
+## 管理服务
+
+- 用可编辑条目上的开关启停服务。开关更新条目的 `disabled` 设置，Harness 会热加载变更。
+- 在当前 profile 的 `cordis.patch.yml` 中添加、编辑或删除服务。也可把服务提供方的安装说明交给 AI，请它修改该文件。面板打开时会自动刷新。
+- 顶层 `insert` 列表之外的条目、缺少 ID 或 ID 重复的条目、使用条件式 `disabled` 的条目，以及其他无法安全修改的条目均为只读。面板也会标出同名服务。
 
 ## 凭据
 
@@ -21,6 +25,8 @@ headers:
 
 ## 安装
 
+适用于 DeepSeek Harness `>=0.2.2-rc.1 <0.3.0`。
+
 在 Desktop 打开「插件 → 添加插件」，输入 `@dawn0608/dsh-mcp-manager`。通过 CLI 管理 profile 时，可运行以下命令。
 
 ```bash
@@ -32,8 +38,8 @@ dsh plugin --profile <profile> add @dawn0608/dsh-mcp-manager
 从源码安装时，在仓库根目录构建。
 
 ```bash
-npm install
-npm run build
+npm ci
+npm run build --workspace @dawn0608/dsh-mcp-manager
 ```
 
 构建完成后，通过本地包入口选择 `plugins/mcp-manager`。切换安装来源时，先移除已有安装。安装后打开「设置 → MCP 管理」，按应用提示重启。
@@ -53,11 +59,7 @@ npm run build
 
 ## 限制
 
-- 只管理当前 profile 的 **用户 patch 文件**；bundle 自带行、Codex/Claude 配置、其他 profile 不在范围内。
-- 行必须位于顶层 `insert` 列表、id 唯一、`disabled` 为布尔值；无法安全启停的条目显示为只读。
-- 列表会标出同一文件内的重名服务。
-- 带 `!!js`、`headers` 或非可移植环境的条目会被三端同步器标记为 skipped，这是有意为之：凭据留在本机。
-- `yaml` 仅在构建时使用并内联进 `lib/index.js`，运行期没有额外依赖；其 ISC 许可证见上游仓库 `eemeli/yaml`。
+面板管理当前 profile 的用户补丁。bundle 自带服务、其他 profile 以及 Codex 和 Claude Code 的配置各自独立管理。
 
 ## 开发
 
@@ -65,6 +67,8 @@ npm run build
 npm test          # 含构建；单元测试覆盖补丁编辑、校验、引用、锁与原子写、状态接口
 npm run verify    # 仓库根目录
 ```
+
+Host 构建产物内联了采用 ISC 许可证的 `yaml` 依赖。[上游许可证](https://github.com/eemeli/yaml/blob/main/LICENSE)
 
 ## 许可证
 

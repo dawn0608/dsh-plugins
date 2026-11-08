@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "Cost Overview",
-    "description": "Shows the current session cost at official unit prices and the DeepSeek account balance beside composer stats.",
+    "description": "Estimate the current session cost and view model costs and the DeepSeek API balance below the composer.",
     "detail": "README.md"
   }
 }

@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "费用概览",
-    "description": "在输入框下方的会话统计旁显示按官方单价计算的当前会话费用和 DeepSeek 账户余额。",
+    "description": "在输入框下方查看当前会话的费用估算、模型明细和 DeepSeek API 账户余额。",
     "detail": "README.zh.md"
   }
 }

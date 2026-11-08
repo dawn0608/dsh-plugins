@@ -1,11 +1,30 @@
 {
   "name": "@dawn0608/dsh-skill-manager",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.1.1",
   "type": "module",
   "main": "./lib/index.js",
-  "description": "Browse, preview, and manage local skills in DeepSeek Harness.",
+  "description": "Search global skills, preview Markdown, and toggle or uninstall managed copies from the Harness sidebar.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dawn0608/dsh-plugins.git",
+    "directory": "plugins/skill-manager"
+  },
+  "homepage": "https://github.com/dawn0608/dsh-plugins/tree/main/plugins/skill-manager",
+  "bugs": {
+    "url": "https://github.com/dawn0608/dsh-plugins/issues"
+  },
+  "keywords": [
+    "deepseek",
+    "deepseek-harness",
+    "dsh",
+    "plugin",
+    "skills",
+    "skill-manager"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "author": "dawn0608",
   "exports": {
     ".": "./lib/index.js",
