@@ -1,4 +1,4 @@
-# Skills
+# Skill Management
 
 Open **Skills** below **Plugins** in the DeepSeek Harness sidebar. Search the global catalog by name or description. Select a skill to see its full description, source, and `SKILL.md` preview.
 

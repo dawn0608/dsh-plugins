@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | [session-cost](plugins/session-cost/README.md) | 在输入框下方显示当前会话花费与 DeepSeek 账户余额 | `>=0.2.2-rc.1 <0.3.0` | `@dawn0608/dsh-session-cost` |
 | [MCP 管理](plugins/mcp-manager/README.md) | 在原生设置中查看和启停 MCP 服务 | `>=0.2.2-rc.1 <0.3.0` | `@dawn0608/dsh-mcp-manager` |
-| [技能](plugins/skill-manager/README.zh.md) | 在侧栏浏览技能并管理本地导入 | `>=0.2.2-rc.1 <0.3.0` | [本地安装](plugins/skill-manager/README.zh.md#安装) |
+| [技能管理](plugins/skill-manager/README.zh.md) | 在侧栏浏览技能并管理本地导入 | `>=0.2.2-rc.1 <0.3.0` | [本地安装](plugins/skill-manager/README.zh.md#安装) |
 
 ## 安装
 
