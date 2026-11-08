@@ -6,8 +6,6 @@ The list groups skills as Built-in, Self-authored, and Third-party. Harness iden
 
 Previously imported skills can be switched on or off from the list and uninstalled from their details. The plugin stores its copies in `$DSH_HOME/skill-manager/bundles` and activates them in `$DSH_HOME/skills` for Harness profiles using that home.
 
-Place `icon.svg` or `icon.png` beside a skill's `SKILL.md` to give it a custom icon. For a local override, including for built-in skills, place `<name>.svg` or `<name>.png` under `~/.dsh/skill-manager/icons/` (or under your `$DSH_HOME`). Local overrides take precedence, and SVG takes precedence over PNG in each location. Use files up to 64 KiB. The list refreshes automatically.
-
 ## Shared skill sync
 
 On macOS, run `node scripts/install-skill-sync.mjs` from the local checkout to install the user service and back up Codex and Claude Code settings. Restart Harness to load the updated plugin and reopen Claude Code sessions to register their working directories. The service starts at login and handles Codex and Claude Code changes while Harness is closed.

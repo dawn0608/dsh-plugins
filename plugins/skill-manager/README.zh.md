@@ -6,8 +6,6 @@
 
 此前导入的技能可在列表启停，也可在详情页卸载。插件将副本保存在 `$DSH_HOME/skill-manager/bundles`，并通过 `$DSH_HOME/skills` 为使用同一主目录的 Harness profile 启用技能。
 
-在技能的 `SKILL.md` 同级目录放置 `icon.svg` 或 `icon.png`，即可显示自定义图标。内置技能和其他技能均可通过 `~/.dsh/skill-manager/icons/<name>.svg` 或 `<name>.png` 设置本机图标（使用自定义 `$DSH_HOME` 时放在对应目录下）。本机图标优先，同一目录中 SVG 优先。文件大小上限为 64 KiB，列表会自动刷新。
-
 ## 全局技能同步
 
 在 macOS 上，从本地源码仓库执行 `node scripts/install-skill-sync.mjs`，安装用户级后台并备份 Codex 和 Claude Code 配置。随后重启 Harness 加载新版插件，重新打开 Claude Code 会话以登记工作目录。后台随登录启动，Harness 关闭时仍可处理 Codex 和 Claude Code 的变更。

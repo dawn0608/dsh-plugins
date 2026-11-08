@@ -49,38 +49,6 @@ const files = () => [file('SKILL.md', skillText), file('references/example.bin',
 const importSkill = (request, entries = files()) => request({ action: 'import', files: entries, expectedName: 'sample' });
 const rejectsCode = (promise, code) => assert.rejects(promise, { code });
 
-test('skill icons respect local overrides and ignore files outside the icon convention', async t => {
-  const catalog = [];
-  const { home, agentsHome, request } = await host(t, {
-    snapshot: async () => ({ skills: catalog, complete: true }),
-  });
-  const directory = join(agentsHome, 'skills', 'sample');
-  const skillFile = join(directory, 'SKILL.md');
-  const overrides = join(home, 'skill-manager', 'icons');
-  const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/></svg>';
-  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aWZkAAAAASUVORK5CYII=';
-  const embedded = 'data:image/svg+xml;base64,' + Buffer.from(svg).toString('base64');
-  catalog.push(
-    { name: 'sample', description: 'Shared skill', source: 'user-agents', path: skillFile },
-    { name: 'office', description: 'Built-in skill', source: 'bundled' },
-    { name: 'flat', description: 'Flat skill', source: 'user-agents', path: join(directory, 'flat.md') },
-  );
-  await mkdir(directory, { recursive: true });
-  await mkdir(overrides, { recursive: true });
-  await writeFile(skillFile, skillText);
-  await writeFile(join(directory, 'icon.svg'), svg);
-  await writeFile(join(overrides, 'office.svg'), 'x'.repeat(65537));
-  await writeFile(join(overrides, 'office.png'), Buffer.from(png, 'base64'));
-  await symlink(join(overrides, 'office.png'), join(overrides, 'flat.png'));
-  const list = async () => Object.fromEntries((await request({ action: 'list' })).skills.map(row => [row.name, row.icon]));
-  assert.deepEqual(await list(), { flat: undefined, office: 'data:image/png;base64,' + png, sample: embedded });
-
-  await writeFile(join(overrides, 'sample.png'), Buffer.from(png, 'base64'));
-  assert.equal((await list()).sample, 'data:image/png;base64,' + png);
-  await writeFile(join(overrides, 'sample.png'), 'not a PNG');
-  assert.equal((await list()).sample, embedded);
-});
-
 test('imports original bytes and persists disabled and enabled state across Host instances', async t => {
   const { home, create, request } = await host(t);
   assert.deepEqual(await request({ action: 'inspect', files: files() }), { name: 'sample', description: 'Sample skill' });
