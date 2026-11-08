@@ -1,4 +1,4 @@
-# DeepSeek Harness Plugins
+# DSH Plugins
 
 个人维护的 DeepSeek Harness 插件集合，用于集中维护、版本管理和分享。
 
@@ -18,7 +18,7 @@ dsh plugin --profile <profile> add @dawn0608/dsh-session-cost
 
 安装后需要在 DSH 中配置 DeepSeek 模型和 `DEEPSEEK_API_KEY`。插件读取余额时使用当前配置的 API Key，不会读取或上传其他人的凭据。
 
-也可以从 [GitHub Releases](https://github.com/dawn0608/deepseek-harness-plugins/releases) 下载本插件的 `.tgz`，在 DSH 插件页（如支持本地包入口）或 CLI 安装。
+也可以从 [GitHub Releases](https://github.com/dawn0608/dsh-plugins/releases) 下载本插件的 `.tgz`，在 DSH 插件页（如支持本地包入口）或 CLI 安装。
 
 从仓库源码安装先构建，再按目录安装：
 
@@ -60,8 +60,8 @@ npm run verify     # build + check + test
 ## 获取仓库
 
 ```bash
-git clone https://github.com/dawn0608/deepseek-harness-plugins.git
-cd deepseek-harness-plugins
+git clone https://github.com/dawn0608/dsh-plugins.git
+cd dsh-plugins
 ```
 
 ## 开发约定

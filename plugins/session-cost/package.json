@@ -19,12 +19,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/dawn0608/deepseek-harness-plugins.git",
+    "url": "git+https://github.com/dawn0608/dsh-plugins.git",
     "directory": "plugins/session-cost"
   },
-  "homepage": "https://github.com/dawn0608/deepseek-harness-plugins/tree/main/plugins/session-cost",
+  "homepage": "https://github.com/dawn0608/dsh-plugins/tree/main/plugins/session-cost",
   "bugs": {
-    "url": "https://github.com/dawn0608/deepseek-harness-plugins/issues"
+    "url": "https://github.com/dawn0608/dsh-plugins/issues"
   },
   "engines": {
     "dsh": ">=0.2.2-rc.1 <0.3.0"

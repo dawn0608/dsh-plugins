@@ -19,7 +19,7 @@ Adds a statistics pill next to the composer statistics that shows:
 - Use this single package name for local builds and upgrades. Do not install a second alias (for example `@local/dsh-session-cost`) of the same plugin: DSH keys each browser module by package name, so two names are two modules. When migrating from an alias, remove the old package and restart the app.
 - After installation, the statistics pill appears below the composer once the Session has produced tokens; click it to see the breakdown.
 
-Source and issue tracker: [GitHub repository](https://github.com/dawn0608/deepseek-harness-plugins).
+Source and issue tracker: [GitHub repository](https://github.com/dawn0608/dsh-plugins).
 
 Clicking the pill opens the same layout as the built-in statistics dialog — the same 16px padding, 12px/18px type, 8px title rule, and 6px row rhythm — with a title row carrying the total and a flat list of: model, model requests, web search & fetch counts (always shown, including `0`; their charge is folded into the total), and the account balance. A Session that switched models lists one line per model, with that model's own cost and request count. Escape, an outside pointer press, or the button itself closes it. Token counts are deliberately absent: the built-in `usage` pill already shows them.
 
