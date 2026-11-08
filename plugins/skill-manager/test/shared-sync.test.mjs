@@ -207,3 +207,56 @@ test('restarts from the Codex checkpoint and completes the failed Claude destina
   assert.equal((await f.state()).error, undefined);
   assert.equal((await readSyncState(f.home)).health.status, 'ok');
 });
+
+test('pending enable accepts an explicit same-direction Claude on and finishes Codex retry', async t => {
+  const f = await fixture(t);
+  await f.sync({ type: 'set', path: f.path, enabled: false });
+  f.fail(true);
+  await assert.rejects(f.sync({ type: 'set', path: f.path, enabled: true }), { code: 'unavailable' });
+  await writeFile(f.claude, '{"skillOverrides":{"shared":"on"}}');
+  f.fail(false);
+  await f.sync();
+  assert.equal((await f.state()).error, undefined);
+  assert.equal((await f.state()).pending, undefined);
+  assert.equal((await f.state()).enabled, true);
+  assert.equal((await f.state()).codex, true);
+  assert.equal((await f.readJson(f.claude)).skillOverrides.shared, 'on');
+});
+
+test('failed enabling retains the known disabled policy until the retry succeeds', async t => {
+  const f = await fixture(t);
+  let provider;
+  t.after(registerSharedPolicy({
+    registerProvider(make) { provider = make({ invalidate() {} }); return () => {}; },
+  }, f.home, f.agentsHome));
+  await f.sync({ type: 'set', path: f.path, enabled: false });
+  assert.equal((await provider.list()).length, 1);
+  f.fail(true);
+  await assert.rejects(f.sync({ type: 'set', path: f.path, enabled: true }), { code: 'unavailable' });
+  assert.equal((await f.state()).enabled, true, 'target intent remains available for retry');
+  assert.equal((await provider.list()).length, 1, 'the known disabled policy must remain in force');
+  f.fail(false);
+  await f.sync();
+  assert.equal((await provider.list()).length, 0);
+  f.fail(true);
+  await assert.rejects(f.sync({ type: 'set', path: f.path, enabled: false }), { code: 'unavailable' });
+  assert.equal((await provider.list()).length, 1, 'a conservative disable takes effect immediately');
+});
+
+test('a successful Codex enable checkpoint cannot release disabled policy while Claude still fails', async t => {
+  const f = await fixture(t, { writeClaude: async () => { throw Error('isolated Claude failure'); } });
+  await f.setCodex(false);
+  await writeFile(f.claude, '{"skillOverrides":{"shared":"off"}}');
+  await f.sync();
+  let provider;
+  t.after(registerSharedPolicy({
+    registerProvider(make) { provider = make({ invalidate() {} }); return () => {}; },
+  }, f.home, f.agentsHome));
+  await assert.rejects(f.sync({ type: 'set', path: f.path, enabled: true }), { code: 'unavailable' });
+  assert.equal((await f.state()).codex, true);
+  assert.equal((await provider.list()).length, 1);
+  const restarted = await createCoordinator({ home: f.home, agentsHome: f.agentsHome, claudeHome: f.claudeHome,
+    codexHome: f.codexHome, writeSkill: async () => { assert.fail('Codex was already confirmed'); } });
+  await restarted();
+  assert.equal((await provider.list()).length, 0);
+});

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, mkdtemp, readFile, readdir, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, readdir, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
@@ -166,6 +166,11 @@ test('built CLI help and module import never write user state or start installat
   const help = spawnSync(process.execPath, [fileURLToPath(entry), '--help'], { env, encoding: 'utf8' });
   assert.equal(help.status, 0, help.stderr);
   assert.match(help.stdout, /Usage: dsh-skill-sync-install/);
+  const bin = join(f.root, 'dsh-skill-sync-install');
+  await symlink(fileURLToPath(entry), bin);
+  const binHelp = spawnSync(bin, ['--help'], { env, encoding: 'utf8' });
+  assert.equal(binHelp.status, 0, binHelp.stderr);
+  assert.match(binHelp.stdout, /Usage: dsh-skill-sync-install/);
   const imported = spawnSync(process.execPath, ['--input-type=module', '-e', 'await import(' + JSON.stringify(entry.href) + ')'], { env, encoding: 'utf8' });
   assert.equal(imported.status, 0, imported.stderr);
   assert.equal(imported.stdout, '');

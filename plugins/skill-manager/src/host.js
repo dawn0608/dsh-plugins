@@ -2,7 +2,7 @@ import { isAbsolute, join, normalize } from 'node:path';
 import { isManagedName, isRecord, isSkillName, ManagerError, MANAGED_ID, validateBundle } from './host-bundle.js';
 import { readProvenance } from './host-provenance.js';
 import { createSkillStore } from './host-store.js';
-import { readSyncState, requestSync } from './shared-sync.js';
+import { readSyncState, requestSync, sharedPolicyEnabled } from './shared-sync.js';
 
 export const ROUTE = '/api/skill-manager';
 const MAX_REQUEST_BYTES = 12 * 1024 * 1024;
@@ -56,8 +56,8 @@ function catalogRow(skill, provenance, shared) {
     description: skill.description,
     group: SOURCES.get(skill.source) ?? 'local',
     source: SOURCES.has(skill.source) ? skill.source : 'other',
-    enabled: skill.source === 'user-agents' && typeof shared?.[skill.path]?.enabled === 'boolean'
-      ? shared[skill.path].enabled : null,
+    enabled: skill.source === 'user-agents' && typeof sharedPolicyEnabled(shared?.[skill.path]) === 'boolean'
+      ? sharedPolicyEnabled(shared[skill.path]) : null,
     shadowed: false,
     ...(origin && { origin }),
   };

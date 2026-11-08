@@ -124,3 +124,15 @@ test('stopping aborts a pending mutation and ignores its result after remount', 
   assert.equal(store.getSnapshot().skills[0].enabled, false);
   assert.equal(store.getSnapshot().mutationError, null);
 });
+
+test('a failed shared enable keeps the server effective disabled state across refresh', async () => {
+  const store = createCatalog(async body => {
+    if (body.action === 'setEnabled') throw Object.assign(Error('sync failed'), { code: 'unavailable' });
+    return catalog([{ ...skill, id: 'catalog:alpha', group: 'local', source: 'user-agents', enabled: false }]);
+  });
+  await store.refresh();
+  assert.equal(await store.mutate({ action: 'setEnabled', id: 'catalog:alpha', enabled: true }), false);
+  assert.equal(store.getSnapshot().skills[0].enabled, false);
+  await store.refresh();
+  assert.equal(store.getSnapshot().skills[0].enabled, false);
+});

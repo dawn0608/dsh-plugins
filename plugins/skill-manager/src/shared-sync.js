@@ -96,6 +96,15 @@ export function requestSync(home, message) {
   });
 }
 
+// enabled is sync intent; policyEnabled is the value Harness may safely apply.
+export function sharedPolicyEnabled(entry) {
+  if (!entry) return undefined;
+  if (typeof entry.policyEnabled === 'boolean') return entry.policyEnabled;
+  // Older pending records did not separate intent from the last disabled policy.
+  if (entry.pending && (entry.codex === false || entry.claude === 'off')) return false;
+  return entry.enabled;
+}
+
 export function registerSharedPolicy(skills, home, agentsHome) {
   if (typeof skills.registerProvider !== 'function') return () => {};
   let invalidate;
@@ -105,9 +114,9 @@ export function registerSharedPolicy(skills, home, agentsHome) {
       name: 'skill-manager-shared-policy',
       async list() {
         const state = await readSyncState(home);
-        if (!state || !Object.values(state.entries).some(entry => entry.enabled === false)) return [];
+        if (!state || !Object.values(state.entries).some(entry => sharedPolicyEnabled(entry) === false)) return [];
         return [...(await sharedSkills(agentsHome)).values()]
-          .filter(skill => state.entries[skill.path]?.enabled === false)
+          .filter(skill => sharedPolicyEnabled(state.entries[skill.path]) === false)
           .map(skill => ({
             ...skill,
             provider: 'skill-manager-shared-policy',

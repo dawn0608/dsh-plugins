@@ -522,3 +522,25 @@ test('reports stopped and failed daemon health without removing disabled shared 
   result = await request({ action: 'list' });
   assert.equal(result.syncError, 'sharedUnavailable');
 });
+
+test('the catalog exposes the effective disabled policy while a shared enable intent is pending', async t => {
+  const shared = { name: 'shared', description: 'Shared', source: 'user-agents', path: '/fixture/shared/SKILL.md' };
+  const { home, request } = await host(t, { async snapshot() { return { complete: true, skills: [shared] }; } });
+  const directory = join(home, 'skill-manager', 'shared-sync');
+  await mkdir(directory, { recursive: true });
+  const entry = { enabled: true, policyEnabled: false, pending: true, codex: false, claude: 'off' };
+  const state = { version: 1, entries: { [shared.path]: entry }, projects: {} };
+  await writeFile(join(directory, 'state.json'), JSON.stringify(state));
+  assert.equal((await request({ action: 'list' })).skills[0].enabled, false);
+  delete entry.policyEnabled;
+  await writeFile(join(directory, 'state.json'), JSON.stringify(state));
+  assert.equal((await request({ action: 'list' })).skills[0].enabled, false, 'legacy pending enable also retains known disabled baseline');
+  entry.policyEnabled = true;
+  delete entry.pending;
+  await writeFile(join(directory, 'state.json'), JSON.stringify(state));
+  assert.equal((await request({ action: 'list' })).skills[0].enabled, true);
+  delete entry.policyEnabled;
+  entry.enabled = false;
+  await writeFile(join(directory, 'state.json'), JSON.stringify(state));
+  assert.equal((await request({ action: 'list' })).skills[0].enabled, false, 'legacy states retain their effective value');
+});

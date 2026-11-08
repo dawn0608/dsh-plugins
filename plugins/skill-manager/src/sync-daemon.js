@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto';
 import { createInterface } from 'node:readline';
 import { parse as parseToml } from 'smol-toml';
 import { isManagedName, isRecord, ManagerError } from './host-bundle.js';
-import { readSyncState, regularFile, requestSync, resolveSyncHomes, sharedSkills, syncDirectory, syncSocket, syncStateFile } from './shared-sync.js';
+import { readSyncState, regularFile, requestSync, resolveSyncHomes, sharedPolicyEnabled, sharedSkills, syncDirectory, syncSocket, syncStateFile } from './shared-sync.js';
 
 const LIMIT = 2 * 1024 * 1024;
 const missing = error => {
@@ -256,7 +256,7 @@ export async function createCoordinator({ home, agentsHome, claudeHome, codexHom
       }
       const diverged = old?.pending && (
         (codex.enabled !== old.codex && codex.enabled !== old.enabled) ||
-        (claude !== old.claude && claude !== (old.enabled ? null : 'off')) ||
+        (claude !== old.claude && (claude !== 'off') !== old.enabled) ||
         local.some(intent => (intent.value === 'on') !== old.enabled));
       const contested = !explicit && (diverged || intents.size > 1 || old?.contested);
       const conflict = !linkOk || projectCollision || (codex.byName && !codex.enabled) ||
@@ -273,6 +273,7 @@ export async function createCoordinator({ home, agentsHome, claudeHome, codexHom
         ...(contested && { contested: true }),
         ...(conflict && { error: 'conflict' }),
       };
+      entry.policyEnabled = entry.enabled && (sharedPolicyEnabled(old) ?? (codex.enabled && claude !== 'off'));
       if (!conflict) {
         if (codex.enabled !== enabled || (claude !== 'off') !== enabled) entry.pending = true;
         if (local.length) cleanup.set(path, local);
@@ -321,6 +322,8 @@ export async function createCoordinator({ home, agentsHome, claudeHome, codexHom
           await updateClaude(current, name, undefined);
           delete enrollment[intent.directory][name];
         }
+        // Release a known disable only after every destination and cleanup succeeded.
+        entry.policyEnabled = enabled;
       } catch (error) {
         entry.error = error.code === 'conflict' ? 'conflict' : 'unavailable';
         if (entry.error === 'conflict') entry.contested = true;
