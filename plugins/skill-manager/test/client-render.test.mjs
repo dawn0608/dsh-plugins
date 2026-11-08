@@ -13,6 +13,15 @@ const skills = [
   { id: 'external', name: 'external-skill', description: 'Third-party description', group: 'local', source: 'user-agents', enabled: null, shadowed: false, origin: 'third-party' },
 ];
 
+const controls = {
+  BackIcon: () => null,
+  StateDot: () => null,
+  Switch: ({ checked, label, disabled }) => React.createElement('button', {
+    type: 'button', role: 'switch', 'aria-label': label, 'aria-checked': checked, disabled,
+  }),
+  Tag: ({ children }) => React.createElement('span', null, children),
+};
+
 function render(language, patch = {}) {
   const snapshot = { skills, busy: false, listError: null, ...patch };
   const store = {
@@ -23,7 +32,7 @@ function render(language, patch = {}) {
     bind: () => (key, params) => translateFrom(DICTS[language], key, params),
     subscribe: () => () => {}, getSnapshot: () => ({ active: language, revision: 1 }),
   };
-  const Page = createPage(locale, () => null, () => store);
+  const Page = createPage(locale, controls, () => store);
   return renderToStaticMarkup(React.createElement(Page));
 }
 
@@ -33,7 +42,7 @@ test('Skills shows localized controls and one independent switch for imported ro
     assert.match(html, new RegExp(`<h1[^>]*>${DICTS[lang].title}</h1>`));
     assert.ok(html.includes(`aria-label="${DICTS[lang].search}"`));
     assert.equal((html.match(/role="switch"/g) || []).length, 1);
-    assert.match(html, /<button[^>]*data-skill-id="managed"[^>]*>(?:(?!<\/button>).)*managed-skill(?:(?!<\/button>).)*Imported description(?:(?!<\/button>).)*<\/button><button[^>]*role="switch"[^>]*aria-checked="true"/);
+    assert.match(html, /<button[^>]*data-skill-id="managed"[^>]*aria-describedby="([^"]+)"[^>]*>managed-skill<\/button><\/div><span[^>]*id="\1">Imported description<\/span><\/div>.*?<button[^>]*role="switch"[^>]*aria-checked="true"/);
     assert.match(html, /builtin-skill.*local-skill.*managed-skill.*external-skill/);
     assert.doesNotMatch(html, /<a\b/);
     assert.ok(html.includes(DICTS[lang].shadowed));

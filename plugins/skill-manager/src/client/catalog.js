@@ -3,7 +3,7 @@ import { request, SkillError } from './api.js';
 export function createCatalog(send = request) {
   const listeners = new Set();
   let snapshot = {
-    skills: null, listError: null, mutationError: null, busy: false,
+    skills: null, listError: null, mutationError: null, busy: false, savingId: null,
   };
   let reading;
   let timer;
@@ -50,7 +50,7 @@ export function createCatalog(send = request) {
   async function mutate(action) {
     if (snapshot.busy || stopped) return false;
     cancelRefresh();
-    publish({ busy: true, mutationError: null });
+    publish({ busy: true, savingId: action.action === 'setEnabled' ? action.id : null, mutationError: null });
     try {
       await send({ ...action, workspaceId: null }, AbortSignal.timeout(30000));
       let { skills } = snapshot;
@@ -59,11 +59,11 @@ export function createCatalog(send = request) {
       } else if (skills && action.action === 'remove') {
         skills = skills.filter(skill => skill.id !== action.id);
       }
-      publish({ skills, busy: false });
+      publish({ skills, busy: false, savingId: null });
       void refresh();
       return true;
     } catch (error) {
-      publish({ mutationError: error.code ?? 'unavailable', busy: false });
+      publish({ mutationError: error.code ?? 'unavailable', busy: false, savingId: null });
       if (error.code === 'conflict' || error.code === 'not-found') void refresh();
       return false;
     }

@@ -1,4 +1,4 @@
-import { IconChevronDownOutlineRegular } from '@deepseek-ai/dsh-client-ui-primitives';
+import { IconChevronDownOutlineRegular, StateDot, Switch, Tag } from '@deepseek-ai/dsh-client-ui-primitives';
 import { createTranslator, DICTS, NS } from './i18n.js';
 import { createPage } from './page.js';
 import { SkillIcon } from './icon.js';
@@ -22,5 +22,5 @@ export function apply(ctx) {
   }, SkillIcon));
   ctx.slots.inject('main', () => ctx.slots.register({
     name: 'main', key: 'skill-manager', locale: NS,
-  }, createPage(ctx.locale, IconChevronDownOutlineRegular)));
+  }, createPage(ctx.locale, { BackIcon: IconChevronDownOutlineRegular, StateDot, Switch, Tag })));
 }

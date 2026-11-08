@@ -8,7 +8,8 @@ import { createTranslator } from './i18n.js';
 const GROUPS = ['builtin', 'self', 'third-party'];
 const SOURCES = new Set(['project-dsh', 'project-agents', 'custom', 'user-dsh', 'user-agents', 'bundled', 'runtime']);
 
-function CatalogRows({ skills, query, translate: t, busy, store, openDetail }) {
+function CatalogRows({ skills, query, translate: t, busy, savingId, store, openDetail, controls }) {
+  const { StateDot, Switch, Tag } = controls;
   const headingId = useId();
   const term = query.trim().toLocaleLowerCase();
   const visible = skills.filter(skill => !term || [skill.name, skill.description]
@@ -19,24 +20,31 @@ function CatalogRows({ skills, query, translate: t, busy, store, openDetail }) {
     const entries = visible.filter(skill => (skill.origin ?? 'third-party') === group);
     if (!entries.length) return null;
     const id = headingId + group;
-    return h('section', { key: group, 'aria-labelledby': id },
+    return h('section', { key: group, className: 'dshskill_group', 'aria-labelledby': id },
       h('h2', { id }, t(group)),
-      h('ul', { className: 'dshskill_rows' }, entries.map(skill =>
-        h('li', { key: skill.id, className: 'dshskill_row' },
-          h('button', {
-            type: 'button', className: 'dshskill_rowButton', 'data-skill-id': skill.id,
-            onClick: () => openDetail(skill),
-          },
+      h('ul', { className: 'dshskill_rows' }, entries.map(skill => {
+        const descriptionId = skill.description ? headingId + '-' + skill.id : undefined;
+        const saving = savingId === skill.id;
+        return h('li', { key: skill.id, className: 'dshskill_row' },
           h('span', { className: 'dshskill_icon' }, h(SkillIcon, { size: 24 })),
-          h('span', { className: 'dshskill_rowText' },
-            h('span', { className: 'dshskill_rowName' },
-              skill.name, skill.shadowed && h('span', { className: 'dshskill_badge' }, t('shadowed'))),
-            skill.description && h('span', { className: 'dshskill_description' }, skill.description))),
-          typeof skill.enabled === 'boolean' && h('button', {
-            type: 'button', className: 'dshskill_switch', role: 'switch', 'aria-checked': skill.enabled,
-            'aria-label': t('switchLabel', { name: skill.name }), 'aria-disabled': busy || undefined,
-            onClick: () => { void store.mutate({ action: 'setEnabled', id: skill.id, enabled: !skill.enabled }); },
-          })))));
+          h('div', { className: 'dshskill_rowText' },
+            h('div', { className: 'dshskill_titleRow' },
+              h('button', {
+                type: 'button', className: 'dshskill_rowButton', 'data-skill-id': skill.id,
+                'aria-label': t('openDetail', { name: skill.name }), 'aria-describedby': descriptionId,
+                onClick: () => openDetail(skill),
+              }, skill.name),
+              skill.shadowed && h(Tag, { className: 'dshskill_badge' }, t('shadowed'))),
+            descriptionId && h('span', { className: 'dshskill_description', id: descriptionId }, skill.description)),
+          typeof skill.enabled === 'boolean' && h('div', { className: 'dshskill_rowEnd' },
+            h('span', { className: 'dshskill_toggleProgress', role: 'status' },
+              h('span', { className: 'dshskill_progressAnnouncement' }, saving ? t('saving') : ''),
+              saving && h(StateDot, { state: 'ongoing' })),
+            h(Switch, {
+              checked: skill.enabled, label: t('switchLabel', { name: skill.name }), disabled: busy,
+              onChange: enabled => { void store.mutate({ action: 'setEnabled', id: skill.id, enabled }); },
+            })));
+      })));
   }));
 }
 
@@ -79,7 +87,7 @@ function SkillDetail({ skill, titleRef, translate: t, busy, back, BackIcon, open
       preview?.body !== undefined && h('pre', { tabIndex: 0, 'aria-label': t('preview') }, preview.body)));
 }
 
-export function createPage(locale, BackIcon, createStore = createCatalog) {
+export function createPage(locale, controls, createStore = createCatalog) {
   const t = createTranslator(locale);
   const subscribeLocale = listener => locale.subscribe(listener);
   const localeVersion = () => locale.getSnapshot().revision;
@@ -134,13 +142,13 @@ export function createPage(locale, BackIcon, createStore = createCatalog) {
       setDetail(null);
     }
 
-    const { skills, busy, listError, mutationError } = state;
+    const { skills, busy, savingId, listError, mutationError } = state;
     const currentSkill = detail && (skills?.find(skill => skill.id === detail.id) ?? detail);
     return h('div', { className: 'dshskill_page', ref: pageRef },
       h('div', { className: 'dshskill_content' },
         currentSkill
           ? h(SkillDetail, {
-              skill: currentSkill, titleRef, translate: t, busy, BackIcon,
+              skill: currentSkill, titleRef, translate: t, busy, BackIcon: controls.BackIcon,
               back: () => setDetail(null), openRemove: () => { store.clearMutationError(); setConfirmRemoval(true); },
             })
           : h('div', { className: 'dshskill_catalog' },
@@ -155,8 +163,8 @@ export function createPage(locale, BackIcon, createStore = createCatalog) {
             listError && h('p', { role: 'alert', className: 'dshskill_error' }, t(listError)),
             skills === null
               ? !listError && h('p', { role: 'status', className: 'dshskill_muted' }, t('loading'))
-              : h(CatalogRows, { skills, query, translate: t, busy, store, openDetail })),
-        !confirmRemoval && busy && h('p', { role: 'status', className: 'dshskill_muted' }, t('saving')),
+              : h(CatalogRows, { skills, query, translate: t, busy, savingId, store, openDetail, controls })),
+        !confirmRemoval && busy && !savingId && h('p', { role: 'status', className: 'dshskill_muted' }, t('saving')),
         !confirmRemoval && mutationError && h('p', { role: 'alert', className: 'dshskill_error' }, t(mutationError)),
         confirmRemoval && h(RemoveDialog, { skill: currentSkill, translate: t, store, busy, error: mutationError, close: closeDialog, removed })));
   };
