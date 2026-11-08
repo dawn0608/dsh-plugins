@@ -7,6 +7,7 @@
 - 新增插件按[新增插件流程](README.md#新增插件)从 [templates/plugin](templates/plugin/) 起步。目录为 `plugins/<name>/`，包名为 `@dawn0608/dsh-<name>`，`cordis.patch.yml` 的 insert ID 使用短名 `<name>`。
 - 运行源码放在 `src/`，构建产物放在 `lib/`。客户端加载外壳由 [build-plugin.mjs](scripts/build-plugin.mjs) 生成，加载标识等于包名。入口、导出和打包清单以模板及 `npm run check` 为准。
 - 默认使用 Node.js 和 JavaScript。按实际需求引入依赖或持久化设施。配置示例使用占位符，真实凭据不得进入 Git、日志、公开配置或构建产物，服务端密钥留在宿主。
+- 插件包含页面时，先查阅 DeepSeek Harness 现有相关组件，所有组件的样式和布局优先复用宿主实现，不自行重新设计；确需扩展时保持与宿主一致。
 
 ## 双语文案
 
