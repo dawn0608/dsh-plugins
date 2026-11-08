@@ -34,8 +34,11 @@ dsh plugin --profile <profile> add ./plugins/session-cost
 npm install        # 安装根目录的 esbuild
 npm run build      # 构建 plugins/* 的 lib/ 产物
 npm run check      # 校验插件布局与产物
+npm run check:profile -- ~/.dsh/profiles/desktop  # 检查 profile 中重复的插件 insert id
 npm test           # 运行全部插件测试
 ```
+
+包名统一为 `@dawn0608/dsh-<目录名>`，`npm run check` 会强制校验。
 
 插件源码、适用版本、计费口径和已知限制详见各自的 README；目录约定见 [AGENTS.md](AGENTS.md#插件结构)。
 

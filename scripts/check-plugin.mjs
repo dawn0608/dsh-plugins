@@ -9,6 +9,9 @@ import { join, resolve } from 'node:path';
 const root = resolve(import.meta.dirname, '..');
 const pluginsDir = join(root, 'plugins');
 const failures = [];
+/** Every plugin in this repository uses the owner's npm scope and the dsh- prefix. */
+const PACKAGE_SCOPE = '@dawn0608';
+const PACKAGE_PREFIX = 'dsh-';
 
 function check(condition, plugin, message) {
   if (!condition) failures.push(`${plugin}: ${message}`);
@@ -34,8 +37,8 @@ for (const dirName of plugins) {
   const dir = join(pluginsDir, dirName);
   const pkg = JSON.parse(readFileSync(join(dir, 'package.json'), 'utf8'));
   const name = typeof pkg.name === 'string' ? pkg.name : dirName;
-  const expectedDir = (name.includes('/') ? name.split('/')[1] : name).replace(/^dsh-/, '');
-  check(expectedDir === dirName, dirName, `package name ${name} does not match directory ${dirName}`);
+  const expectedName = `${PACKAGE_SCOPE}/${PACKAGE_PREFIX}${dirName}`;
+  check(name === expectedName, dirName, `package name must be ${expectedName}`);
 
   for (const file of ['package.json', 'cordis.patch.yml', 'locale/en.json', 'locale/zh.json', 'icon.svg', 'README.md', 'README.zh.md', 'LICENSE']) {
     check(existsSync(join(dir, file)), dirName, `missing ${file}`);

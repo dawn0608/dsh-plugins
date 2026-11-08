@@ -9,6 +9,7 @@
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "check": "node scripts/check-plugin.mjs",
+    "check:profile": "node scripts/check-profile.mjs",
     "test": "npm test --workspaces --if-present",
     "verify": "npm run build && npm run check && npm test"
   },

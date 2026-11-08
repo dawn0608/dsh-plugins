@@ -4,7 +4,7 @@
 
 ## 插件结构
 
-新插件放 `plugins/<name>/`，目录名对应包名（`session-cost` ↔ `@dawn0608/dsh-session-cost`）；源码只写 `src/`，发布物只含 `lib/`：
+新插件放 `plugins/<name>/`，包名统一为 `@dawn0608/dsh-<name>`（`session-cost` ↔ `@dawn0608/dsh-session-cost`，`npm run check` 强制校验）；源码只写 `src/`，发布物只含 `lib/`：
 
 ```text
 plugins/<name>/
@@ -25,6 +25,7 @@ plugins/<name>/
 - `package.json`：`main`/`exports["."]` → `./lib/index.js`，`exports["./client"]` → `./lib/client.js`，另导出 `./cordis.patch.yml`、`./locale/*.json`、`./icon`；`files` 只列 `lib`、patch、locale、icon、双 README、LICENSE；`scripts` 含 `build`、`pretest`、`test`、`prepack`。
 - Client 源码不写 `window.__ModuleLoader__.load`，外壳由 `scripts/build-plugin.mjs` 注入且 id 等于包名；文案经 `ctx.locale`。
 - `npm run build` 后用 `npm run check` 校验；`npm test` 会先构建，含 locale 对齐与 client 契约测试。
+- `npm run check:profile -- <profile-dir>` 检查已安装 profile 是否有多个包插入同一个 row id；发布/安装后按需运行。
 - 发布前 `npm pack --dry-run` 核对 tarball；发布物不含 `src/`、`test/`。
 
 ## 新增插件
