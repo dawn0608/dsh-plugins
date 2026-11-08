@@ -41,7 +41,7 @@ test('loads the state and exposes it through the snapshot', async () => {
   const snapshot = controller.getSnapshot();
   assert.equal(snapshot.status, 'ready');
   assert.equal(snapshot.state.servers[0].name, 'docs');
-  assert.equal(fake.calls[0].url, 'api/mcp-settings');
+  assert.equal(fake.calls[0].url, 'api/mcp-manager');
   controller.dispose();
 });
 

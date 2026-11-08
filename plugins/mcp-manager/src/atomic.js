@@ -181,7 +181,7 @@ export function writeProfilePatch(path, text, options) {
   const expected = Buffer.isBuffer(options.expected) ? options.expected : Buffer.from(String(options.expected), 'utf8');
   const mode = typeof options.mode === 'number' ? options.mode : 0o600;
   const directory = dirname(path);
-  const temp = join(directory, `.${basename(path)}.mcp-settings-${process.pid}-${randomBytes(6).toString('hex')}`);
+  const temp = join(directory, `.${basename(path)}.mcp-manager-${process.pid}-${randomBytes(6).toString('hex')}`);
   let fd;
   try {
     fd = openSync(temp, 'wx', mode);

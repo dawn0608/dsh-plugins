@@ -1,4 +1,4 @@
-/** The MCP settings page: server list, dedicated editor and delete dialog. */
+/** The MCP management page: server list, dedicated editor and delete dialog. */
 
 import * as React from 'react';
 import { createController } from './controller.js';
@@ -40,7 +40,7 @@ function Notice(props) {
 }
 
 function Skeleton() {
-  return h('div', { className: 'dshmcp_group dshmcp_rows', 'aria-hidden': true },
+  return h('div', { className: 'dshmcp_rows', 'aria-hidden': true },
     h('div', { className: 'dshmcp_skeletonRow' },
       h('span', { className: 'dshmcp_skeletonLine', 'data-w': '34' }),
       h('span', { className: 'dshmcp_skeletonLine', 'data-w': '72' }),
@@ -77,10 +77,10 @@ class Boundary extends React.Component {
 }
 
 /**
- * @param {{translate: (key: string, params?: object) => string, subscribeLocale: (listener: () => void) => () => void, localeVersion: () => number, createStore?: () => ReturnType<typeof createController>}} options
+ * @param {{translate: (key: string, params?: object) => string, subscribeLocale: (listener: () => void) => () => void, localeVersion: () => number, Switch: React.ComponentType<{checked: boolean, label: string, disabled: boolean, onChange: (checked: boolean) => void}>, createStore?: () => ReturnType<typeof createController>}} options
  */
 export function createPage(options) {
-  const { translate, subscribeLocale, localeVersion } = options;
+  const { translate, subscribeLocale, localeVersion, Switch } = options;
   const createStore = options.createStore || createController;
 
   function Page() {
@@ -98,10 +98,9 @@ export function createPage(options) {
     const listPosition = React.useRef(null);
     const deleteTrigger = React.useRef(null);
     const addButtonRef = React.useRef(null);
-    const editButtonsRef = React.useRef(new Map());
+    const rowButtonsRef = React.useRef(new Map());
 
     const servers = snapshot.state && Array.isArray(snapshot.state.servers) ? snapshot.state.servers : [];
-    const patchPath = snapshot.state && typeof snapshot.state.patchPath === 'string' ? snapshot.state.patchPath : '';
     const inEditor = editor !== null;
     const busy = snapshot.busy;
     const loading = snapshot.state === null && snapshot.status !== 'error';
@@ -157,8 +156,8 @@ export function createPage(options) {
       }
       listPosition.current = null;
       if (scroller) scroller.scrollTop = top;
-      const editButton = editButtonsRef.current.get(serverId);
-      if (editButton) editButton.focus({ preventScroll: true });
+      const rowButton = rowButtonsRef.current.get(serverId);
+      if (rowButton) rowButton.focus({ preventScroll: true });
       else addButtonRef.current?.focus();
     }, [inEditor]);
 
@@ -180,11 +179,11 @@ export function createPage(options) {
       if (!busy) setEditor(null);
     };
 
-    const registerEditButton = (server, element) => {
+    const registerRowButton = (server, element) => {
       const key = server.id || server.name;
       if (!key) return;
-      if (element) editButtonsRef.current.set(key, element);
-      else editButtonsRef.current.delete(key);
+      if (element) rowButtonsRef.current.set(key, element);
+      else rowButtonsRef.current.delete(key);
     };
 
     const submit = async () => {
@@ -206,10 +205,10 @@ export function createPage(options) {
       setEditor(current => (current === null ? null : { ...current, errors: [], failure: failureText(translate, result) }));
     };
 
-    const toggle = async server => {
+    const toggle = async (server, enabled) => {
       if (busy) return;
       setActionFailure(null);
-      const result = await store.setEnabled(server, server.enabled === false);
+      const result = await store.setEnabled(server, enabled);
       if (!result.ok) setActionFailure({ code: result.code, params: result.params });
     };
 
@@ -254,6 +253,7 @@ export function createPage(options) {
       inEditor
         ? h(EditorCard, {
           mode: editor.mode,
+          Switch,
           target: editor.target,
           form: editor.form,
           errors: editor.errors,
@@ -266,29 +266,26 @@ export function createPage(options) {
           onDelete: event => askDelete(editor.target, event.currentTarget),
         })
         : h(React.Fragment, null,
-          h('header', { className: 'dshmcp_pageHead' },
-            h('div', { className: 'dshmcp_headingRow' },
-              h('h2', { className: 'dshmcp_title', id: 'dshmcp-title' }, translate('title')),
-              h('div', { className: 'dshmcp_toolbar' },
-                h('button', {
-                  type: 'button',
-                  className: 'dshmcp_iconButton dshmcp_refresh',
-                  'aria-label': translate('refresh'),
-                  title: translate('refresh'),
-                  'aria-busy': refreshing ? 'true' : undefined,
-                  disabled: refreshing || Boolean(busy),
-                  onClick: refresh,
-                }, h('span', { className: refreshing ? 'dshmcp_spin' : undefined }, h(RefreshIcon, { size: 16 }))),
-                h('button', {
-                  type: 'button',
-                  ref: addButtonRef,
-                  className: 'dshmcp_button dshmcp_buttonSm dshmcp_buttonPrimary',
-                  disabled: snapshot.state === null || Boolean(busy),
-                  onClick: () => openEditor('add'),
-                }, h(PlusIcon, { size: 14 }), h('span', null, translate('add'))),
-              ),
+          h('header', { className: 'dshmcp_headingRow' },
+            h('h2', { className: 'dshmcp_title', id: 'dshmcp-title' }, translate('title')),
+            h('div', { className: 'dshmcp_toolbar' },
+              h('button', {
+                type: 'button',
+                className: 'dshmcp_iconButton dshmcp_refresh',
+                'aria-label': translate('refresh'),
+                title: translate('refresh'),
+                'aria-busy': refreshing ? 'true' : undefined,
+                disabled: refreshing || Boolean(busy),
+                onClick: refresh,
+              }, h('span', { className: refreshing ? 'dshmcp_spin' : undefined }, h(RefreshIcon, { size: 16 }))),
+              h('button', {
+                type: 'button',
+                ref: addButtonRef,
+                className: 'dshmcp_button dshmcp_buttonSm dshmcp_buttonPrimary',
+                disabled: snapshot.state === null || Boolean(busy),
+                onClick: () => openEditor('add'),
+              }, h(PlusIcon, { size: 14 }), h('span', null, translate('add'))),
             ),
-            h('p', { className: 'dshmcp_intro' }, translate('intro')),
           ),
           loading ? h(Skeleton) : null,
           loadFailure && snapshot.state === null
@@ -304,28 +301,22 @@ export function createPage(options) {
               actionFailureText ? h(Notice, { tone: 'error' }, actionFailureText) : null,
               noticeText ? h(Notice, { tone: noticeTone }, noticeText) : null,
               servers.length > 0
-                ? h('ul', { className: 'dshmcp_group dshmcp_rows', role: 'list' },
+                ? h('ul', { className: 'dshmcp_rows', role: 'list' },
                   servers.map((server, index) => h(ServerRow, {
                     key: server.editable ? `editable:${server.id}` : `readonly:${index}`,
                     server,
+                    Switch,
                     translate,
                     busy,
                     onEdit: target => openEditor('edit', target),
                     onDelete: askDelete,
                     onToggle: toggle,
-                    onRegisterEdit: registerEditButton,
+                    onRegisterRow: registerRowButton,
                   })),
                 )
                 : h('div', { className: 'dshmcp_group dshmcp_messagePanel' },
                   h('p', { className: 'dshmcp_messageTitle' }, translate('emptyTitle')),
-                  h('p', { className: 'dshmcp_hint' }, translate('emptyHint')),
                 ),
-              patchPath
-                ? h('details', { className: 'dshmcp_footnote' },
-                  h('summary', { className: 'dshmcp_pathLabel' }, translate('pathLabel')),
-                  h('code', { className: 'dshmcp_path' }, patchPath),
-                )
-                : null,
             )
             : null,
         ),
@@ -345,7 +336,7 @@ export function createPage(options) {
   function SafePage() {
     return h(Boundary, { fallback: translate('internal') }, h(Page));
   }
-  SafePage.displayName = 'McpSettingsPage';
+  SafePage.displayName = 'McpManagerPage';
 
   return SafePage;
 }

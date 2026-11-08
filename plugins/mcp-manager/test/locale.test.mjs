@@ -29,11 +29,11 @@ test('every validation error code has copy in both languages', () => {
 });
 
 test('locale metadata carries a title and description in both languages', () => {
-  for (const language of ['en', 'zh']) {
+  for (const [language, title] of Object.entries({ en: 'MCP Management', zh: 'MCP 管理' })) {
     const meta = readLocale(language).meta;
-    assert.equal(typeof meta?.title, 'string', `${language} meta.title`);
+    assert.equal(meta?.title, title);
+    assert.equal(DICTS[language].title, title);
     assert.equal(typeof meta?.description, 'string', `${language} meta.description`);
-    assert.notEqual(meta.title.trim(), '');
     assert.notEqual(meta.description.trim(), '');
   }
 });

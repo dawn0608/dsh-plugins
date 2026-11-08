@@ -7,7 +7,7 @@ import { readProfilePatch, withProfileLock, writeProfilePatch } from '../src/ato
 import { PatchError } from '../src/errors.js';
 
 function workspace() {
-  const dir = mkdtempSync(join(tmpdir(), 'mcp-settings-atomic-'));
+  const dir = mkdtempSync(join(tmpdir(), 'mcp-manager-atomic-'));
   const patch = join(dir, 'cordis.patch.yml');
   writeFileSync(patch, '- id: base\n  name: "@example/base"\n', { mode: 0o600 });
   return { dir, patch, cleanup: () => rmSync(dir, { recursive: true, force: true }) };

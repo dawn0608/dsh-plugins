@@ -31,7 +31,7 @@ input.on('line', line => {
             ? message.params.protocolVersion
             : '2025-06-18',
         capabilities: { tools: {} },
-        serverInfo: { name: 'mcp-settings-echo', version: '1.0.0' },
+        serverInfo: { name: 'mcp-manager-echo', version: '1.0.0' },
       });
       return;
     case 'ping':

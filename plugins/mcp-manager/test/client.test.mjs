@@ -38,6 +38,7 @@ function fakeRequire() {
   return specifier => {
     if (specifier === 'react') return react;
     if (specifier === 'react-dom') return { createPortal: () => null };
+    if (specifier === '@deepseek-ai/dsh-client-ui-primitives') return { Switch: () => null };
     throw new Error(`unexpected client module: ${specifier}`);
   };
 }
@@ -82,6 +83,7 @@ function fakeContext() {
 
 test('client bundle registers the package name as its loader id', () => {
   const entry = loadClient();
+  assert.equal(entry.id, '@dawn0608/dsh-mcp-manager');
   assert.equal(entry.id, pkg.name);
   assert.equal(typeof entry.factory, 'function');
 });
@@ -103,14 +105,14 @@ test('apply registers the MCP section and its navigation icon', () => {
   assert.equal(registrations.length, 2);
   const section = registrations[0];
   assert.equal(section.options.name, 'settings.section');
-  assert.equal(section.options.id, 'mcp');
+  assert.equal(section.options.id, 'mcp-manager');
   assert.equal(section.options.order, 17);
-  assert.equal(section.options.label(), 'MCP');
+  assert.equal(section.options.label(), 'MCP Management');
   assert.equal(typeof section.component, 'function');
 
   const icon = registrations[1];
   assert.equal(icon.options.name, 'settings.section.icon');
-  assert.equal(icon.options.id, 'mcp');
+  assert.equal(icon.options.id, 'mcp-manager');
   assert.equal(typeof icon.component, 'function');
 });
 

@@ -56,14 +56,14 @@ test('requires loopback trust, the marker header and JSON for writes', async () 
   assert.equal(missingMarker.status, 403);
   const wrongType = await api({
     method: 'POST',
-    headers: { host: '127.0.0.1:1', 'content-type': 'text/plain', 'x-dsh-mcp-settings': '1' },
+    headers: { host: '127.0.0.1:1', 'content-type': 'text/plain', 'x-dsh-mcp-manager': '1' },
     body: '{}',
     checkTrust: true,
   });
   assert.equal(wrongType.status, 415);
   const badJson = await api({
     method: 'POST',
-    headers: { host: '127.0.0.1:1', 'content-type': 'application/json', 'x-dsh-mcp-settings': '1' },
+    headers: { host: '127.0.0.1:1', 'content-type': 'application/json', 'x-dsh-mcp-manager': '1' },
     body: '{',
     checkTrust: true,
   });
@@ -72,7 +72,7 @@ test('requires loopback trust, the marker header and JSON for writes', async () 
 });
 
 test('dispatches save/delete/setEnabled and maps field errors', async () => {
-  const headers = { host: '127.0.0.1:1', 'content-type': 'application/json', 'x-dsh-mcp-settings': '1' };
+  const headers = { host: '127.0.0.1:1', 'content-type': 'application/json', 'x-dsh-mcp-manager': '1' };
   const save = await api({ method: 'POST', headers, body: JSON.stringify({ action: 'save', mode: 'add', draft: {} }), checkTrust: true });
   assert.equal(save.status, 200);
   assert.equal(save.body.servers[0].name, 'saved');
@@ -98,7 +98,7 @@ test('dispatches save/delete/setEnabled and maps field errors', async () => {
 
 test('rejects an over-limit request body', async () => {
   const apiWithStore = createApi({ store: fakeStore(), log: () => {} });
-  const headers = { host: '127.0.0.1:1', 'content-type': 'application/json', 'x-dsh-mcp-settings': '1' };
+  const headers = { host: '127.0.0.1:1', 'content-type': 'application/json', 'x-dsh-mcp-manager': '1' };
   const response = await apiWithStore({
     method: 'POST',
     headers,

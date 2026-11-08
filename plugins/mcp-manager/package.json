@@ -1,5 +1,5 @@
 {
-  "name": "@dawn0608/dsh-mcp-settings",
+  "name": "@dawn0608/dsh-mcp-manager",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -19,9 +19,9 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dawn0608/dsh-plugins.git",
-    "directory": "plugins/mcp-settings"
+    "directory": "plugins/mcp-manager"
   },
-  "homepage": "https://github.com/dawn0608/dsh-plugins/tree/main/plugins/mcp-settings",
+  "homepage": "https://github.com/dawn0608/dsh-plugins/tree/main/plugins/mcp-manager",
   "bugs": {
     "url": "https://github.com/dawn0608/dsh-plugins/issues"
   },
@@ -65,6 +65,9 @@
     "client": {
       "platform": "web",
       "immediately": true,
+      "external": [
+        "@deepseek-ai/dsh-client-ui-primitives"
+      ],
       "inject": [
         "@deepseek-ai/dsh-client-ui-settings"
       ]

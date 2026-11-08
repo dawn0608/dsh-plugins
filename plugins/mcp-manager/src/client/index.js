@@ -4,6 +4,7 @@
  */
 
 import * as React from 'react';
+import { Switch } from '@deepseek-ai/dsh-client-ui-primitives';
 import { createTranslator, registerLocale } from './i18n.js';
 import { createPage } from './page.js';
 import css from './style.css';
@@ -41,13 +42,13 @@ export function apply(ctx) {
 
   ctx.effect(() => {
     const tag = document.createElement('style');
-    tag.dataset.plugin = '@dawn0608/dsh-mcp-settings';
+    tag.dataset.plugin = '@dawn0608/dsh-mcp-manager';
     tag.textContent = css;
     document.head.appendChild(tag);
     return () => {
       tag.remove();
     };
-  }, 'mcp-settings: styles');
+  }, 'mcp-manager: styles');
 
   const translate = createTranslator(ctx);
   const subscribeLocale = listener => ctx.locale.subscribe(listener);
@@ -59,18 +60,18 @@ export function apply(ctx) {
       return 0;
     }
   };
-  const Page = createPage({ translate, subscribeLocale, localeVersion });
+  const Page = createPage({ translate, subscribeLocale, localeVersion, Switch });
 
   ctx.slots.inject('settings.section', () => ctx.slots.register({
     name: 'settings.section',
-    id: 'mcp',
+    id: 'mcp-manager',
     order: 17,
-    label: () => translate('nav'),
+    label: () => translate('title'),
   }, Page));
 
   ctx.slots.inject('settings.section.icon', () => ctx.slots.register({
     name: 'settings.section.icon',
-    id: 'mcp',
+    id: 'mcp-manager',
     order: 17,
   }, McpIcon));
 }

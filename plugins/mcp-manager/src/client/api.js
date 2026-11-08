@@ -1,7 +1,7 @@
 /** Browser transport for the settings API. */
 
-const CONNECTION_PATH = 'api/mcp-settings';
-const PLAIN_PATH = '/plugin/mcp-settings';
+const CONNECTION_PATH = 'api/mcp-manager';
+const PLAIN_PATH = '/plugin/mcp-manager';
 
 export class ApiError extends Error {
   constructor(code, status) {
@@ -61,7 +61,7 @@ export async function request(input) {
   let body;
   if (input.body !== undefined) {
     headers['content-type'] = 'application/json';
-    headers['x-dsh-mcp-settings'] = '1';
+    headers['x-dsh-mcp-manager'] = '1';
     body = JSON.stringify(input.body);
   }
   let lastCode = 'network';

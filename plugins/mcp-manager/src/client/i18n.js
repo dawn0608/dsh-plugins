@@ -1,12 +1,10 @@
 /** Client dictionaries and the locale-service binding for the MCP settings page. */
 
-export const NS = 'mcpSettings';
+export const NS = 'mcpManager';
 
 export const DICTS = {
   zh: {
-    nav: 'MCP',
-    title: 'MCP 服务',
-    intro: '管理当前配置中的 MCP 服务。',
+    title: 'MCP 管理',
     refresh: '刷新',
     add: '添加服务',
     addTitle: '添加 MCP 服务',
@@ -14,17 +12,14 @@ export const DICTS = {
     advanced: '高级设置',
     editTitle: '编辑 {name}',
     close: '关闭',
-    pathLabel: '配置文件',
     loading: '正在读取配置…',
     loadFailed: '读取配置失败',
     retry: '重试',
     emptyTitle: '还没有 MCP 服务',
-    emptyHint: '添加一个本地 stdio 或远程 Streamable HTTP 服务。',
     tools: '{count} 个工具',
     toolsNone: '未发现工具',
     toolsUnknown: '工具状态未知',
     disabled: '已停用',
-    edit: '编辑',
     delete: '删除',
     deleteServer: '删除 {name}',
     cancel: '取消',
@@ -108,9 +103,7 @@ export const DICTS = {
 };
 
 DICTS.en = {
-  nav: 'MCP',
-  title: 'MCP servers',
-  intro: 'Manage the MCP servers in your current configuration.',
+  title: 'MCP Management',
   refresh: 'Refresh',
   add: 'Add server',
   addTitle: 'Add MCP server',
@@ -118,17 +111,14 @@ DICTS.en = {
   advanced: 'Advanced settings',
   editTitle: 'Edit {name}',
   close: 'Close',
-  pathLabel: 'Configuration file',
   loading: 'Reading configuration…',
   loadFailed: 'Could not read the configuration',
   retry: 'Retry',
   emptyTitle: 'No MCP servers yet',
-  emptyHint: 'Add a local stdio server or a remote Streamable HTTP server.',
   tools: '{count} tools',
   toolsNone: 'No tools found',
   toolsUnknown: 'Tool status unknown',
   disabled: 'Disabled',
-  edit: 'Edit',
   delete: 'Delete',
   deleteServer: 'Delete {name}',
   cancel: 'Cancel',
@@ -224,7 +214,7 @@ export function registerLocale(ctx) {
     } catch (error) {
       return () => {};
     }
-  }, 'mcp-settings: dictionaries');
+  }, 'mcp-manager: dictionaries');
 }
 
 /** Resolve the active language through the locale service, falling back to English. */

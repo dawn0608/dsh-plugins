@@ -8,6 +8,11 @@ import { createPage } from '../src/client/page.js';
 
 const translate = key => key;
 
+// The Harness module loader supplies this control in the installed app.
+function Switch({ checked, label, disabled }) {
+  return React.createElement('button', { type: 'button', role: 'switch', 'aria-checked': checked, 'aria-label': label, disabled });
+}
+
 function createPageWith(snapshot) {
   const controller = {
     subscribe: () => () => {},
@@ -22,6 +27,7 @@ function createPageWith(snapshot) {
   };
   return createPage({
     translate,
+    Switch,
     subscribeLocale: () => () => {},
     localeVersion: () => 0,
     createStore: () => controller,
@@ -41,7 +47,7 @@ const BASE_STATE = {
   warnings: [],
 };
 
-test('renders the ready page with header, rows, add action and path', () => {
+test('renders service rows as edit targets beside their switches', () => {
   const html = render({
     status: 'ready',
     error: null,
@@ -80,12 +86,10 @@ test('renders the ready page with header, rows, add action and path', () => {
   });
   assert.match(html, /class="dshmcp_page"/);
   assert.match(html, />title</);
-  assert.match(html, />intro</);
+  assert.doesNotMatch(html, />intro<|pathLabel|\/tmp\/cordis\.patch\.yml/);
   assert.match(html, /aria-label="refresh"/);
   assert.match(html, /<header[^>]*>[\s\S]*>add<[\s\S]*<\/header>/);
   assert.match(html, />add</);
-  assert.match(html, /class="dshmcp_footnote"/);
-  assert.match(html, /<details[^>]*><summary[^>]*>pathLabel<\/summary>[\s\S]*\/tmp\/cordis\.patch\.yml/);
   assert.match(html, /docs/);
   assert.match(html, /transportHttp/);
   assert.match(html, /transportStdio/);
@@ -96,8 +100,8 @@ test('renders the ready page with header, rows, add action and path', () => {
   assert.match(html, /aria-checked="false"/);
   assert.match(html, /data-tone="success"/);
   assert.match(html, /data-tone="warn"/);
-  assert.match(html, />edit</);
-  assert.doesNotMatch(html, /aria-label="deleteServer"/);
+  assert.doesNotMatch(html, />edit<|aria-label="deleteServer"/);
+  assert.match(html, /<button[^>]*aria-label="editTitle"[^>]*>(?:(?!<button)[\s\S])*?>docs<(?:(?!<button)[\s\S])*?<\/button><button[^>]*role="switch"/);
 });
 
 test('renders the empty and error states instead of throwing', () => {
@@ -110,7 +114,7 @@ test('renders the empty and error states instead of throwing', () => {
     state: { ...BASE_STATE, servers: [] },
   });
   assert.match(empty, /emptyTitle/);
-  assert.match(empty, /emptyHint/);
+  assert.doesNotMatch(empty, /emptyHint/);
 
   const failed = render({ status: 'error', state: null, error: { code: 'network' }, busy: null, notice: null, refreshing: false });
   assert.match(failed, /loadFailed/);
@@ -167,6 +171,7 @@ function renderEditor(props = {}) {
     form: blankForm(),
     errors: [],
     translate,
+    Switch,
     onChange: () => {},
     ...props,
   }));

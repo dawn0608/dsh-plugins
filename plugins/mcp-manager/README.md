@@ -1,6 +1,6 @@
-# MCP settings
+# MCP Management
 
-Adds an **MCP** panel to the native DeepSeek Harness Settings, for viewing, adding, editing, enabling, and deleting MCP servers in the current Desktop profile's `cordis.patch.yml`. Local `stdio` servers and remote Streamable HTTP servers are supported.
+Adds an **MCP Management** panel to the native DeepSeek Harness Settings, for viewing, adding, editing, enabling, and deleting MCP servers in the current Desktop profile's `cordis.patch.yml`. Local `stdio` servers and remote Streamable HTTP servers are supported.
 
 ## Features
 
@@ -34,21 +34,15 @@ npm install
 npm run build
 ```
 
-Install the local directory `plugins/mcp-settings` from the Desktop Plugins page, or with the CLI:
-
-```bash
-dsh plugin --profile desktop add ./plugins/mcp-settings
-```
-
-Open **Settings → MCP** afterwards. Refresh the page once if the section does not appear immediately; replacing an installed package or editing its code requires a Harness restart to load the new plugin generation.
+In Desktop, use **Plugins → Add plugin** and select the local `plugins/mcp-manager` directory. If you have the previous package installed, uninstall it before adding the renamed package. Open **Settings → MCP Management** after installation. Restart Harness if prompted.
 
 ## Configuration
 
 The plugin has no required configuration. Optional:
 
 ```yaml
-- id: mcp-settings
-  name: '@dawn0608/dsh-mcp-settings'
+- id: mcp-manager
+  name: '@dawn0608/dsh-mcp-manager'
   config:
     patchPath: /absolute/path/to/cordis.patch.yml
 ```

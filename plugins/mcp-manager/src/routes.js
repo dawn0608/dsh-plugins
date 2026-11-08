@@ -2,9 +2,9 @@
  * HTTP faces of the settings API.
  *
  * The browser reaches two seats with one handler:
- * - `/api/mcp-settings` on the authenticated connection channel (the seat the
+ * - `/api/mcp-manager` on the authenticated connection channel (the seat the
  *   panel uses, including the Electron shell's fetch bridge);
- * - `/plugin/mcp-settings` on the loopback web server (fallback and the route
+ * - `/plugin/mcp-manager` on the loopback web server (fallback and the route
  *   this repository's verification uses).
  */
 
@@ -114,7 +114,7 @@ export function createApi(options) {
         return { status: 403, body: body('forbidden') };
       }
       const headers = request.headers || {};
-      if (String(headers['x-dsh-mcp-settings'] || '') !== '1') return { status: 403, body: body('forbidden') };
+      if (String(headers['x-dsh-mcp-manager'] || '') !== '1') return { status: 403, body: body('forbidden') };
       if (!/^application\/json\b/i.test(String(headers['content-type'] || ''))) {
         return { status: 415, body: body('invalid') };
       }

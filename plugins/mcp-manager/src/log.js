@@ -13,7 +13,7 @@ export function logEvent(event, fields = {}) {
     else if (typeof value === 'number' || typeof value === 'boolean') safe[key] = value;
   }
   try {
-    console.info(`[mcp-settings] ${JSON.stringify(safe)}`);
+    console.info(`[mcp-manager] ${JSON.stringify(safe)}`);
   } catch {
     // Logging must never break a request.
   }

@@ -10,7 +10,7 @@ import { createStore, resolveProfile, stateFromText } from '../src/store.js';
 const FIXTURE = readFileSync(new URL('./fixtures/patch.yml', import.meta.url), 'utf8');
 
 function profile() {
-  const dir = mkdtempSync(join(tmpdir(), 'mcp-settings-store-'));
+  const dir = mkdtempSync(join(tmpdir(), 'mcp-manager-store-'));
   const patchPath = join(dir, 'cordis.patch.yml');
   writeFileSync(patchPath, FIXTURE, { mode: 0o600 });
   const create = () => ({ dir, patchPath, profile: 'desktop' });

@@ -119,10 +119,10 @@ function PairEditor({ kind, index, pair, errors, translate, register, update, re
 }
 
 /**
- * @param {{mode: 'add'|'edit', target: object|null, form: object, errors: object[], failure: string|null, busy: object|null, translate: Function, onChange: Function, onSubmit: Function, onClose: Function, onDelete: Function}} props
+ * @param {{mode: 'add'|'edit', target: object|null, form: object, errors: object[], failure: string|null, busy: object|null, translate: Function, Switch: React.ComponentType, onChange: Function, onSubmit: Function, onClose: Function, onDelete: Function}} props
  */
 export function EditorCard(props) {
-  const { mode, target, form, errors, failure, busy, translate, onChange, onSubmit, onClose, onDelete } = props;
+  const { mode, target, form, errors, failure, busy, translate, Switch, onChange, onSubmit, onClose, onDelete } = props;
   const nameRef = React.useRef(null);
   const advancedRef = React.useRef(null);
   const refs = React.useRef({});
@@ -239,14 +239,14 @@ export function EditorCard(props) {
         h('span', { className: 'dshmcp_hint', id: 'dshmcp-url-hint' }, translate('urlHint')),
         fieldError('url', 'dshmcp-url-error'),
       ),
-    h('label', { className: 'dshmcp_checkboxRow' },
-      h('input', {
-        type: 'checkbox',
-        className: 'dshmcp_checkbox',
-        checked: form.enabled,
-        onChange: event => set({ enabled: event.target.checked }),
-      }),
+    h('div', { className: 'dshmcp_enabledRow' },
       h('span', null, translate('enabledLabel')),
+      h(Switch, {
+        checked: form.enabled,
+        label: translate('enabledLabel'),
+        disabled: locked,
+        onChange: enabled => set({ enabled }),
+      }),
     ),
   );
 

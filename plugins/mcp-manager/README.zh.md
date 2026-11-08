@@ -1,6 +1,6 @@
-# MCP 设置
+# MCP 管理
 
-在 DeepSeek Harness 原生「设置」中新增 **MCP** 面板，用来查看、新增、编辑、启停和删除 MCP 服务，并把结果写入当前 Desktop profile 的 `cordis.patch.yml`。支持本地 `stdio` 服务与远程 Streamable HTTP 服务。
+在 DeepSeek Harness 原生「设置」中新增 **MCP 管理** 面板，用来查看、新增、编辑、启停和删除 MCP 服务，并把结果写入当前 Desktop profile 的 `cordis.patch.yml`。支持本地 `stdio` 服务与远程 Streamable HTTP 服务。
 
 ## 功能
 
@@ -34,21 +34,15 @@ npm install
 npm run build
 ```
 
-然后在 Desktop 的插件页安装本地目录 `plugins/mcp-settings`，或使用 CLI：
-
-```bash
-dsh plugin --profile desktop add ./plugins/mcp-settings
-```
-
-安装完成后打开「设置 → MCP」。如果页面没有立即出现，刷新一次页面；替换已安装包或修改插件代码后需要重启 Harness 才能加载新的插件代码。
+在 Desktop「插件 → 添加插件」中选择本地目录 `plugins/mcp-manager`。如果已安装旧包，先卸载，再安装改名后的包。安装后打开「设置 → MCP 管理」，按应用提示重启。
 
 ## 配置
 
 插件自身没有必填配置。可选：
 
 ```yaml
-- id: mcp-settings
-  name: '@dawn0608/dsh-mcp-settings'
+- id: mcp-manager
+  name: '@dawn0608/dsh-mcp-manager'
   config:
     patchPath: /absolute/path/to/cordis.patch.yml
 ```

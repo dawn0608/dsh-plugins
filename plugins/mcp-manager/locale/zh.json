@@ -1,6 +1,6 @@
 {
   "meta": {
-    "title": "MCP 设置",
+    "title": "MCP 管理",
     "description": "在设置中查看、新增、编辑、启停和删除 MCP 服务，并写入桌面 profile 补丁。"
   }
 }
