@@ -385,11 +385,11 @@ html[data-platform='darwin'] .dshskill_page {
   margin: auto;
   padding: 20px;
   box-sizing: border-box;
-  border: 0.5px solid var(--dsw-alias-border-l3);
-  border-radius: var(--dsw-radius-xl, 12px);
-  background: var(--dsw-alias-bg-base);
+  border: 0;
+  border-radius: var(--dsw-radius-panel);
+  background: var(--dsw-alias-bg-layer-2);
   color: var(--dsw-alias-label-primary);
-  box-shadow: 0 12px 40px rgb(0 0 0 / 16%);
+  box-shadow: var(--dsw-elevation-prominent);
 }
 
 .dshskill_dialog[open] {
@@ -398,7 +398,8 @@ html[data-platform='darwin'] .dshskill_page {
 }
 
 .dshskill_dialog::backdrop {
-  background: rgb(0 0 0 / 26%);
+  background: var(--dsw-alias-bg-mask-1);
+  backdrop-filter: var(--dsw-mask-blur);
 }
 
 .dshskill_dialogActions {

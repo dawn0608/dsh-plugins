@@ -1,6 +1,6 @@
 {
   "name": "@dawn0608/dsh-cost-overview",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "type": "module",
   "main": "./lib/index.js",
   "description": "Shows the current session cost at official unit prices and the DeepSeek account balance beside composer stats.",
@@ -15,7 +15,8 @@
     "cost",
     "billing",
     "balance",
-    "usage"
+    "usage",
+    "dsh-plugin"
   ],
   "repository": {
     "type": "git",
@@ -27,7 +28,8 @@
     "url": "https://github.com/dawn0608/dsh-plugins/issues"
   },
   "engines": {
-    "dsh": ">=0.2.2-rc.1 <0.3.0"
+    "dsh": ">=0.2.2-rc.1 <0.3.0",
+    "node": ">=24"
   },
   "publishConfig": {
     "access": "public"

@@ -18,7 +18,7 @@ import { normalizeBase, walletsOf } from './balance.js';
 const CHANNEL_PATH = '/api/cost-overview/state';
 const DEFAULT_BASE_URL = 'https://api.deepseek.com';
 const DEFAULT_API_KEY_ENV = 'DEEPSEEK_API_KEY';
-const USER_AGENT = 'dsh-cost-overview/1.0.1';
+const USER_AGENT = 'dsh-cost-overview/1.0.3';
 const REQUEST_TIMEOUT_MS = 8000;
 /** Balance is account state, not a live feed: one upstream read per minute at most. */
 const SUCCESS_CACHE_MS = 60000;

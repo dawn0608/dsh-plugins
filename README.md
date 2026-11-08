@@ -7,18 +7,18 @@
 | 插件 | 说明 | 适用 DSH | 安装包 |
 | --- | --- | --- | --- |
 | [费用概览](plugins/cost-overview/README.zh.md) | 在输入框下方显示当前会话费用与 DeepSeek 账户余额 | `>=0.2.2-rc.1 <0.3.0` | `@dawn0608/dsh-cost-overview` |
-| [MCP 管理](plugins/mcp-manager/README.md) | 在原生设置中查看和启停 MCP 服务 | `>=0.2.2-rc.1 <0.3.0` | `@dawn0608/dsh-mcp-manager` |
-| [技能管理](plugins/skill-manager/README.zh.md) | 在侧栏浏览技能并管理本地导入 | `>=0.2.2-rc.1 <0.3.0` | [本地安装](plugins/skill-manager/README.zh.md#安装) |
+| [MCP 管理](plugins/mcp-manager/README.zh.md) | 在原生设置中查看和启停 MCP 服务 | `>=0.2.2-rc.1 <0.3.0` | `@dawn0608/dsh-mcp-manager` |
+| [技能管理](plugins/skill-manager/README.zh.md) | 在侧栏浏览技能并管理本地导入 | `>=0.2.2-rc.1 <0.3.0` | `@dawn0608/dsh-skill-manager` |
 
 ## 安装
 
-已发布的插件可在 Desktop「插件」页按 npm 包名安装。本地插件按表中的安装说明操作。非 Desktop profile 也可以使用 CLI：
+三个插件均可在 Desktop「插件」页按 npm 包名安装。非 Desktop profile 也可以使用 CLI；选择需要的包安装：
 
 ```bash
 dsh plugin --profile <profile> add @dawn0608/dsh-cost-overview
 ```
 
-安装后需要在 DSH 中配置 DeepSeek 模型和 `DEEPSEEK_API_KEY`。插件读取余额时使用当前配置的 API Key，不会读取或上传其他人的凭据。
+使用 CLI 修改 Desktop profile 前请完全退出应用。费用概览的模型/API Key 配置、MCP 的配置范围和技能管理的可选同步，分别见插件说明。技能同步需显式安装，不随 npm 安装自动修改其他应用配置。
 
 已安装旧版「会话花费」的用户请按[迁移说明](plugins/cost-overview/README.zh.md#从会话花费迁移)替换安装。
 
@@ -27,7 +27,7 @@ dsh plugin --profile <profile> add @dawn0608/dsh-cost-overview
 从仓库源码安装先构建，再按目录安装：
 
 ```bash
-npm install
+npm ci
 npm run build
 dsh plugin --profile <profile> add ./plugins/cost-overview
 ```
@@ -35,15 +35,17 @@ dsh plugin --profile <profile> add ./plugins/cost-overview
 ## 开发
 
 ```bash
-npm install        # 安装根目录的 esbuild
+npm ci             # 安装锁定的开发依赖
 npm run build      # 构建 plugins/* 的 lib/ 产物
 npm run check      # 校验插件布局与产物
 npm run check:profile -- ~/.dsh/profiles/desktop  # 检查 profile 中重复的插件 insert id
 npm test           # 运行全部插件测试
-npm run verify     # build + check + test
+npm run verify     # 插件构建、规范、测试，以及公共工具和模板验证
 ```
 
 包名统一为 `@dawn0608/dsh-<目录名>`，`npm run check` 会强制校验。
+
+`src/client/` 存放两个管理插件共用的必要宿主控件与文档样式，构建时内联进各插件；已发布包不依赖本仓库或宿主私有 Client 模块。来源与许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 插件源码、适用版本、计费口径和已知限制详见各自的 README；目录约定见 [AGENTS.md](AGENTS.md#插件结构)。
 
@@ -57,8 +59,8 @@ npm run verify     # build + check + test
 
 1. bump `plugins/<name>/package.json` 的版本。
 2. 在仓库根目录运行 `npm run verify`。
-3. `cd plugins/<name>` 后运行 `npm pack --dry-run` 核对内容，再 `npm publish`（`prepack` 会自动构建 `lib/`）。
-4. 打 tag 并创建 GitHub Release，附 `.tgz` 与 `SHA256SUMS.txt`。
+3. `cd plugins/<name>` 后运行 `npm pack --dry-run` 核对内容，生成 `.tgz` 并在隔离 profile 验证；使用 `npm publish <包文件.tgz> --access public` 发布已验证的同一文件。
+4. 打 `<name>-v<version>` tag 并创建 GitHub Release，附实际发布的 `.tgz` 与 `SHA256SUMS.txt`。同批插件使用同一源码提交，版本号分别维护；部分发布失败时仅补齐失败项。
 5. 同步根 README 插件表；在目标 profile 安装后，回到仓库根目录运行 `npm run check:profile -- <profile-dir>`。
 
 ## 获取仓库

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
+import * as React from 'react';
 
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
@@ -34,23 +35,10 @@ function loadClient(documentObject = fakeDocument()) {
 }
 
 function fakeRequire() {
-  const react = fakeReact();
   return specifier => {
-    if (specifier === 'react') return react;
+    if (specifier === 'react') return React;
     if (specifier === 'react-dom') return { createPortal: () => null };
-    if (specifier === '@deepseek-ai/dsh-client-ui-primitives') return { Switch: () => null, Tag: () => null };
     throw new Error(`unexpected client module: ${specifier}`);
-  };
-}
-
-function fakeReact() {
-  return {
-    createElement: () => null,
-    Component: class Component {},
-    useState: () => [undefined, () => {}],
-    useRef: () => ({ current: null }),
-    useEffect: () => {},
-    useSyncExternalStore: () => undefined,
   };
 }
 

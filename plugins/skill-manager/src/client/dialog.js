@@ -1,4 +1,5 @@
 import { createElement as h, useId, useLayoutEffect, useRef } from 'react';
+import { Button } from '../../../../src/client/host-controls.js';
 
 function Modal({ title, busy, close, children }) {
   const ref = useRef(null);
@@ -34,9 +35,9 @@ export function RemoveDialog({ skill, translate: t, store, busy, error, close, r
     h('p', { className: 'dshskill_muted' }, t('uninstallHint', { name: skill.name })),
     h(Feedback, { error, busy, translate: t }),
     h('div', { className: 'dshskill_dialogActions' },
-      h('button', {
-        type: 'button', className: 'dshskill_control', 'data-initial-focus': '',
-        'aria-disabled': busy || undefined, onClick: () => { if (!busy) close(); },
+      h(Button, {
+        variant: 'outline', size: 'sm', 'data-initial-focus': '',
+        disabled: busy, onClick: () => { if (!busy) close(); },
       }, t('cancel')),
-      h('button', { type: 'button', className: 'dshskill_control dshskill_danger', 'aria-disabled': busy || undefined, onClick: remove }, t('uninstall'))));
+      h(Button, { variant: 'outline', size: 'sm', className: 'dshskill_danger', disabled: busy, onClick: remove }, t('uninstall'))));
 }

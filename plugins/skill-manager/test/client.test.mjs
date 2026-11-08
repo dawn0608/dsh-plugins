@@ -3,9 +3,12 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 import * as React from 'react';
+import * as jsxRuntime from 'react/jsx-runtime';
+import { JSDOM } from 'jsdom';
 import { DICTS, NS, translateFrom } from '../src/client/i18n.js';
 
 test('the built client contributes a matching sidebar and main entry owned by the slots', () => {
+  const dom = new JSDOM();
   const source = readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8');
   let entry;
   const tags = [];
@@ -16,13 +19,11 @@ test('the built client contributes a matching sidebar and main entry owned by th
   vm.runInNewContext(source, {
     window: { __ModuleLoader__: { load: value => { entry = value; } } },
     document,
+    DOMParser: dom.window.DOMParser,
   });
   assert.equal(entry.id, '@dawn0608/dsh-skill-manager');
   const client = entry.factory(id => {
-    if (id === '@deepseek-ai/dsh-client-ui-primitives') {
-      const stub = () => null;
-      return { IconChevronDownOutlineRegular: stub, StateDot: stub, Switch: stub, Tag: stub };
-    }
+    if (id === 'react/jsx-runtime') return jsxRuntime;
     assert.equal(id, 'react');
     return React;
   });
@@ -75,6 +76,7 @@ test('the built client contributes a matching sidebar and main entry owned by th
   effects.forEach(dispose => dispose());
   assert.equal(tags.length, 0);
   assert.equal(dictionaries, undefined);
+  dom.window.close();
 });
 
 test('the client dictionaries cover the same UI keys in both languages', () => {

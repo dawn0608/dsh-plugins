@@ -11,12 +11,29 @@
     "check": "node scripts/check-plugin.mjs",
     "check:profile": "node scripts/check-profile.mjs",
     "test": "npm test --workspaces --if-present",
-    "verify": "npm run build && npm run check && npm test"
+    "test:tooling": "node --test scripts/test/*.test.mjs",
+    "check:template": "npm --prefix templates/plugin run build && npm --prefix templates/plugin test",
+    "verify": "npm run build && npm run check && npm test && npm run test:tooling && npm run check:template"
   },
   "devDependencies": {
-    "esbuild": "^0.28.2"
+    "@shikijs/core": "4.5.0",
+    "@shikijs/engine-javascript": "4.5.0",
+    "@shikijs/langs": "4.5.0",
+    "esbuild": "^0.28.2",
+    "jsdom": "31.0.0",
+    "katex": "0.18.7",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-markdown": "10.1.0",
+    "rehype-katex": "7.0.1",
+    "remark-gfm": "4.0.1",
+    "remark-math": "6.0.0",
+    "yaml": "^2.9.1"
   },
   "engines": {
     "node": ">=24"
+  },
+  "overrides": {
+    "katex": "$katex"
   }
 }

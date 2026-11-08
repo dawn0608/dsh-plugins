@@ -1,8 +1,12 @@
 import { createElement as h } from 'react';
 import {
-  Button, DetailDocument, IconChevronDownOutlineRegular, IconSearchOutlineRegular, IconTrashOutlineRegular,
-  Input, StateDot, Switch, Tag, detailDocumentState, useDetailDocumentLabels,
-} from '@deepseek-ai/dsh-client-ui-primitives';
+  Button, IconChevronDownOutlineRegular, IconSearchOutlineRegular, IconTrashOutlineRegular,
+  Input, StateDot, Switch, Tag,
+} from '../../../../src/client/host-controls.js';
+import { DetailDocument, detailDocumentState, useDetailDocumentLabels } from '../../../../src/client/host-document.js';
+import controlsCss from '../../../../src/client/host-controls.css';
+import documentCss from '../../../../src/client/host-document.css';
+import katexCss from 'katex/dist/katex.min.css';
 import skillEmblem from '../../icon.svg';
 import { createTranslator, DICTS, NS } from './i18n.js';
 import { createPage } from './page.js';
@@ -19,9 +23,6 @@ function SkillEmblem({ size = 16, branded = false } = {}) {
   });
 }
 
-// Skill previews receive Markdown only, without an authorized image resolver.
-const skillDocumentImages = { resolve: () => undefined };
-
 function SkillDocument({ preview, translate: t, onRetry }) {
   const labels = useDetailDocumentLabels({
     title: t('preview'), loading: t('loadingPreview'), retry: t('retry'),
@@ -31,7 +32,7 @@ function SkillDocument({ preview, translate: t, onRetry }) {
   const state = preview === null ? undefined : preview.error
     ? { status: 'error', message: t(preview.error) }
     : { status: 'ready', markdown: preview.body };
-  return h(DetailDocument, { state: detailDocumentState(state), labels, images: skillDocumentImages, onRetry });
+  return h(DetailDocument, { state: detailDocumentState(state), labels, onRetry });
 }
 
 export function apply(ctx) {
@@ -39,7 +40,7 @@ export function apply(ctx) {
   ctx.effect(() => {
     const style = document.createElement('style');
     style.dataset.plugin = '@dawn0608/dsh-skill-manager';
-    style.textContent = css;
+    style.textContent = `${controlsCss}\n${documentCss}\n${katexCss}\n${css}`;
     document.head.appendChild(style);
     return () => style.remove();
   }, 'skill-manager: styles');

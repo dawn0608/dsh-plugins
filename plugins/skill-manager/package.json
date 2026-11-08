@@ -1,7 +1,6 @@
 {
   "name": "@dawn0608/dsh-skill-manager",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.1.2",
   "type": "module",
   "main": "./lib/index.js",
   "description": "Browse, preview, and manage local skills in DeepSeek Harness.",
@@ -30,7 +29,8 @@
     "prepack": "npm run build"
   },
   "engines": {
-    "dsh": ">=0.2.2-rc.1 <0.3.0"
+    "dsh": ">=0.2.2-rc.1 <0.3.0",
+    "node": ">=24"
   },
   "dsh": {
     "bundle": {
@@ -41,8 +41,7 @@
       "immediately": true,
       "inject": [
         "@deepseek-ai/dsh-client-ui-layout",
-        "@deepseek-ai/dsh-client-ui-sidebar",
-        "@deepseek-ai/dsh-client-ui-primitives"
+        "@deepseek-ai/dsh-client-ui-sidebar"
       ]
     }
   },
@@ -51,5 +50,24 @@
     "react-dom": "^19.0.0",
     "smol-toml": "^1.9.1",
     "yaml": "^2.9.1"
-  }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dawn0608/dsh-plugins.git",
+    "directory": "plugins/skill-manager"
+  },
+  "homepage": "https://github.com/dawn0608/dsh-plugins/tree/main/plugins/skill-manager",
+  "bugs": {
+    "url": "https://github.com/dawn0608/dsh-plugins/issues"
+  },
+  "keywords": [
+    "deepseek",
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "skills"
+  ]
 }

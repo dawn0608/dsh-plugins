@@ -1,0 +1,333 @@
+/* Adapted from DeepSeek Harness ui-primitives 0.2.2-rc.1, MIT. See THIRD_PARTY_NOTICES.md. */
+/* The on/off appearance keys off aria-checked rather than a parallel class, so
+ * the visual state cannot disagree with the state assistive technology reads.
+ *
+ * The capsule track and circular thumb opt out of the global superellipse. */
+.dshui_switch_switch {
+  box-sizing: border-box;
+  position: relative;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 20px;
+  padding: 2px;
+  border: 0;
+  border-radius: 999px;
+  corner-shape: round;
+  background: var(--dsw-alias-border-l3);
+  cursor: pointer;
+}
+
+.dshui_switch_switch[aria-checked='true'] {
+  background: var(--dsw-alias-brand-primary);
+}
+
+.dshui_switch_switch:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.dshui_switch_switch:focus-visible {
+  outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
+}
+
+.dshui_switch_thumb {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  corner-shape: round;
+  background: var(--dsw-alias-label-primary-foreground);
+  transition: transform 120ms ease;
+}
+
+.dshui_switch_switch[aria-checked='false'] .dshui_switch_thumb {
+  background: var(--dsw-alias-switch-thumb);
+}
+
+.dshui_switch_switch[aria-checked='true'] .dshui_switch_thumb {
+  transform: translateX(16px);
+}
+
+/* Capsule geometry is fixed: a tag reads as one size everywhere, and only its
+ * palette varies. Tone colors ride background/border/color so a render site can
+ * still position the tag with its own class without touching the palette. */
+.dshui_tag_tag {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  corner-shape: round;
+  padding: 1px 8px;
+  font-size: 11px;
+  line-height: 17px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.dshui_tag_tag[data-tone='outline'] {
+  border: 0.5px solid var(--dsw-alias-border-l4);
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.dshui_tag_tag[data-tone='solid'] {
+  background: var(--dsw-alias-label-primary);
+  color: var(--dsw-alias-bg-layer-3);
+}
+
+.dshui_tag_tag[data-tone='neutral'] {
+  background: var(--dsw-alias-bg-module-platform);
+  color: var(--dsw-alias-label-secondary);
+}
+
+.dshui_tag_tag[data-tone='quiet'] {
+  color: var(--dsw-alias-label-tertiary);
+}
+
+/* Status tones tint their own color for the fill, so a palette change moves
+ * fill and text together and neither needs a second token. The tint is 10%,
+ * except `warning`, which keeps the 12% the plugin inventory's conditional
+ * tag shipped with — matching it is what makes this a pure consolidation. */
+.dshui_tag_tag[data-tone='success'] {
+  background: color-mix(in srgb, var(--dsw-alias-state-success-primary) 10%, transparent);
+  color: var(--dsw-alias-state-success-primary);
+}
+
+.dshui_tag_tag[data-tone='info'] {
+  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) 10%, transparent);
+  color: var(--dsw-alias-state-business-primary);
+}
+
+.dshui_tag_tag[data-tone='warning'] {
+  background: color-mix(in srgb, var(--dsw-alias-state-warn-primary) 12%, transparent);
+  color: var(--dsw-alias-state-warn-primary);
+}
+
+.dshui_tag_tag[data-tone='danger'] {
+  background: color-mix(in srgb, var(--dsw-alias-state-error-primary) 10%, transparent);
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.dshui_input_wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  padding: 0 8px;
+  border: 0.5px solid var(--dsw-alias-border-l4);
+  border-radius: var(--dsw-radius-md);
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.dshui_input_wrap:focus-within {
+  border-color: var(--dsw-alias-state-business-primary);
+}
+
+.dshui_input_icon {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.dshui_input_input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.dshui_input_input::placeholder {
+  color: var(--dsw-alias-label-dimmed);
+}
+
+/* Button sizes share the global control-radius scale. */
+.dshui_button_button {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: none;
+  border-radius: var(--dsw-radius-md);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 22px;
+  color: var(--dsw-alias-label-primary);
+  background: transparent;
+  padding: 0 14px;
+}
+
+.dshui_button_button:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.dshui_button_md {
+  height: 36px;
+}
+
+/* Compact controls retain their dimensions across filled and outlined variants. */
+.dshui_button_sm {
+  height: 28px;
+  font-size: 12px;
+  line-height: 18px;
+  padding: 0 10px;
+  border-radius: var(--dsw-radius-sm);
+}
+
+.dshui_button_primary {
+  background: var(--dsw-alias-button-primary-fill);
+  color: var(--dsw-alias-label-primary-foreground);
+}
+
+@media (hover: hover) {
+  .dshui_button_primary:hover:not(:disabled) {
+    background: var(--dsw-alias-button-primary-hover);
+  }
+
+  .dshui_button_ghost:hover:not(:disabled) {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
+}
+
+.dshui_button_ghost:active:not(:disabled) {
+  background: var(--dsw-alias-interactive-bg-active);
+}
+
+/* The transparent border preserves layout; the inset stroke stays complete at fractional widths. */
+.dshui_button_outline {
+  border: 0.5px solid transparent;
+  background: transparent;
+  box-shadow: inset 0 0 0 var(--dsh-hairline-width, 0.5px) var(--dsh-button-outline-color, var(--dsw-alias-border-l3));
+}
+
+@media (hover: hover) {
+  .dshui_button_outline:hover:not(:disabled) {
+    background: var(--dsw-alias-interactive-bg-hover);
+  }
+}
+
+.dshui_button_toolbar {
+  background: var(--dsw-alias-button-tool-bar-fill);
+}
+
+@media (hover: hover) {
+  .dshui_button_toolbar:hover:not(:disabled) {
+    background: var(--dsw-alias-button-tool-bar-hover);
+  }
+}
+
+.dshui_button_icon {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Solid states keep the 10px layout slot but paint one 6px currentColor core. */
+.dshui_state_dot {
+  position: relative;
+  display: inline-block;
+  flex: none;
+}
+
+.dshui_state_dot::after {
+  content: '';
+  position: absolute;
+  inset: 20%;
+  border-radius: 50%;
+  corner-shape: round;
+  background: currentColor;
+}
+
+.dshui_state_dot[data-state='done'] {
+  color: var(--dsw-alias-state-success-primary);
+}
+
+.dshui_state_dot[data-state='warning'] {
+  color: var(--dsw-alias-state-warn-primary);
+}
+
+.dshui_state_dot[data-state='error'] {
+  color: var(--dsw-alias-state-error-primary);
+}
+
+/* Idle is the absence of activity and uses the theme's neutral state step. */
+.dshui_state_dot[data-state='idle'] {
+  color: var(--dsw-alias-state-idle-primary);
+}
+
+/* Ongoing is the sole non-dot state: a quiet full ring sits behind a centered
+ * breathing arc while the complete glyph rotates continuously. Both animations
+ * share one 1.5s period so pinning their start times aligns them together. */
+.dshui_state_spinner {
+  flex: none;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.dshui_state_spinnerMotion {
+  transform-origin: center;
+  animation: dshui-state-dot-spin 1.5s linear infinite;
+}
+
+.dshui_state_spinnerTrack,
+.dshui_state_spinnerArc {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.dshui_state_spinnerTrack {
+  opacity: 0.25;
+}
+
+.dshui_state_spinnerArc {
+  stroke-dasharray: 12 150;
+  animation: dshui-state-dot-dash 1.5s ease-in-out infinite;
+}
+
+@keyframes dshui-state-dot-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes dshui-state-dot-dash {
+  0% {
+    stroke-dasharray: 12 150;
+    stroke-dashoffset: 0;
+  }
+
+  50% {
+    stroke-dasharray: 24 150;
+    stroke-dashoffset: -6;
+  }
+
+  100% {
+    stroke-dasharray: 12 150;
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dshui_state_spinnerMotion,
+  .dshui_state_spinnerArc {
+    animation: none;
+  }
+
+  .dshui_state_spinnerArc {
+    stroke-dasharray: 18 150;
+    stroke-dashoffset: -3;
+  }
+}
+
+.dshui_state_step { display: inline-flex; flex: none; align-items: center; justify-content: center; box-sizing: border-box; border-radius: 50%; corner-shape: round; border: 1.5px solid var(--dsw-alias-label-tertiary); color: var(--dsw-alias-label-primary-foreground); }
+.dshui_state_step[data-state='done'] { border-color: var(--dsw-alias-state-success-primary); background: var(--dsw-alias-state-success-primary); }
+.dshui_state_step[data-state='error'] { border-color: var(--dsw-alias-state-error-primary); background: var(--dsw-alias-state-error-primary); }
+.dshui_state_step[data-state='warning'] { border-color: var(--dsw-alias-state-warn-primary); }

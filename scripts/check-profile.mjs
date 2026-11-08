@@ -112,7 +112,7 @@ for (const pkg of packages) {
     byId.set(id, rows);
   }
 }
-const duplicates = [...byId].filter(([, rows]) => new Set(rows.map(row => row.name)).size > 1);
+const duplicates = [...byId].filter(([, rows]) => rows.length > 1);
 
 if (duplicates.length === 0) {
   console.log(`profile check passed (${packages.length} plugin package${packages.length === 1 ? '' : 's'}): ${profileDir}`);
