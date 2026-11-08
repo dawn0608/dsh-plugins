@@ -8,8 +8,20 @@ import { createTranslator } from './i18n.js';
 const GROUPS = ['builtin', 'self', 'third-party'];
 const SOURCES = new Set(['project-dsh', 'project-agents', 'custom', 'user-dsh', 'user-agents', 'bundled', 'runtime']);
 
+function SkillToggle({ skill, busy, saving, store, translate: t, controls }) {
+  const { StateDot, Switch } = controls;
+  return h('span', { className: 'dshskill_toggle' },
+    h('span', { className: 'dshskill_toggleProgress', role: 'status' },
+      h('span', { className: 'dshskill_progressAnnouncement' }, saving ? t('saving') : ''),
+      saving && h(StateDot, { state: 'ongoing' })),
+    h(Switch, {
+      checked: skill.enabled, label: t('switchLabel', { name: skill.name }), disabled: busy,
+      onChange: enabled => { void store.mutate({ action: 'setEnabled', id: skill.id, enabled }); },
+    }));
+}
+
 function CatalogRows({ skills, query, translate: t, busy, savingId, store, openDetail, controls }) {
-  const { SkillEmblem, StateDot, Switch, Tag } = controls;
+  const { SkillEmblem, Tag } = controls;
   const headingId = useId();
   const term = query.trim().toLocaleLowerCase();
   const visible = skills.filter(skill => !term || [skill.name, skill.description]
@@ -36,19 +48,13 @@ function CatalogRows({ skills, query, translate: t, busy, savingId, store, openD
               }, skill.name),
               skill.shadowed && h(Tag, { className: 'dshskill_badge' }, t('shadowed'))),
             descriptionId && h('span', { className: 'dshskill_description', id: descriptionId }, skill.description)),
-          typeof skill.enabled === 'boolean' && h('div', { className: 'dshskill_rowEnd' },
-            h('span', { className: 'dshskill_toggleProgress', role: 'status' },
-              h('span', { className: 'dshskill_progressAnnouncement' }, saving ? t('saving') : ''),
-              saving && h(StateDot, { state: 'ongoing' })),
-            h(Switch, {
-              checked: skill.enabled, label: t('switchLabel', { name: skill.name }), disabled: busy,
-              onChange: enabled => { void store.mutate({ action: 'setEnabled', id: skill.id, enabled }); },
-            })));
+          typeof skill.enabled === 'boolean' && h(SkillToggle, { skill, busy, saving, store, translate: t, controls }));
       })));
   }));
 }
 
-function SkillDetail({ skill, titleRef, translate: t, busy, back, BackIcon, openRemove }) {
+function SkillDetail({ skill, titleRef, translate: t, busy, saving, back, openRemove, controls, store }) {
+  const { BackIcon, Button, SkillEmblem, TrashIcon } = controls;
   const [preview, setPreview] = useState(null);
   useEffect(() => {
     const pending = new AbortController();
@@ -61,30 +67,40 @@ function SkillDetail({ skill, titleRef, translate: t, busy, back, BackIcon, open
 
   const unknownOrigin = preview?.body !== undefined && !preview.origin;
   const repository = preview?.repository;
+  const imported = skill.group === 'imported';
+  const canToggle = typeof skill.enabled === 'boolean';
+  const source = imported || !SOURCES.has(skill.source) ? skill.group : skill.source;
   return h('div', { className: 'dshskill_detail' },
-    h('button', { type: 'button', className: 'dshskill_back', 'aria-label': t('back'), onClick: back },
-      h(BackIcon, { className: 'dshskill_backIcon', 'aria-hidden': true }), h('span', null, t('title'))),
-    h('header', { className: 'dshskill_header' },
-      h('div', null,
-        h('h1', { ref: titleRef, tabIndex: -1 }, skill.name),
-        skill.description && h('p', { className: 'dshskill_detailDescription' }, skill.description)),
-      skill.group === 'imported' && h('button', {
-        type: 'button', className: 'dshskill_control dshskill_danger', 'aria-disabled': busy || undefined,
-        onClick: () => { if (!busy) openRemove(); },
-      }, t('uninstall'))),
-    h('dl', { className: 'dshskill_metadata' },
-      h('dt', null, t('source')),
-      h('dd', null, t(skill.group === 'imported' || !SOURCES.has(skill.source) ? skill.group : skill.source)),
-      unknownOrigin && h('dt', null, t('origin')),
-      unknownOrigin && h('dd', null, t('unknownOrigin')),
-      repository && h('dt', null, t('repository')),
-      repository && h('dd', null,
-        h('a', { href: repository, target: '_blank', rel: 'noopener noreferrer' }, repository))),
-    h('section', { className: 'dshskill_preview' },
-      h('h2', null, t('preview')),
-      preview === null && h('p', { role: 'status', className: 'dshskill_muted' }, t('loadingPreview')),
-      preview?.error && h('p', { role: 'alert', className: 'dshskill_error' }, t(preview.error)),
-      preview?.body !== undefined && h('pre', { tabIndex: 0, 'aria-label': t('preview') }, preview.body)));
+    h('header', { className: 'dshskill_detailTop' },
+      h('button', { type: 'button', className: 'dshskill_back', 'aria-label': t('back'), onClick: back },
+        h(BackIcon, { className: 'dshskill_backIcon', 'aria-hidden': true }), h('span', null, t('title'))),
+      h('div', { className: 'dshskill_detailHead' },
+        h('span', { className: 'dshskill_icon', 'aria-hidden': true }, h(SkillEmblem, { branded: true, size: 36 })),
+        (imported || canToggle) && h('div', { className: 'dshskill_detailActions' },
+          imported && h(Button, {
+            type: 'button', variant: 'outline', size: 'sm', className: 'dshskill_detailUninstall',
+            icon: h(TrashIcon, { size: 13 }), disabled: busy,
+            'aria-label': t('uninstallLabel', { name: skill.name }), onClick: openRemove,
+          }, t('uninstall')),
+          canToggle && h(SkillToggle, { skill, busy, saving, store, translate: t, controls })))),
+    h('div', { className: 'dshskill_detailMain' },
+      h('h1', { ref: titleRef, tabIndex: -1 }, skill.name),
+      h('dl', { className: 'dshskill_metadata dshskill_detailSource' },
+        h('dt', null, t('source')), h('dd', null, t(source))),
+      skill.description && h('p', { className: 'dshskill_detailDescription' }, skill.description)),
+    h('div', { className: 'dshskill_detailSections' },
+      (unknownOrigin || repository) && h('dl', { className: 'dshskill_metadata' },
+        unknownOrigin && h('dt', null, t('origin')),
+        unknownOrigin && h('dd', null, t('unknownOrigin')),
+        repository && h('dt', null, t('repository')),
+        repository && h('dd', null,
+          h('a', { href: repository, target: '_blank', rel: 'noopener noreferrer' }, repository))),
+      h('section', { className: 'dshskill_preview' },
+        h('h2', null, t('preview')),
+        preview === null && h('p', { role: 'status', className: 'dshskill_muted' }, t('loadingPreview')),
+        preview?.error && h('p', { role: 'alert', className: 'dshskill_error' }, t(preview.error)),
+        preview?.body !== undefined && h('div', { className: 'dshskill_document', tabIndex: 0, 'aria-label': t('preview') },
+          h('pre', null, preview.body)))));
 }
 
 export function createPage(locale, controls, createStore = createCatalog) {
@@ -144,11 +160,11 @@ export function createPage(locale, controls, createStore = createCatalog) {
 
     const { skills, busy, savingId, listError, mutationError } = state;
     const currentSkill = detail && (skills?.find(skill => skill.id === detail.id) ?? detail);
-    return h('div', { className: 'dshskill_page', ref: pageRef },
+    return h('div', { className: 'dshskill_page', 'data-detail': currentSkill ? '' : undefined, ref: pageRef },
       h('div', { className: 'dshskill_content' },
         currentSkill
           ? h(SkillDetail, {
-              skill: currentSkill, titleRef, translate: t, busy, BackIcon: controls.BackIcon,
+              skill: currentSkill, titleRef, translate: t, busy, saving: savingId === currentSkill.id, controls, store,
               back: () => setDetail(null), openRemove: () => { store.clearMutationError(); setConfirmRemoval(true); },
             })
           : h('div', { className: 'dshskill_catalog' },

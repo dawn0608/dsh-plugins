@@ -1,5 +1,5 @@
 import { createElement as h } from 'react';
-import { IconChevronDownOutlineRegular, StateDot, Switch, Tag } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Button, IconChevronDownOutlineRegular, IconTrashOutlineRegular, StateDot, Switch, Tag } from '@deepseek-ai/dsh-client-ui-primitives';
 import skillEmblem from '../../icon.svg';
 import { createTranslator, DICTS, NS } from './i18n.js';
 import { createPage } from './page.js';
@@ -7,7 +7,8 @@ import css from './style.css';
 
 export const inject = ['slots', 'locale'];
 
-function SkillEmblem({ size = 16 } = {}) {
+function SkillEmblem({ size = 16, branded = false } = {}) {
+  if (branded) return h('img', { src: skillEmblem, width: size, height: size, alt: '' });
   return h('span', {
     className: 'dshskill_emblem',
     'aria-hidden': true,
@@ -31,5 +32,7 @@ export function apply(ctx) {
   }, SkillEmblem));
   ctx.slots.inject('main', () => ctx.slots.register({
     name: 'main', key: 'skill-manager', locale: NS,
-  }, createPage(ctx.locale, { BackIcon: IconChevronDownOutlineRegular, SkillEmblem, StateDot, Switch, Tag })));
+  }, createPage(ctx.locale, {
+    BackIcon: IconChevronDownOutlineRegular, Button, SkillEmblem, StateDot, Switch, Tag, TrashIcon: IconTrashOutlineRegular,
+  })));
 }

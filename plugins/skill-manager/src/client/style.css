@@ -25,6 +25,10 @@ html[data-platform='darwin'] .dshskill_page {
   padding-top: calc(28px + var(--dsh-frame-top-clearance, 0px));
 }
 
+.dshskill_page[data-detail] {
+  scrollbar-gutter: stable;
+}
+
 .dshskill_content {
   max-width: 960px;
   margin-inline: auto;
@@ -47,14 +51,9 @@ html[data-platform='darwin'] .dshskill_page {
   font-weight: 500;
 }
 
-.dshskill_catalog,
-.dshskill_detail {
+.dshskill_catalog {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-}
-
-.dshskill_catalog {
   gap: 32px;
 }
 
@@ -69,12 +68,6 @@ html[data-platform='darwin'] .dshskill_page {
 .dshskill_header > div {
   min-width: 0;
   max-width: 100%;
-}
-
-.dshskill_detailDescription {
-  margin-top: 4px;
-  color: var(--dsw-alias-label-secondary);
-  overflow-wrap: anywhere;
 }
 
 .dshskill_control,
@@ -133,7 +126,7 @@ html[data-platform='darwin'] .dshskill_page {
   outline: none;
 }
 
-.dshskill_page :where(.dshskill_control, .dshskill_back, pre, h1):focus-visible,
+.dshskill_page :where(.dshskill_control, .dshskill_back, .dshskill_document, h1):focus-visible,
 .dshskill_search:has(input:focus-visible) {
   outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: 2px;
@@ -258,13 +251,16 @@ html[data-platform='darwin'] .dshskill_page {
   line-height: 1;
 }
 
-.dshskill_rowEnd {
-  position: relative;
-  z-index: 1;
+.dshskill_toggle {
   display: inline-flex;
   flex: none;
   align-items: center;
   gap: 8px;
+}
+
+.dshskill_row .dshskill_toggle {
+  position: relative;
+  z-index: 1;
 }
 
 .dshskill_toggleProgress {
@@ -292,6 +288,14 @@ html[data-platform='darwin'] .dshskill_page {
   color: var(--dsw-alias-state-error-primary);
 }
 
+.dshskill_detailTop,
+.dshskill_detailMain,
+.dshskill_detailSections {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
 .dshskill_back {
   display: inline-flex;
   align-items: center;
@@ -314,6 +318,43 @@ html[data-platform='darwin'] .dshskill_page {
   transform: rotate(90deg);
 }
 
+.dshskill_detailHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.dshskill_detailActions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.dshskill_detailActions .dshskill_detailUninstall {
+  color: var(--dsw-alias-state-error-primary);
+  --dsh-button-outline-color: color-mix(in srgb, var(--dsw-alias-state-error-primary) 30%, transparent);
+  --dsw-alias-interactive-bg-hover: color-mix(in srgb, var(--dsw-alias-state-error-primary) 8%, transparent);
+}
+
+.dshskill_detailMain {
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.dshskill_detailDescription {
+  color: var(--dsw-alias-label-secondary);
+  font-size: 14px;
+  line-height: 22px;
+  overflow-wrap: anywhere;
+}
+
+.dshskill_detailSections {
+  gap: 32px;
+  margin-top: 32px;
+}
+
 .dshskill_metadata {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -334,19 +375,35 @@ html[data-platform='darwin'] .dshskill_page {
   text-underline-offset: 0.15em;
 }
 
+.dshskill_detailSource {
+  color: var(--dsw-alias-label-tertiary);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.dshskill_detailSource dt {
+  color: inherit;
+}
+
 .dshskill_preview {
   display: grid;
-  gap: 8px;
+  gap: 12px;
   min-width: 0;
 }
 
+.dshskill_document {
+  max-height: min(560px, 60vh);
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  padding-block: 12px;
+  border-block: 0.5px solid var(--dsw-alias-border-l1);
+}
+
 .dshskill_preview pre {
-  max-height: 55vh;
-  overflow: auto;
-  padding: 12px 16px;
-  border: 0.5px solid var(--dsw-alias-border-l3);
-  border-radius: var(--dsw-radius-lg, 8px);
-  background: var(--dsw-alias-bg-layer-2, var(--dsw-alias-bg-base));
+  padding: 16px 22px 20px;
+  border-radius: var(--dsw-radius-lg);
+  background: var(--dsw-alias-markdown-code-block);
+  font: var(--dsw-font-markdown-code-block, 11px/19px ui-monospace, monospace);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -387,7 +444,7 @@ html[data-platform='darwin'] .dshskill_page {
 }
 
 @media (max-width: 767px) {
-  .dshskill_page {
+  .dshskill_page:not([data-detail]) {
     padding-inline: 20px;
   }
 }
