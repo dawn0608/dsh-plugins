@@ -79,7 +79,7 @@ test('saves with the expected body and reports field errors', async () => {
   assert.equal(seen.mode, 'edit');
   assert.equal(seen.id, 'one');
   assert.equal(seen.rowHash, 'r1');
-  assert.equal(controller.getSnapshot().notice.code, 'saved');
+  assert.deepEqual(controller.getSnapshot().notice, { code: 'saved', params: { name: 'docs' } });
 
   const invalid = await controller.save({ name: 'bad', transport: 'stdio', enabled: false, command: '/bin/echo' }, { mode: 'add' });
   assert.equal(invalid.ok, false);
@@ -118,6 +118,24 @@ test('setEnabled posts the toggle and updates the state', async () => {
   assert.equal(result.ok, true);
   assert.deepEqual(body, { action: 'setEnabled', id: 'one', name: 'docs', rowHash: 'r1', enabled: false });
   assert.equal(controller.getSnapshot().state.servers[0].enabled, false);
+  controller.dispose();
+});
+
+test('reports a manual refresh while it is in flight', async () => {
+  let release;
+  const gate = new Promise(resolve => {
+    release = resolve;
+  });
+  const fake = fakeFetch(async () => {
+    await gate;
+    return reply(200, STATE);
+  });
+  const controller = createController({ fetchImpl: fake.fetchImpl });
+  const pending = controller.load();
+  assert.equal(controller.getSnapshot().refreshing, true);
+  release();
+  await pending;
+  assert.equal(controller.getSnapshot().refreshing, false);
   controller.dispose();
 });
 

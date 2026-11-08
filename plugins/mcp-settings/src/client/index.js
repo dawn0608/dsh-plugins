@@ -24,13 +24,13 @@ function McpIcon({ size = 18, active = false } = {}) {
   h('path', {
     d: 'M7.8 9.2 11 15.2M16.2 9.2 13 15.2M9.4 7h5.2',
     stroke: 'currentColor',
-    strokeWidth: 1.6,
+    strokeWidth: 1.5,
     strokeLinecap: 'round',
     strokeLinejoin: 'round',
   }),
-  h('circle', { cx: 6.4, cy: 6.8, r: 2.2, stroke: 'currentColor', strokeWidth: 1.6 }),
-  h('circle', { cx: 17.6, cy: 6.8, r: 2.2, stroke: 'currentColor', strokeWidth: 1.6 }),
-  h('circle', { cx: 12, cy: 17.4, r: 2.2, stroke: 'currentColor', strokeWidth: 1.6 }),
+  h('circle', { cx: 6.4, cy: 6.8, r: 2.2, stroke: 'currentColor', strokeWidth: 1.5 }),
+  h('circle', { cx: 17.6, cy: 6.8, r: 2.2, stroke: 'currentColor', strokeWidth: 1.5 }),
+  h('circle', { cx: 12, cy: 17.4, r: 2.2, stroke: 'currentColor', strokeWidth: 1.5 }),
   );
 }
 

@@ -138,4 +138,37 @@ export function serverLabel(server, translate) {
   return translate('unknownName');
 }
 
-export const ERROR_SUMMARY = 'errorSummary';
+/** Localized transport name for one server. */
+export function transportLabel(server, translate) {
+  if (server && server.transport === 'stdio') return translate('transportStdio');
+  if (server && server.transport === 'streamable-http') return translate('transportHttp');
+  return translate('transportUnknown');
+}
+
+/** One-line endpoint or command summary shown under the server name. */
+export function serverSummary(server) {
+  const config = server && server.config && typeof server.config === 'object' ? server.config : {};
+  if (server && server.transport === 'streamable-http') {
+    return typeof config.url === 'string' ? config.url : '';
+  }
+  const command = typeof config.command === 'string' ? config.command : '';
+  const args = Array.isArray(config.args) ? config.args.filter(value => typeof value === 'string') : [];
+  return [command, ...args].filter(value => value !== '').join(' ');
+}
+
+/**
+ * Visual state for the row's right-hand status.
+ * @returns {{tone: 'success'|'warn'|'muted', text: string, dot: boolean}}
+ */
+export function serverStatus(server, translate) {
+  if (server && server.enabled === false) {
+    return { tone: 'muted', text: translate('disabled'), dot: false };
+  }
+  if (!server || server.tools === null || server.tools === undefined) {
+    return { tone: 'muted', text: translate('toolsUnknown'), dot: false };
+  }
+  if (server.tools > 0) {
+    return { tone: 'success', text: translate('tools', { count: server.tools }), dot: true };
+  }
+  return { tone: 'warn', text: translate('toolsNone'), dot: true };
+}

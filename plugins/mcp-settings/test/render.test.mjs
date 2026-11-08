@@ -31,18 +31,23 @@ function render(snapshot) {
   return renderToStaticMarkup(React.createElement(Page));
 }
 
-test('renders the ready page with the server list and actions', () => {
+const BASE_STATE = {
+  ok: true,
+  profile: 'desktop',
+  patchPath: '/tmp/cordis.patch.yml',
+  revision: 'a'.repeat(64),
+  warnings: [],
+};
+
+test('renders the ready page with header, rows, add action and path', () => {
   const html = render({
     status: 'ready',
     error: null,
     busy: null,
     notice: null,
+    refreshing: false,
     state: {
-      ok: true,
-      profile: 'desktop',
-      patchPath: '/tmp/cordis.patch.yml',
-      revision: 'a'.repeat(64),
-      warnings: [],
+      ...BASE_STATE,
       servers: [
         {
           id: 'mcp-sync-docs',
@@ -66,20 +71,32 @@ test('renders the ready page with the server list and actions', () => {
           rowHash: 'r2',
           tools: 0,
           duplicate: true,
-          config: { command: '/bin/echo', args: [], cwd: '', env: [] },
+          config: { command: '/bin/echo', args: ['hello'], cwd: '', env: [] },
         },
       ],
     },
   });
-  assert.match(html, /dshmcp_section/);
+  assert.match(html, /class="dshmcp_page"/);
+  assert.match(html, />title</);
+  assert.match(html, />intro</);
+  assert.match(html, />refresh</);
+  assert.match(html, /class="dshmcp_addButton"/);
+  assert.match(html, />add</);
+  assert.match(html, /class="dshmcp_footnote"/);
+  assert.match(html, /\/tmp\/cordis\.patch\.yml/);
   assert.match(html, /docs/);
   assert.match(html, /transportHttp/);
   assert.match(html, /transportStdio/);
+  assert.match(html, /https:\/\/example\.com\/mcp/);
+  assert.match(html, /\/bin\/echo hello/);
   assert.match(html, /duplicate/);
   assert.match(html, /role="switch"/);
+  assert.match(html, /aria-checked="true"/);
   assert.match(html, /aria-checked="false"/);
-  assert.match(html, /refresh/);
-  assert.match(html, /add/);
+  assert.match(html, /data-tone="success"/);
+  assert.match(html, /data-tone="warn"/);
+  assert.match(html, />edit</);
+  assert.match(html, />delete</);
 });
 
 test('renders the empty and error states instead of throwing', () => {
@@ -88,25 +105,26 @@ test('renders the empty and error states instead of throwing', () => {
     error: null,
     busy: null,
     notice: null,
-    state: { ok: true, profile: 'desktop', patchPath: '/tmp/x.yml', servers: [], warnings: [] },
+    refreshing: false,
+    state: { ...BASE_STATE, servers: [] },
   });
   assert.match(empty, /emptyTitle/);
+  assert.match(empty, /emptyHint/);
 
-  const failed = render({ status: 'error', state: null, error: { code: 'network' }, busy: null, notice: null });
+  const failed = render({ status: 'error', state: null, error: { code: 'network' }, busy: null, notice: null, refreshing: false });
   assert.match(failed, /loadFailed/);
   assert.match(failed, /retry/);
 });
 
-test('renders a read-only row without edit or switch controls', () => {
+test('renders a read-only row without a switch or edit action', () => {
   const html = render({
     status: 'ready',
     error: null,
     busy: null,
     notice: null,
+    refreshing: false,
     state: {
-      ok: true,
-      profile: 'desktop',
-      patchPath: '/tmp/x.yml',
+      ...BASE_STATE,
       servers: [
         {
           id: 'top',
@@ -122,11 +140,33 @@ test('renders a read-only row without edit or switch controls', () => {
           config: null,
         },
       ],
-      warnings: [],
     },
   });
   assert.match(html, /readOnly/);
   assert.match(html, /readOnlyNotInsert/);
   assert.doesNotMatch(html, /role="switch"/);
-  assert.doesNotMatch(html, /dshmcp_switch/);
+  assert.doesNotMatch(html, /class="dshmcp_button dshmcp_buttonSm dshmcp_buttonOutline"/);
+  assert.doesNotMatch(html, /dshmcp_buttonDanger/);
+});
+
+test('renders notices for saved and pending states', () => {
+  const saved = render({
+    status: 'ready',
+    error: null,
+    busy: null,
+    notice: { code: 'saved', params: { name: 'docs' } },
+    refreshing: false,
+    state: { ...BASE_STATE, servers: [] },
+  });
+  assert.match(saved, /dshmcp_notice_success/);
+
+  const pending = render({
+    status: 'ready',
+    error: null,
+    busy: null,
+    notice: { code: 'savedPending' },
+    refreshing: false,
+    state: { ...BASE_STATE, servers: [] },
+  });
+  assert.match(pending, /dshmcp_notice_warn/);
 });

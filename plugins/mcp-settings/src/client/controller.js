@@ -16,6 +16,7 @@ export function createController(options = {}) {
     error: null,
     busy: null,
     notice: null,
+    refreshing: false,
   };
   const listeners = new Set();
   let generation = 0;
@@ -54,18 +55,26 @@ export function createController(options = {}) {
   async function load(configuration = {}) {
     const silent = configuration.silent === true;
     const current = ++generation;
-    if (!silent && snapshot.state === null) publish({ status: 'loading', error: null });
+    if (!silent) {
+      publish(snapshot.state === null
+        ? { status: 'loading', error: null, refreshing: true }
+        : { error: null, refreshing: true });
+    }
     try {
       const { payload } = await request({ method: 'GET', fetchImpl });
       if (current !== generation || disposed) return;
       if (payload.ok === true) {
-        publish({ status: 'ready', state: payload, error: null });
+        publish({ status: 'ready', state: payload, error: null, refreshing: false });
       } else {
-        publish({ status: snapshot.state === null ? 'error' : 'ready', error: { code: payload.code || 'internal', params: payload.params } });
+        publish({
+          status: snapshot.state === null ? 'error' : 'ready',
+          error: { code: payload.code || 'internal', params: payload.params },
+          refreshing: false,
+        });
       }
     } catch (error) {
       if (current !== generation || disposed) return;
-      publish({ status: snapshot.state === null ? 'error' : 'ready', error: failure(error) });
+      publish({ status: snapshot.state === null ? 'error' : 'ready', error: failure(error), refreshing: false });
     }
   }
 
@@ -80,7 +89,6 @@ export function createController(options = {}) {
       const servers = snapshot.state && Array.isArray(snapshot.state.servers) ? snapshot.state.servers : [];
       const server = servers.find(item => item.name === name);
       if (server && typeof server.tools === 'number' && server.tools > 0) {
-        publish({ notice: null });
         return;
       }
       if (attempts >= POLL_ATTEMPTS) {
@@ -111,7 +119,7 @@ export function createController(options = {}) {
         },
       });
       if (payload.ok === true) {
-        publish({ busy: null, status: 'ready', state: payload, error: null, notice: { code: 'saved' } });
+        publish({ busy: null, status: 'ready', state: payload, error: null, notice: { code: 'saved', params: { name: draft.name } } });
         if (draft.enabled !== false) startPolling(draft.name);
         return { ok: true };
       }
@@ -119,7 +127,7 @@ export function createController(options = {}) {
       publish({ busy: null });
       return { ok: false, code: payload.code, params: payload.params, errors: payload.errors };
     } catch (error) {
-      publish({ busy: null, error: failure(error) });
+      publish({ busy: null });
       return { ok: false, code: failure(error).code };
     }
   }
@@ -134,14 +142,14 @@ export function createController(options = {}) {
         body: { action: 'delete', id: target.id, name: target.name, rowHash: target.rowHash },
       });
       if (payload.ok === true) {
-        publish({ busy: null, status: 'ready', state: payload, notice: { code: 'deleted' } });
+        publish({ busy: null, status: 'ready', state: payload, notice: { code: 'deleted', params: { name: target.name } } });
         return { ok: true };
       }
       if (payload.code === 'conflict') await load({ silent: true });
       publish({ busy: null });
       return { ok: false, code: payload.code, params: payload.params };
     } catch (error) {
-      publish({ busy: null, error: failure(error) });
+      publish({ busy: null });
       return { ok: false, code: failure(error).code };
     }
   }
@@ -164,7 +172,7 @@ export function createController(options = {}) {
       publish({ busy: null });
       return { ok: false, code: payload.code, params: payload.params };
     } catch (error) {
-      publish({ busy: null, error: failure(error) });
+      publish({ busy: null });
       return { ok: false, code: failure(error).code };
     }
   }

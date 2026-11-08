@@ -37,6 +37,7 @@ function fakeRequire() {
   const react = fakeReact();
   return specifier => {
     if (specifier === 'react') return react;
+    if (specifier === 'react-dom') return { createPortal: () => null };
     throw new Error(`unexpected client module: ${specifier}`);
   };
 }
@@ -135,7 +136,7 @@ test('the style effect is owned and removed', () => {
   mod.apply(ctx);
   assert.equal(documentObject.tags.length, 1);
   assert.equal(documentObject.tags[0].dataset.plugin, pkg.name);
-  assert.ok(documentObject.tags[0].textContent.includes('.dshmcp_section'));
+  assert.ok(documentObject.tags[0].textContent.includes('.dshmcp_page'));
   for (const dispose of disposers) {
     if (typeof dispose === 'function') dispose();
   }
