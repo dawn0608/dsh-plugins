@@ -26,12 +26,8 @@ function isProfileDirectory(dir) {
   }
 }
 
-/**
- * The desktop launcher does not export DSH_PROFILE_DIR to the host process; it
- * passes the profile directory as a launcher argument instead. The CLI exports
- * the variable. Accept both, and refuse to guess when neither names a profile.
- */
-function hostProfileDirectory(env = process.env) {
+/** Compatibility fallback for launchers that pass the profile directory as an argument. */
+function launcherProfileDirectory(env) {
   if (typeof env.DSH_PROFILE_DIR === 'string' && isProfileDirectory(env.DSH_PROFILE_DIR)) {
     return env.DSH_PROFILE_DIR;
   }
@@ -43,8 +39,9 @@ function hostProfileDirectory(env = process.env) {
 }
 
 /**
- * Resolve the profile patch path from the running environment.
- * @param {{env?: NodeJS.ProcessEnv, patchPath?: unknown}} [options]
+ * Resolve the explicit override, the active host profile, or a legacy launch hint.
+ * @param {{env?: NodeJS.ProcessEnv, patchPath?: unknown,
+ *   profileContext?: {dir?: unknown, patchPath?: unknown, name?: unknown}}} [options]
  */
 export function resolveProfile(options = {}) {
   const env = options.env || process.env;
@@ -54,13 +51,19 @@ export function resolveProfile(options = {}) {
     const profile = typeof env.DSH_PROFILE === 'string' && env.DSH_PROFILE !== '' ? env.DSH_PROFILE : basename(dir);
     return { dir, patchPath: options.patchPath, profile };
   }
+  const context = options.profileContext;
+  if (context && typeof context.dir === 'string' && isAbsolute(context.dir)
+    && typeof context.patchPath === 'string' && isAbsolute(context.patchPath)
+    && typeof context.name === 'string' && context.name !== '') {
+    return { dir: context.dir, patchPath: context.patchPath, profile: context.name };
+  }
   let dir;
   if (typeof env.DSH_PROFILE_DIR === 'string' && env.DSH_PROFILE_DIR !== '') {
     dir = env.DSH_PROFILE_DIR;
   } else if (typeof env.DSH_HOME === 'string' && env.DSH_HOME !== '' && typeof env.DSH_PROFILE === 'string' && env.DSH_PROFILE !== '') {
     dir = join(env.DSH_HOME, 'profiles', env.DSH_PROFILE);
   } else {
-    dir = hostProfileDirectory(env);
+    dir = launcherProfileDirectory(env);
   }
   if (dir === undefined) throw new PatchError('profile-unavailable', { reason: 'no-profile' });
   const profile = typeof env.DSH_PROFILE === 'string' && env.DSH_PROFILE !== '' ? env.DSH_PROFILE : basename(dir);
@@ -145,7 +148,7 @@ export function createStore(options) {
     const started = Date.now();
     const resolved = options.profile();
     let result;
-    await withProfileLock(dirname(resolved.patchPath), async () => {
+    await withProfileLock(resolved.dir, async () => {
       const fresh = readProfilePatch(resolved.patchPath);
       result = operation(fresh);
       if (result.text !== fresh.text) {

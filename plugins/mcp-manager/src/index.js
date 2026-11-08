@@ -12,7 +12,11 @@ export function apply(ctx, config) {
   const patchPath = config && typeof config === 'object' && typeof config.patchPath === 'string'
     ? config.patchPath
     : undefined;
-  const profile = () => resolveProfile({ patchPath });
+  // Older compositions may not provide profileContext.
+  const profile = () => resolveProfile({
+    patchPath,
+    profileContext: patchPath ? undefined : ctx.get('profileContext'),
+  });
 
   const countTools = name => {
     const tools = ctx.get('tools');

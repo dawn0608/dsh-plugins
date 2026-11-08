@@ -1,4 +1,7 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 import { DraftError } from '../src/errors.js';
 import { MAX_BODY_BYTES, createApi, createFetchHandler } from '../src/routes.js';
@@ -101,6 +104,31 @@ test('registers only the authenticated connection route', () => {
   assert.deepEqual(routes.map(({ path, methods }) => ({ path, methods })), [
     { path: '/api/mcp-manager', methods: ['GET', 'HEAD', 'POST'] },
   ]);
+});
+
+test('the registered route reads the active host profile without profile environment or arguments', async t => {
+  t.mock.property(process, 'env', {});
+  t.mock.property(process, 'argv', ['node', 'dsh', 'web']);
+  const dir = mkdtempSync(join(tmpdir(), 'mcp-manager-host-profile-'));
+  t.after(() => rmSync(dir, { force: true, recursive: true }));
+  const patchPath = join(dir, 'host.patch.yml');
+  writeFileSync(patchPath, '[]\n');
+
+  let route;
+  apply({
+    effect(register) { register(); },
+    connection: { fetch: { register(definition) { route = definition; } } },
+    get(service) {
+      if (service === 'profileContext') return { name: 'web-isolated', dir, patchPath };
+    },
+  });
+
+  const response = await route.fetch(new Request('http://localhost/api/mcp-manager'));
+  assert.equal(response.status, 200);
+  const state = await response.json();
+  assert.equal(state.profile, 'web-isolated');
+  assert.equal(state.patchPath, patchPath);
+  assert.deepEqual(state.servers, []);
 });
 
 test('the authenticated adapter returns headers with no body on HEAD', async () => {

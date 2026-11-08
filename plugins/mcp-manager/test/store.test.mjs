@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -45,6 +45,39 @@ test('resolves the profile patch from the environment and explicit config', () =
   );
   assert.throws(() => resolveProfile({ env: {} }), error => error.code === 'profile-unavailable');
   assert.throws(() => resolveProfile({ env: {}, patchPath: 'relative.yml' }), error => error.code === 'profile-unavailable');
+});
+
+const HOST_PROFILE = { name: 'web-isolated', dir: '/tmp/host-profile', patchPath: '/tmp/host-profile/patch.yml' };
+
+test('uses the host profile context when the CLI supplies no profile environment or argument', t => {
+  t.mock.property(process, 'argv', ['node', 'dsh', 'web']);
+  assert.deepEqual(resolveProfile({ env: {}, profileContext: HOST_PROFILE }), {
+    dir: HOST_PROFILE.dir,
+    patchPath: HOST_PROFILE.patchPath,
+    profile: HOST_PROFILE.name,
+  });
+});
+
+test('prefers the explicit patch path over host context and host context over environment', () => {
+  const env = { DSH_PROFILE_DIR: '/tmp/env-profile', DSH_PROFILE: 'env-profile' };
+  assert.deepEqual(resolveProfile({ env, profileContext: HOST_PROFILE }), {
+    dir: HOST_PROFILE.dir,
+    patchPath: HOST_PROFILE.patchPath,
+    profile: HOST_PROFILE.name,
+  });
+  assert.deepEqual(resolveProfile({ env, profileContext: HOST_PROFILE, patchPath: '/tmp/custom/patch.yml' }), {
+    dir: '/tmp/custom',
+    patchPath: '/tmp/custom/patch.yml',
+    profile: 'env-profile',
+  });
+  assert.throws(
+    () => resolveProfile({ env, profileContext: HOST_PROFILE, patchPath: 'relative.yml' }),
+    { code: 'profile-unavailable' },
+  );
+  assert.equal(resolveProfile({
+    env,
+    profileContext: { ...HOST_PROFILE, patchPath: 'relative.yml' },
+  }).patchPath, '/tmp/env-profile/cordis.patch.yml');
 });
 
 test('finds the profile directory the desktop launcher passes as an argument', () => {
@@ -256,4 +289,23 @@ test('a toggle to the existing value leaves the patch file untouched', async t =
   const after = await space.store.setEnabled({ action: 'setEnabled', id: docs.id, rowHash: docs.rowHash, enabled: true });
   assert.equal(after.revision, before.revision);
   assert.equal(statSync(space.patchPath, { bigint: true }).ino, inode);
+});
+
+test('locks the host profile directory even when the patch file has a different parent', async t => {
+  const space = profile();
+  t.after(space.cleanup);
+  const folder = join(space.dir, 'nested');
+  const patchPath = join(folder, 'patch.yml');
+  mkdirSync(folder);
+  writeFileSync(patchPath, FIXTURE);
+  const store = createStore({
+    profile: () => ({ dir: space.dir, patchPath, profile: 'isolated' }),
+    lockTimeoutMs: 1,
+    log: () => {},
+  });
+  const [target] = (await store.readState()).servers;
+  await withProfileLock(space.dir, async () => {
+    await assert.rejects(store.setEnabled({ id: target.id, rowHash: target.rowHash, enabled: false }), { code: 'locked' });
+  });
+  assert.equal(readFileSync(patchPath, 'utf8'), FIXTURE);
 });

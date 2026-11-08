@@ -24,7 +24,7 @@ To install from source, run `npm ci` and `npm run build` from the repository roo
 
 Use the switch to enable or disable an existing server. To add or change server settings, give your AI assistant the provider's setup instructions and ask it to update the profile's `cordis.patch.yml`.
 
-The plugin resolves the profile from `DSH_PROFILE_DIR`, then `DSH_HOME/profiles/DSH_PROFILE` when both variables are set, then an absolute profile directory passed by the Desktop launcher that contains a profile manifest and patch file. It reports an unavailable profile if it cannot locate or read the patch. For a nonstandard layout, set the optional absolute `patchPath` explicitly:
+The plugin normally uses the active profile's name, directory, and patch path from the Harness host. When the host does not supply this information, the plugin checks `DSH_PROFILE_DIR`, then `DSH_HOME/profiles/<DSH_PROFILE>` when both variables are set, and finally an absolute launcher argument pointing to a directory with a profile manifest and patch file. The panel reports when it cannot locate or read the patch. An explicit absolute `patchPath` takes precedence over all these sources.
 
 ```yaml
 - id: mcp-manager
