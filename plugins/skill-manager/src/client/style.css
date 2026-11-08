@@ -34,7 +34,7 @@ html[data-platform='darwin'] .dshskill_page {
   margin-inline: auto;
 }
 
-.dshskill_page :where(h1, h2, p, ul, dl, dd):not(:where(.dshskill_detailSections *)) {
+.dshskill_page :where(h1, h2, p, ul):not(:where(.dshskill_detailSections *)) {
   margin: 0;
 }
 
@@ -113,7 +113,7 @@ html[data-platform='darwin'] .dshskill_page {
   color: var(--dsw-alias-label-secondary);
 }
 
-.dshskill_page :where(.dshskill_control, .dshskill_back, .dshskill_header h1, .dshskill_detailMain h1):focus-visible {
+.dshskill_page :where(.dshskill_control, .dshskill_back, .dshskill_header h1, .dshskill_detailMain h1, .dshskill_repository):focus-visible {
   outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: 2px;
 }
@@ -329,6 +329,24 @@ html[data-platform='darwin'] .dshskill_page {
   margin-top: 20px;
 }
 
+.dshskill_detailTitleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dshskill_repository {
+  min-width: 0;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 12px;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
 .dshskill_detailDescription {
   color: var(--dsw-alias-label-secondary);
   font-size: 14px;
@@ -339,25 +357,6 @@ html[data-platform='darwin'] .dshskill_page {
 .dshskill_detailSections {
   gap: 32px;
   margin-top: 32px;
-}
-
-.dshskill_detailSource {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 12px;
-  color: var(--dsw-alias-label-tertiary);
-  font-size: 12px;
-  line-height: 18px;
-}
-
-.dshskill_detailSource dd {
-  overflow-wrap: anywhere;
-}
-
-.dshskill_detailSource a {
-  color: inherit;
-  text-decoration: underline;
-  text-underline-offset: 0.15em;
 }
 
 .dshskill_dialog {

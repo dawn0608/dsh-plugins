@@ -52,7 +52,7 @@ function CatalogRows({ skills, query, translate: t, busy, savingId, store, openD
 }
 
 function SkillDetail({ skill, titleRef, translate: t, busy, saving, back, openRemove, controls, store }) {
-  const { BackIcon, Button, SkillDocument, SkillEmblem, TrashIcon } = controls;
+  const { BackIcon, Button, SkillDocument, SkillEmblem, Tag, TrashIcon } = controls;
   const [preview, setPreview] = useState(null);
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
@@ -66,8 +66,10 @@ function SkillDetail({ skill, titleRef, translate: t, busy, saving, back, openRe
 
   const imported = skill.group === 'imported';
   const canToggle = typeof skill.enabled === 'boolean';
-  const source = preview?.origin ?? skill.origin ?? (imported ? 'imported' : 'unknownOrigin');
-  const repository = source === 'third-party' ? preview?.repository : undefined;
+  const origin = preview?.origin ?? skill.origin;
+  const repository = origin === 'third-party' ? preview?.repository : undefined;
+  const repositoryLabel = repository?.replace(/^https:\/\/(?:github\.com\/)?/, '').replace(/\/$/, '');
+  const originLabel = t(origin ? 'origin-' + origin : imported ? 'imported' : 'unknownOrigin');
   return h('div', { className: 'dshskill_detail' },
     h('header', { className: 'dshskill_detailTop' },
       h('button', { type: 'button', className: 'dshskill_back', 'aria-label': t('back'), onClick: back },
@@ -82,11 +84,12 @@ function SkillDetail({ skill, titleRef, translate: t, busy, saving, back, openRe
           }, t('uninstall')),
           canToggle && h(SkillToggle, { skill, busy, saving, store, translate: t, controls })))),
     h('div', { className: 'dshskill_detailMain' },
-      h('h1', { ref: titleRef, tabIndex: -1 }, skill.name),
-      h('dl', { className: 'dshskill_detailSource' },
-        h('dt', null, t('source')),
-        h('dd', null, repository ? h('a', { href: repository, target: '_blank', rel: 'noopener noreferrer' },
-          repository.slice('https://'.length).replace(/\/$/, '')) : t(source))),
+      h('div', { className: 'dshskill_detailTitleRow' },
+        h('h1', { ref: titleRef, tabIndex: -1 }, skill.name),
+        repository ? h('a', {
+          className: 'dshskill_repository', href: repository, target: '_blank', rel: 'noopener noreferrer',
+          'aria-label': t('openRepository', { repository: repositoryLabel }),
+        }, repositoryLabel, ' ', h('span', { 'aria-hidden': true }, '↗')) : h(Tag, { tone: 'neutral' }, originLabel)),
       skill.description && h('p', { className: 'dshskill_detailDescription' }, skill.description)),
     h('div', { className: 'dshskill_detailSections' },
       h(SkillDocument, { preview, translate: t, onRetry: () => { setPreview(null); setAttempt(value => value + 1); } })));
