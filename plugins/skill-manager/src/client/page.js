@@ -5,7 +5,7 @@ import { RemoveDialog } from './dialog.js';
 import { SkillIcon } from './icon.js';
 import { createTranslator } from './i18n.js';
 
-const GROUPS = ['imported', 'workspace', 'local', 'builtin'];
+const GROUPS = ['builtin', 'self', 'third-party'];
 const SOURCES = new Set(['project-dsh', 'project-agents', 'custom', 'user-dsh', 'user-agents', 'bundled', 'runtime']);
 
 function CatalogRows({ skills, query, translate: t, busy, store, openDetail }) {
@@ -16,7 +16,7 @@ function CatalogRows({ skills, query, translate: t, busy, store, openDetail }) {
   if (!visible.length) return h('p', { className: 'dshskill_muted', role: 'status' }, t(term ? 'noMatch' : 'empty'));
 
   return h('div', { className: 'dshskill_groups' }, GROUPS.map(group => {
-    const entries = visible.filter(skill => skill.group === group);
+    const entries = visible.filter(skill => (skill.origin ?? 'third-party') === group);
     if (!entries.length) return null;
     const id = headingId + group;
     return h('section', { key: group, 'aria-labelledby': id },
@@ -32,7 +32,7 @@ function CatalogRows({ skills, query, translate: t, busy, store, openDetail }) {
             h('span', { className: 'dshskill_rowName' },
               skill.name, skill.shadowed && h('span', { className: 'dshskill_badge' }, t('shadowed'))),
             skill.description && h('span', { className: 'dshskill_description' }, skill.description))),
-          group === 'imported' && typeof skill.enabled === 'boolean' && h('button', {
+          skill.group === 'imported' && typeof skill.enabled === 'boolean' && h('button', {
             type: 'button', className: 'dshskill_switch', role: 'switch', 'aria-checked': skill.enabled,
             'aria-label': t('switchLabel', { name: skill.name }), 'aria-disabled': busy || undefined,
             onClick: () => { void store.mutate({ action: 'setEnabled', id: skill.id, enabled: !skill.enabled }); },
@@ -46,11 +46,13 @@ function SkillDetail({ skill, titleRef, translate: t, busy, back, openRemove }) 
     const pending = new AbortController();
     request({ action: 'detail', workspaceId: null, id: skill.id },
       AbortSignal.any([pending.signal, AbortSignal.timeout(8000)]))
-      .then(({ body }) => { if (!pending.signal.aborted) setPreview({ body }); })
+      .then(result => { if (!pending.signal.aborted) setPreview(result); })
       .catch(error => { if (!pending.signal.aborted) setPreview({ error: error.code ?? 'unavailable' }); });
     return () => pending.abort();
   }, [skill.id]);
 
+  const unknownOrigin = preview?.body !== undefined && !preview.origin;
+  const repository = preview?.repository;
   return h('div', { className: 'dshskill_detail' },
     h('button', { type: 'button', className: 'dshskill_control dshskill_back', onClick: back },
       h(SkillIcon, { kind: 'back', size: 16 }), t('back')),
@@ -64,7 +66,12 @@ function SkillDetail({ skill, titleRef, translate: t, busy, back, openRemove }) 
       }, t('uninstall'))),
     h('dl', { className: 'dshskill_metadata' },
       h('dt', null, t('source')),
-      h('dd', null, t(skill.group === 'imported' || !SOURCES.has(skill.source) ? skill.group : skill.source))),
+      h('dd', null, t(skill.group === 'imported' || !SOURCES.has(skill.source) ? skill.group : skill.source)),
+      unknownOrigin && h('dt', null, t('origin')),
+      unknownOrigin && h('dd', null, t('unknownOrigin')),
+      repository && h('dt', null, t('repository')),
+      repository && h('dd', null,
+        h('a', { href: repository, target: '_blank', rel: 'noopener noreferrer' }, repository))),
     h('section', { className: 'dshskill_preview' },
       h('h2', null, t('preview')),
       preview === null && h('p', { role: 'status', className: 'dshskill_muted' }, t('loadingPreview')),

@@ -1,5 +1,6 @@
 import { isAbsolute, join, normalize } from 'node:path';
 import { isManagedName, isRecord, isSkillName, ManagerError, MANAGED_ID, validateBundle } from './host-bundle.js';
+import { readProvenance } from './host-provenance.js';
 import { createSkillStore } from './host-store.js';
 
 export const ROUTE = '/api/skill-manager';
@@ -42,7 +43,12 @@ function parseId(id) {
   throw new ManagerError('invalid');
 }
 
-function catalogRow(skill) {
+function skillProvenance(skill, provenance) {
+  return skill.source === 'bundled' ? { origin: 'builtin' } : provenance(skill);
+}
+
+function catalogRow(skill, provenance) {
+  const origin = skillProvenance(skill, provenance)?.origin;
   return {
     id: `catalog:${skill.name}`,
     name: skill.name,
@@ -51,6 +57,7 @@ function catalogRow(skill) {
     source: SOURCES.has(skill.source) ? skill.source : 'other',
     enabled: null,
     shadowed: false,
+    ...(origin && { origin }),
   };
 }
 
@@ -62,7 +69,7 @@ function matchesManaged(skill, managed) {
     path === join(managed.active, 'SKILL.md');
 }
 
-export function createSkillManager({ home, skills, workspaceRegistry, agentPresets }) {
+export function createSkillManager({ home, agentsHome, skills, workspaceRegistry, agentPresets }) {
   const store = createSkillStore(home);
 
   async function scoped(options, operation) {
@@ -98,7 +105,7 @@ export function createSkillManager({ home, skills, workspaceRegistry, agentPrese
 
   async function list(options) {
     const workspaces = workspaceRegistry.list().map(({ id, title }) => ({ id, title }));
-    const catalog = await snapshot(options);
+    const [catalog, provenance] = await Promise.all([snapshot(options), readProvenance(agentsHome)]);
     const managed = store.list();
     const byName = new Map(catalog.skills.map(skill => [skill.name, skill]));
     const rows = [];
@@ -116,7 +123,7 @@ export function createSkillManager({ home, skills, workspaceRegistry, agentPrese
         shadowed: skill.enabled && Boolean(match) && !ownWinner,
       });
     }
-    rows.push(...[...byName.values()].map(catalogRow));
+    rows.push(...[...byName.values()].map(skill => catalogRow(skill, provenance)));
     rows.sort((left, right) => left.name.localeCompare(right.name) || Number(right.group === 'imported') - Number(left.group === 'imported'));
     return { skills: rows, workspaces, complete: catalog.complete && managed.complete };
   }
@@ -131,8 +138,8 @@ export function createSkillManager({ home, skills, workspaceRegistry, agentPrese
       }
       return { body: managed.body };
     }
-    const actual = await load(name, options);
-    if (actual) return { body: actual.content };
+    const [actual, provenance] = await Promise.all([load(name, options), readProvenance(agentsHome)]);
+    if (actual) return { body: actual.content, ...skillProvenance(actual, provenance) };
     throw new ManagerError((await snapshot(options)).complete ? 'not-found' : 'incomplete');
   }
 

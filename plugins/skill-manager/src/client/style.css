@@ -286,6 +286,12 @@ html[data-platform='darwin'] .dshskill_page {
   overflow-wrap: anywhere;
 }
 
+.dshskill_metadata a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
 .dshskill_preview {
   display: grid;
   gap: 8px;
