@@ -208,7 +208,7 @@ export function foldCost(events, table, toolPrices) {
       const call = pendingCalls.get(message.toolCallId);
       if (call === undefined) continue;
       pendingCalls.delete(message.toolCallId);
-      if (event.data && event.data.error) continue;
+      if (message.isError === true || event.data?.error) continue;
       toolRequests += call.units;
       toolCost += call.units * priceOf(call.name);
       continue;

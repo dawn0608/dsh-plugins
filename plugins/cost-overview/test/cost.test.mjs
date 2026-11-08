@@ -265,3 +265,22 @@ test('searchUnits mirrors the web tool validation and dedupe', () => {
   assert.equal(searchUnits('web_search', 'not json'), 1);
   assert.equal(searchUnits('web_fetch', '{"url":"https://example.com"}'), 1);
 });
+
+test('does not bill web tools marked as failed on the durable result message', () => {
+  const result = foldCost([
+    toolCall('search', 'web_search', '{"queries":["a","b"]}'),
+    {
+      type: 'tool/result',
+      time: OFFPEAK,
+      data: { message: { toolCallId: 'search', isError: true } },
+    },
+    toolCall('fetch', 'web_fetch', '{"url":"https://example.com"}'),
+    {
+      type: 'tool/result',
+      time: OFFPEAK,
+      data: { message: { toolCallId: 'fetch', isError: false } },
+    },
+  ], table, toolPrices);
+  assert.equal(result.toolRequests, 1);
+  close(result.toolCost, 0.005);
+});

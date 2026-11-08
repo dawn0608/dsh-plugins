@@ -3,19 +3,20 @@ import * as React from 'react';
 import * as ReactDOM from 'react-dom';
 import { countText, currencySymbol, money } from './format.js';
 import { createTranslator, registerLocale } from './i18n.js';
+import { usePanelPosition } from './position.js';
 import { createBalanceStore, walletTotal } from './store.js';
 import css from './style.css';
 
 const h = React.createElement;
 
-function createEntry(store, translate) {
+function createEntry(translate) {
   function reasonLabel(reason) {
     switch (reason) {
       case 'missing-key': return translate('reasonMissingKey');
       case 'unauthorized': return translate('reasonUnauthorized');
+      case 'forbidden': return translate('reasonForbidden');
       case 'network': return translate('reasonNetwork');
       case 'timeout': return translate('reasonTimeout');
-      case 'no-endpoint': return translate('reasonNoEndpoint');
       case 'no-wallet': return translate('reasonNoWallet');
       case 'not-live': return translate('reasonNotLive');
       case 'no-session': return translate('reasonNotLive');
@@ -36,17 +37,11 @@ function createEntry(store, translate) {
     return translate('pillBalanceUnknown');
   }
 
-  function costView(snapshot, sessionId) {
-    const value = snapshot.sessionId === sessionId ? snapshot.cost : undefined;
-    if (value && value.ok === true) {
-      return { exact: true, amount: Number(value.total) || 0, data: value, pending: false };
-    }
-    const pending = value === undefined
-      && (snapshot.status === 'idle' || snapshot.status === 'loading');
-    return { exact: false, amount: undefined, data: value, pending };
+  function costLabel(amount, estimated) {
+    return translate(estimated ? 'estimatedCost' : 'pillCost', { amount: money(amount, '¥') });
   }
 
-  function Panel({ view, snapshot, position, panelRef }) {
+  function Panel({ cost, unknownModels, snapshot, position, panelRef }) {
     const ready = snapshot.status === 'ready';
     const wallet = ready ? snapshot.wallets[0] : undefined;
     const cells = [];
@@ -56,28 +51,26 @@ function createEntry(store, translate) {
     };
     const modelLabel = label => (typeof label === 'string' && label !== '' ? label : translate('unknownModel'));
 
-    if (view.exact) {
-      const data = view.data;
-      const models = Array.isArray(data.models) ? data.models : [];
+    if (cost?.ok === true) {
+      const models = Array.isArray(cost.models) ? cost.models : [];
       if (models.length > 1) {
         // One line per model, carrying both its cost and its request count.
         models.forEach((model, index) => {
-          push(`model-${index}`, index === 0 ? translate('modelLabel') : '', `${modelLabel(model.label)} ${money(model.cost, '¥')}`
-            + ` · ${translate('callsValue', { count: countText(model.calls) })}`);
+          const estimated = unknownModels.has(model.key) || (model.key === 'unknown' && unknownModels.has(''));
+          push(`model-${index}`, index === 0 ? translate('modelLabel') : '',
+            `${modelLabel(model.label)} ${costLabel(model.cost, estimated)} · ${translate('callsValue', { count: countText(model.calls) })}`);
         });
       } else {
-        const selection = data.selection;
+        const selection = cost.selection;
         if (models.length === 1) push('model', translate('modelLabel'), modelLabel(models[0].label));
         else if (selection && typeof selection.label === 'string') {
           push('model', translate('modelLabel'), modelLabel(selection.label));
         }
-        push('calls', translate('callsLabel'), translate('callsValue', { count: countText(data.calls) }));
+        push('calls', translate('callsLabel'), translate('callsValue', { count: countText(cost.calls) }));
       }
-      push('web', translate('webLabel'), translate('webValue', { count: countText(Number(data.toolRequests) || 0) }));
+      push('web', translate('webLabel'), translate('webValue', { count: countText(Number(cost.toolRequests) || 0) }));
     } else {
-      push('state', translate('statusLabel'), view.pending
-        ? translate('balanceLoading')
-        : reasonLabel(view.data && view.data.reason ? view.data.reason : 'not-live'));
+      push('state', translate('statusLabel'), reasonLabel(cost?.reason ?? snapshot.reason));
     }
 
     if (ready && wallet !== undefined) {
@@ -92,13 +85,12 @@ function createEntry(store, translate) {
         : reasonLabel(snapshot.reason));
     }
 
-
     return h('div', {
       ref: panelRef,
       className: 'dshco_panel',
       role: 'dialog',
       'aria-label': translate('panelTitle'),
-      style: position || { visibility: 'hidden' },
+      style: position ?? { visibility: 'hidden', left: 0, top: 0 },
     }, [
       h('div', { key: 'title', className: 'dshco_title' }, [
         h('span', { key: 'label', className: 'dshco_titleLabel' }, [
@@ -106,7 +98,7 @@ function createEntry(store, translate) {
           translate('costTitle'),
         ]),
         h('span', { key: 'value', className: 'dshco_titleValue' },
-          view.exact ? money(view.amount, '¥') : '—'),
+          cost?.ok === true ? costLabel(Number(cost.total) || 0, unknownModels.size > 0) : '—'),
       ]),
       h('div', { key: 'rule', className: 'dshco_rule', 'aria-hidden': true }),
       h('dl', { key: 'details', className: 'dshco_details' }, cells),
@@ -115,19 +107,38 @@ function createEntry(store, translate) {
 
   function CostOverviewEntry(props) {
     const usage = props.useProjection('tokenUsage');
-    const snapshot = React.useSyncExternalStore(store.subscribe, store.current, store.current);
+    const { sessionId } = props;
+    const [snapshot, setSnapshot] = React.useState(null);
     const [open, setOpen] = React.useState(false);
-    const [position, setPosition] = React.useState(undefined);
+    const storeRef = React.useRef(null);
     const rootRef = React.useRef(null);
     const panelRef = React.useRef(null);
-    const view = costView(snapshot, props.sessionId);
-    const sessionId = props.sessionId;
+    const previousUsage = React.useRef(null);
 
     const usageKey = usage
       ? [usage.uncachedInputTokens, usage.cacheReadTokens, usage.cacheWriteTokens, usage.outputTokens].join(':')
       : '';
+    const used = ((usage?.uncachedInputTokens || 0) + (usage?.cacheReadTokens || 0)
+      + (usage?.cacheWriteTokens || 0) + (usage?.outputTokens || 0)) > 0;
+    const cost = snapshot?.cost;
+    const visible = used && snapshot?.sessionId === sessionId
+      && (cost != null || snapshot?.status === 'unavailable');
+    const showPanel = visible && open;
+    const position = usePanelPosition(showPanel, rootRef, panelRef);
 
     React.useEffect(() => {
+      const store = createBalanceStore();
+      storeRef.current = store;
+      store.subscribe(setSnapshot);
+      setSnapshot(store.current());
+      return () => {
+        storeRef.current = null;
+        store.dispose();
+      };
+    }, []);
+
+    React.useEffect(() => {
+      const store = storeRef.current;
       store.refresh({ sessionId });
       const timer = setInterval(() => store.refresh({ sessionId }), 300000);
       const onVisible = () => {
@@ -141,44 +152,16 @@ function createEntry(store, translate) {
     }, [sessionId]);
 
     React.useEffect(() => {
-      // The other composer statistics move on this same event, so read the
-      // new cost immediately instead of waiting for the next timed poll.
-      if (usageKey !== '') store.refresh({ sessionId, force: true });
-    }, [usageKey]);
-
-    React.useEffect(() => {
-      // Opening the panel is an explicit request for fresh numbers; the Host
-      // still applies its own one-minute balance and pricing caches.
-      if (open) store.refresh({ sessionId });
-    }, [open, sessionId]);
-
-    React.useLayoutEffect(() => {
-      if (!open) {
-        setPosition(undefined);
-        return;
+      const previous = previousUsage.current;
+      previousUsage.current = { sessionId, key: usageKey };
+      // The mount and switch read already covers the initial projection.
+      if (usageKey !== '' && previous?.sessionId === sessionId && previous?.key !== usageKey) {
+        storeRef.current?.refresh({ sessionId, force: true });
       }
-      const place = () => {
-        const element = rootRef.current;
-        if (element === null) return;
-        const rect = element.getBoundingClientRect();
-        const width = Math.min(440, window.innerWidth - 24);
-        const left = Math.max(12, Math.min(rect.left, window.innerWidth - width - 12));
-        setPosition({
-          left: `${Math.round(left)}px`,
-          bottom: `${Math.round(window.innerHeight - rect.top + 8)}px`,
-        });
-      };
-      place();
-      window.addEventListener('resize', place);
-      window.addEventListener('scroll', place, true);
-      return () => {
-        window.removeEventListener('resize', place);
-        window.removeEventListener('scroll', place, true);
-      };
-    }, [open]);
+    }, [sessionId, usageKey]);
 
     React.useEffect(() => {
-      if (!open) return;
+      if (!showPanel) return;
       const onKeyDown = event => {
         if (event.key === 'Escape') setOpen(false);
       };
@@ -195,21 +178,16 @@ function createEntry(store, translate) {
         document.removeEventListener('keydown', onKeyDown);
         document.removeEventListener('pointerdown', onPointerDown, true);
       };
-    }, [open]);
+    }, [showPanel]);
 
-    // Match the shipped statistics pills: nothing until this Session has
-    // produced tokens, and nothing while this Session's own cost is still in
-    // flight, so the row appears together with the other two.
-    const used = usage !== undefined && usage !== null
-      && ((usage.uncachedInputTokens || 0) + (usage.cacheReadTokens || 0)
-        + (usage.cacheWriteTokens || 0) + (usage.outputTokens || 0)) > 0;
-    if (!used || view.data === undefined || view.data === null) return null;
+    if (!visible) return null;
 
-    const costText = view.exact ? translate('pillCost', { amount: money(view.amount, '¥') }) : '—';
+    const unknownModels = new Set(Array.isArray(cost?.unknownModels) ? cost.unknownModels : []);
+    const costText = cost?.ok === true ? costLabel(Number(cost.total) || 0, unknownModels.size > 0) : '—';
     const label = `${costText} ${translate('pillSeparator')} ${balanceLabel(snapshot)}`;
 
-    const panelProps = { view, snapshot, position, panelRef };
-    const panel = open
+    const panelProps = { cost, unknownModels, snapshot, position, panelRef };
+    const panel = showPanel
       ? (typeof ReactDOM.createPortal === 'function'
         ? ReactDOM.createPortal(h(Panel, { ...panelProps, key: 'panel' }), document.body, 'panel')
         : h(Panel, { ...panelProps, key: 'panel' }))
@@ -227,7 +205,10 @@ function createEntry(store, translate) {
         'aria-haspopup': 'dialog',
         'aria-expanded': open,
         'aria-label': `${translate('openDetails')}: ${label}`,
-        onClick: () => setOpen(!open),
+        onClick: () => {
+          setOpen(!open);
+          if (!open) storeRef.current?.refresh({ sessionId, force: true });
+        },
       }, [
         h(Icon, { key: 'icon', className: 'dshco_icon' }),
         h('span', { key: 'label', className: 'dshco_label' }, label),
@@ -289,8 +270,7 @@ export function apply(ctx) {
   }, 'cost-overview: styles');
 
   const translate = createTranslator(ctx);
-  const store = createBalanceStore();
-  const Entry = createEntry(store, translate);
+  const Entry = createEntry(translate);
 
   ctx.slots.inject('conversation.composer.dock', () => {
     if (slotOccupied(ctx, 'conversation.composer.dock', 'cost-overview')) {

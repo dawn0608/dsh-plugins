@@ -1,49 +1,36 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { apply } from '../lib/index.js';
-import { stateCandidates } from '../src/client/store.js';
+import { randomUUID } from 'node:crypto';
+import { apply, inject } from '../lib/index.js';
 
-test('web and connection routes serve the state URLs used by the client', async t => {
+test('only the connection route is registered and serves GET and HEAD', async t => {
   t.mock.method(globalThis, 'fetch', async () => new Response(null, { status: 503 }));
-  const originalKeyEnv = process.env.COST_OVERVIEW_API_KEY_ENV;
-  const missingKey = 'DSH_COST_OVERVIEW_TEST_MISSING_KEY';
-  process.env.COST_OVERVIEW_API_KEY_ENV = missingKey;
-  globalThis.window = {};
-  globalThis.location = new URL('http://localhost');
-  t.after(() => {
-    if (originalKeyEnv === undefined) delete process.env.COST_OVERVIEW_API_KEY_ENV;
-    else process.env.COST_OVERVIEW_API_KEY_ENV = originalKeyEnv;
-    delete globalThis.window;
-    delete globalThis.location;
-  });
+  const missingKey = `DSH_COST_OVERVIEW_TEST_${randomUUID()}`;
 
-  let webRoute;
   let channelRoute;
   apply({
-    get: () => undefined,
+    get: name => name === 'settings' ? {
+      describe: () => [{ ns: 'llm-deepseek', value: { apiKeyEnv: missingKey } }],
+    } : undefined,
     effect: register => register(),
-    webServer: { register: route => { webRoute = route; } },
+    webServer: { register: () => assert.fail('registered a route outside the connection') },
     connection: { fetch: { register: route => { channelRoute = route; } } },
   });
 
-  const [webUrl, channelUrl] = stateCandidates('session with spaces');
-  assert.equal(webRoute.path, '/plugin/cost-overview/state');
+  assert.deepEqual(inject, ['connection']);
   assert.equal(channelRoute.path, '/api/cost-overview/state');
-  assert.equal(new URL(webUrl).pathname, webRoute.path);
-  assert.equal(new URL(channelUrl, 'http://localhost').pathname, channelRoute.path);
-
-  let webState;
-  await webRoute.handler({ method: 'GET', url: webUrl }, {
-    writeHead(status) { assert.equal(status, 200); },
-    end(body) { webState = JSON.parse(body); },
-  });
-  const response = await channelRoute.fetch(new Request(new URL(channelUrl, 'http://localhost')));
+  const url = new URL('api/cost-overview/state?session=session%20with%20spaces', 'http://localhost');
+  const response = await channelRoute.fetch(new Request(url));
   assert.equal(response.status, 200);
-  for (const state of [webState, await response.json()]) {
-    assert.deepEqual(
-      { ok: state.balance.ok, reason: state.balance.reason, apiKeyEnv: state.balance.apiKeyEnv },
-      { ok: false, reason: 'missing-key', apiKeyEnv: missingKey },
-    );
-    assert.deepEqual(state.cost, { ok: false, reason: 'price-failed' });
-  }
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  const state = await response.json();
+  assert.deepEqual(
+    { ok: state.balance.ok, reason: state.balance.reason, apiKeyEnv: state.balance.apiKeyEnv },
+    { ok: false, reason: 'missing-key', apiKeyEnv: missingKey },
+  );
+  assert.deepEqual(state.cost, { ok: false, reason: 'price-failed' });
+
+  const head = await channelRoute.fetch(new Request(url, { method: 'HEAD' }));
+  assert.equal(head.status, 200);
+  assert.equal(await head.text(), '');
 });

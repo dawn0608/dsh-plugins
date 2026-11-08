@@ -5,6 +5,7 @@ export const NS = 'costOverview';
 export const DICTS = {
   zh: {
     pillCost: '{amount}',
+    estimatedCost: '估算 {amount}',
     pillBalance: '余额 {amount}',
     pillBalanceUnknown: '余额 —',
     pillBalanceLoading: '余额 …',
@@ -23,9 +24,9 @@ export const DICTS = {
     openDetails: '查看费用与余额明细',
     reasonMissingKey: '未配置 API Key',
     reasonUnauthorized: 'API Key 无效',
+    reasonForbidden: '无权读取会话数据',
     reasonNetwork: '网络请求失败',
     reasonTimeout: '请求超时',
-    reasonNoEndpoint: '无法连接 Host',
     reasonNoWallet: '暂无可用余额',
     reasonNotLive: '会话未在运行',
     reasonPricePending: '价格获取中',
@@ -38,6 +39,7 @@ export const DICTS = {
 // en is a real English dictionary. Keep its key set identical to zh.
 DICTS.en = {
   pillCost: '{amount}',
+  estimatedCost: 'Est. {amount}',
   pillBalance: 'Balance {amount}',
   pillBalanceUnknown: 'Balance —',
   pillBalanceLoading: 'Balance …',
@@ -56,9 +58,9 @@ DICTS.en = {
   openDetails: 'Open the cost and balance breakdown',
   reasonMissingKey: 'Missing API key',
   reasonUnauthorized: 'Invalid API key',
+  reasonForbidden: 'Cannot access session data',
   reasonNetwork: 'Network error',
   reasonTimeout: 'Request timed out',
-  reasonNoEndpoint: 'Host unreachable',
   reasonNoWallet: 'No available balance',
   reasonNotLive: 'Session not running',
   reasonPricePending: 'Fetching prices',

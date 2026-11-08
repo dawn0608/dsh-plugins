@@ -4,24 +4,17 @@
  * Two facts shape this half:
  *
  * 1. DeepSeek publishes prices, not a bill. `GET /user/balance` reports the
- *    account's money, and there is no per-session billing endpoint, so the
- *    Session's cost is reconstructed exactly the way the bill is formed:
- *    `tokens × published unit price`, once per logged model call, at the price
- *    window (peak/off-peak) of that call's own time.
+ *    account's money. The session cost is calculated from each logged call's
+ *    usage and the published unit prices for its recorded time window.
  * 2. The browser cannot read the balance itself: the key lives with the Host.
  *
- * The result is served on two routes with one payload, so the Client can fall
- * back from one to the other:
- *
- * - `/plugin/cost-overview/state` — a plain Web route; and
- * - `/api/cost-overview/state` — an exact Fetch route on the connection's shared
- *   channel, for a shell-owned carrier without a document origin.
+ * The result is served on the authenticated connection's Fetch route so
+ * both the browser and the desktop carrier use the same transport.
  */
 import { DOCS_URL, MODEL_LABELS, TOOL_PRICE_FALLBACK, parsePricing, pricingTtl } from './pricing.js';
 import { foldCost } from './cost.js';
 import { normalizeBase, walletsOf } from './balance.js';
 
-const PLAIN_PATH = '/plugin/cost-overview/state';
 const CHANNEL_PATH = '/api/cost-overview/state';
 const DEFAULT_BASE_URL = 'https://api.deepseek.com';
 const DEFAULT_API_KEY_ENV = 'DEEPSEEK_API_KEY';
@@ -32,7 +25,7 @@ const SUCCESS_CACHE_MS = 60000;
 const FAILURE_CACHE_MS = 60000;
 const CONFIG_CACHE_MS = 30000;
 
-export const inject = ['webServer', 'connection'];
+export const inject = ['connection'];
 
 export function apply(ctx) {
   /** The only price table in play: `table` stays undefined until the page parses. */
@@ -268,29 +261,6 @@ export function apply(ctx) {
     };
   }
 
-  ctx.effect(() => ctx.webServer.register({
-    kind: 'exact',
-    path: PLAIN_PATH,
-    handler: async (request, response) => {
-      if (request.method !== 'GET' && request.method !== 'HEAD') {
-        respond(response, 405, { ok: false, reason: 'method' }, request.method === 'HEAD');
-        return;
-      }
-      const url = new URL(request.url || PLAIN_PATH, 'http://localhost');
-      let value;
-      try {
-        value = await state(url.searchParams.get('session'));
-      } catch (error) {
-        value = {
-          balance: { ok: false, reason: 'failed' },
-          cost: { ok: false, reason: 'failed' },
-          error: String((error && error.message) || error),
-        };
-      }
-      respond(response, 200, value, request.method === 'HEAD');
-    },
-  }), 'cost-overview: state route');
-
   ctx.effect(() => ctx.connection.fetch.register({
     path: CHANNEL_PATH,
     methods: ['GET', 'HEAD'],
@@ -326,14 +296,3 @@ async function readPricingPage() {
     clearTimeout(timer);
   }
 }
-
-function respond(response, status, body, headOnly) {
-  const text = JSON.stringify(body);
-  response.writeHead(status, {
-    'content-type': 'application/json; charset=utf-8',
-    'cache-control': 'no-store',
-    'content-length': Buffer.byteLength(text),
-  });
-  response.end(headOnly ? undefined : text);
-}
-
