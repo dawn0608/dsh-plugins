@@ -16,6 +16,7 @@
   dsh plugin --profile <profile> add @dawn0608/dsh-session-cost
   ```
 - 余额读取使用当前 DSH 配置的 `DEEPSEEK_API_KEY`，不会使用插件作者或其他人的凭据。
+- 本地构建与升级都使用这一个包名；不要同时安装同一插件的第二个别名（例如 `@local/dsh-session-cost`）。DSH 以包名作为客户端模块的身份，两个包名就是两个模块。从别名迁移时，先卸载旧包，再重启应用。
 - 安装后，在输入框下方产生 token 后出现统计 pill；点击可查看明细。
 
 源码与问题反馈：[GitHub 仓库](https://github.com/dawn0608/deepseek-harness-plugins)。

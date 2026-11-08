@@ -16,6 +16,7 @@ Adds a statistics pill next to the composer statistics that shows:
   dsh plugin --profile <profile> add @dawn0608/dsh-session-cost
   ```
 - The balance is read with the `DEEPSEEK_API_KEY` configured in the current DSH; it never uses the plugin author's or anyone else's credentials.
+- Use this single package name for local builds and upgrades. Do not install a second alias (for example `@local/dsh-session-cost`) of the same plugin: DSH keys each browser module by package name, so two names are two modules. When migrating from an alias, remove the old package and restart the app.
 - After installation, the statistics pill appears below the composer once the Session has produced tokens; click it to see the breakdown.
 
 Source and issue tracker: [GitHub repository](https://github.com/dawn0608/deepseek-harness-plugins).
