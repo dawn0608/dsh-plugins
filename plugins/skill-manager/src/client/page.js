@@ -8,6 +8,14 @@ import { createTranslator } from './i18n.js';
 const GROUPS = ['builtin', 'self', 'third-party'];
 const SOURCES = new Set(['project-dsh', 'project-agents', 'custom', 'user-dsh', 'user-agents', 'bundled', 'runtime']);
 
+function SkillArtwork({ icon }) {
+  const [failedIcon, setFailedIcon] = useState(null);
+  return h('span', { className: 'dshskill_icon', 'aria-hidden': true },
+    icon && icon !== failedIcon
+      ? h('img', { src: icon, alt: '', width: 32, height: 32, onError: () => setFailedIcon(icon) })
+      : h(SkillIcon, { size: 24 }));
+}
+
 function CatalogRows({ skills, query, translate: t, busy, savingId, store, openDetail, controls }) {
   const { StateDot, Switch, Tag } = controls;
   const headingId = useId();
@@ -26,7 +34,7 @@ function CatalogRows({ skills, query, translate: t, busy, savingId, store, openD
         const descriptionId = skill.description ? headingId + '-' + skill.id : undefined;
         const saving = savingId === skill.id;
         return h('li', { key: skill.id, className: 'dshskill_row' },
-          h('span', { className: 'dshskill_icon' }, h(SkillIcon, { size: 24 })),
+          h(SkillArtwork, { icon: skill.icon }),
           h('div', { className: 'dshskill_rowText' },
             h('div', { className: 'dshskill_titleRow' },
               h('button', {

@@ -212,6 +212,11 @@ html[data-platform='darwin'] .dshskill_page {
   color: var(--dsw-alias-label-secondary);
 }
 
+.dshskill_icon img {
+  display: block;
+  object-fit: contain;
+}
+
 .dshskill_rowText {
   display: flex;
   flex: 1;

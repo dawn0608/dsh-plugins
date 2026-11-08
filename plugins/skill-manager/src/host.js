@@ -1,5 +1,6 @@
 import { isAbsolute, join, normalize } from 'node:path';
 import { isManagedName, isRecord, isSkillName, ManagerError, MANAGED_ID, validateBundle } from './host-bundle.js';
+import { skillIcon } from './host-icon.js';
 import { readProvenance } from './host-provenance.js';
 import { createSkillStore } from './host-store.js';
 import { readSyncState, requestSync } from './shared-sync.js';
@@ -73,6 +74,7 @@ function matchesManaged(skill, managed) {
 
 export function createSkillManager({ home, agentsHome, skills, workspaceRegistry, agentPresets }) {
   const store = createSkillStore(home);
+  const iconOverrides = join(home, 'skill-manager', 'icons');
 
   async function scoped(options, operation) {
     let lease;
@@ -112,12 +114,12 @@ export function createSkillManager({ home, agentsHome, skills, workspaceRegistry
     ]);
     const managed = store.list();
     const byName = new Map(catalog.skills.map(skill => [skill.name, skill]));
-    const rows = [];
+    const entries = [];
     for (const skill of managed.skills) {
       const match = byName.get(skill.name);
       const ownWinner = matchesManaged(match, skill);
       if (ownWinner) byName.delete(skill.name);
-      rows.push({
+      entries.push({ skillFile: skill.resolvedFile, row: {
         id: `managed:${skill.name}:${skill.id}`,
         name: skill.name,
         description: skill.description,
@@ -125,9 +127,15 @@ export function createSkillManager({ home, agentsHome, skills, workspaceRegistry
         source: 'managed',
         enabled: skill.enabled,
         shadowed: skill.enabled && Boolean(match) && !ownWinner,
-      });
+      } });
     }
-    rows.push(...[...byName.values()].map(skill => catalogRow(skill, provenance, sync?.entries)));
+    for (const skill of byName.values()) {
+      entries.push({ skillFile: skill.path, row: catalogRow(skill, provenance, sync?.entries) });
+    }
+    const rows = await Promise.all(entries.map(async ({ skillFile, row }) => {
+      const icon = await skillIcon(iconOverrides, row.name, skillFile);
+      return icon ? { ...row, icon } : row;
+    }));
     rows.sort((left, right) => left.name.localeCompare(right.name) || Number(right.group === 'imported') - Number(left.group === 'imported'));
     const syncError = sync?.error ?? Object.values(sync?.entries ?? {}).find(entry => entry.error)?.error;
     return {
