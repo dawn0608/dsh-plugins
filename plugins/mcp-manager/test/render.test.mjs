@@ -2,16 +2,15 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { DICTS, format } from '../src/client/i18n.js';
 import { createPage } from '../src/client/page.js';
-
-const translate = key => key;
 
 // The Harness module loader supplies this control in the installed app.
 function Switch({ checked, label, disabled }) {
   return React.createElement('button', { type: 'button', role: 'switch', 'aria-checked': checked, 'aria-label': label, disabled });
 }
 
-function createPageWith(snapshot) {
+function createPageWith(snapshot, translate) {
   const controller = {
     subscribe: () => () => {},
     getSnapshot: () => snapshot,
@@ -29,8 +28,8 @@ function createPageWith(snapshot) {
   });
 }
 
-function render(snapshot) {
-  const Page = createPageWith(snapshot);
+function render(snapshot, translate = key => key) {
+  const Page = createPageWith(snapshot, translate);
   return renderToStaticMarkup(React.createElement(Page));
 }
 
@@ -42,8 +41,8 @@ const BASE_STATE = {
   warnings: [],
 };
 
-test('renders static service rows with enablement switches only', () => {
-  const html = render({
+test('renders each transport immediately before its switch without tool status in either language', () => {
+  const snapshot = {
     status: 'ready',
     error: null,
     busy: null,
@@ -76,23 +75,17 @@ test('renders static service rows with enablement switches only', () => {
         },
       ],
     },
-  });
-  assert.match(html, /class="dshmcp_page"/);
-  assert.match(html, />title</);
-  assert.doesNotMatch(html, />intro<|pathLabel|\/tmp\/cordis\.patch\.yml/);
-  assert.doesNotMatch(html, /aria-label="refresh"/);
-  assert.match(html, /docs/);
-  assert.match(html, /transportHttp/);
-  assert.match(html, /transportStdio/);
-  assert.doesNotMatch(html, /https:\/\/example\.com\/mcp|\/bin\/echo hello/);
-  assert.match(html, /duplicate/);
-  assert.match(html, /role="switch"/);
-  assert.match(html, /aria-checked="true"/);
-  assert.match(html, /aria-checked="false"/);
-  assert.match(html, /data-tone="success"/);
-  assert.match(html, /data-tone="warn"/);
-  assert.doesNotMatch(html, /aria-label="(?:editTitle|deleteServer)"|<form/);
-  assert.equal((html.match(/<button\b/g) || []).length, 2);
+  };
+  for (const dict of Object.values(DICTS)) {
+    const html = render(snapshot, (key, params) => format(dict[key], params));
+    assert.ok(html.includes(`>${dict.title}<`));
+    assert.match(html, />docs<.*>Streamable HTTP<\/span><button[^>]*role="switch" aria-checked="true"/);
+    assert.match(html, />off<.*>STDIO<\/span><button[^>]*role="switch" aria-checked="false"/);
+    assert.ok(html.includes(`>${dict.duplicate}<`));
+    assert.doesNotMatch(html, /工具|\btools?\b|dshmcp_dot|本地|远程|\b(?:local|remote)\b/i);
+    assert.doesNotMatch(html, /\/tmp\/cordis\.patch\.yml|https:\/\/example\.com\/mcp|\/bin\/echo hello|<form/);
+    assert.equal((html.match(/<button\b/g) || []).length, 2);
+  }
 });
 
 test('renders the empty and error states instead of throwing', () => {

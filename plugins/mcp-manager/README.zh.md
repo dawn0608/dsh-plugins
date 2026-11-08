@@ -1,9 +1,9 @@
 # MCP 管理
 
-在 DeepSeek Harness「设置 → MCP 管理」中查看当前 Desktop profile 的 MCP 服务，并启用或停用服务。支持本地 `stdio` 和远程 Streamable HTTP。
+在 DeepSeek Harness「设置 → MCP 管理」中查看当前 Desktop profile 的 MCP 服务，并启用或停用服务。
 
-- 列表显示服务名、传输方式、启停状态和已发现的工具数。工具数为零时显示「未发现工具」。
-- 可把服务提供方的安装说明交给 AI，让它更新当前 profile 的 `cordis.patch.yml`。面板打开时会自动同步配置变化和工具数。
+- 每行显示服务名、传输方式（STDIO 或 Streamable HTTP）和启停开关。
+- 可把服务提供方的安装说明交给 AI，让它更新当前 profile 的 `cordis.patch.yml`。面板打开时会自动同步配置变化。
 - 开关通过 profile 写锁和原子写入修改目标条目的 `disabled` 状态。Harness 热加载变更，监听该文件的同步器会在后续轮询时读取它。
 
 ## 凭据

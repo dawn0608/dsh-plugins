@@ -34,11 +34,9 @@ function Skeleton() {
   return h('div', { className: 'dshmcp_rows', 'aria-hidden': true },
     h('div', { className: 'dshmcp_skeletonRow' },
       h('span', { className: 'dshmcp_skeletonLine', 'data-w': '34' }),
-      h('span', { className: 'dshmcp_skeletonLine', 'data-w': '72' }),
     ),
     h('div', { className: 'dshmcp_skeletonRow' },
       h('span', { className: 'dshmcp_skeletonLine', 'data-w': '46' }),
-      h('span', { className: 'dshmcp_skeletonLine', 'data-w': '64' }),
     ),
   );
 }
