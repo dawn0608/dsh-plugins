@@ -15,6 +15,7 @@ export function createController(options = {}) {
     state: null,
     error: null,
     busy: false,
+    action: null,
   };
   const listeners = new Set();
   let generation = 0;
@@ -81,9 +82,11 @@ export function createController(options = {}) {
   }
 
   async function setEnabled(target, enabled) {
+    if (snapshot.busy) return { ok: false, code: 'locked' };
+    const action = { id: target.id, name: target.name };
     // A GET that began before this write must not restore the old switch state.
     generation += 1;
-    publish({ busy: true });
+    publish({ busy: true, action });
     try {
       const { payload } = await request({
         method: 'POST',
@@ -91,15 +94,17 @@ export function createController(options = {}) {
         body: { action: 'setEnabled', id: target.id, name: target.name, rowHash: target.rowHash, enabled },
       });
       if (payload.ok === true) {
-        publish({ busy: false, status: 'ready', state: payload, error: null });
+        publish({ busy: false, action: null, status: 'ready', state: payload, error: null });
         return { ok: true };
       }
-      if (payload.code === 'conflict') await load();
-      publish({ busy: false });
-      return { ok: false, code: payload.code, params: payload.params };
+      if (payload.code === 'conflict' || payload.code === 'not-found') await load();
+      const error = { code: payload.code, params: payload.params };
+      publish({ busy: false, action: { ...action, error } });
+      return { ok: false, ...error };
     } catch (error) {
-      publish({ busy: false });
-      return { ok: false, code: failure(error).code };
+      const details = failure(error);
+      publish({ busy: false, action: { ...action, error: details } });
+      return { ok: false, ...details };
     }
   }
 

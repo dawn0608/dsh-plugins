@@ -10,6 +10,10 @@ function Switch({ checked, label, disabled }) {
   return React.createElement('button', { type: 'button', role: 'switch', 'aria-checked': checked, 'aria-label': label, disabled });
 }
 
+function Tag({ tone, children }) {
+  return React.createElement('span', { 'data-native-tag': tone }, children);
+}
+
 function createPageWith(snapshot, translate) {
   const controller = {
     subscribe: () => () => {},
@@ -22,6 +26,7 @@ function createPageWith(snapshot, translate) {
   return createPage({
     translate,
     Switch,
+    Tag,
     subscribeLocale: () => () => {},
     localeVersion: () => 0,
     createStore: () => controller,
@@ -81,7 +86,7 @@ test('renders each transport immediately before its switch without tool status i
     assert.ok(html.includes(`>${dict.title}<`));
     assert.match(html, />docs<.*>Streamable HTTP<\/span><button[^>]*role="switch" aria-checked="true"/);
     assert.match(html, />off<.*>STDIO<\/span><button[^>]*role="switch" aria-checked="false"/);
-    assert.ok(html.includes(`>${dict.duplicate}<`));
+    assert.ok(html.includes(`data-native-tag="warning">${dict.duplicate}<`));
     assert.doesNotMatch(html, /工具|\btools?\b|dshmcp_dot|本地|远程|\b(?:local|remote)\b/i);
     assert.doesNotMatch(html, /\/tmp\/cordis\.patch\.yml|https:\/\/example\.com\/mcp|\/bin\/echo hello|<form/);
     assert.equal((html.match(/<button\b/g) || []).length, 2);
@@ -127,8 +132,34 @@ test('renders a read-only row without a switch or edit action', () => {
       ],
     },
   });
-  assert.match(html, /readOnly/);
+  assert.match(html, /data-native-tag="neutral">readOnly</);
   assert.match(html, /readOnlyNotInsert/);
   assert.doesNotMatch(html, /role="switch"/);
   assert.doesNotMatch(html, /aria-label="editTitle"|aria-label="deleteServer"/);
+});
+
+test('scopes pending and failed toggle feedback to the selected service row', () => {
+  const target = { id: 'two', name: 'target', transport: 'stdio', enabled: true, editable: true };
+  const snapshot = {
+    status: 'ready',
+    error: null,
+    state: { ...BASE_STATE, servers: [{ ...target, id: 'one', name: 'other' }, target] },
+  };
+  const action = { id: target.id, name: target.name };
+  const pending = render({ ...snapshot, busy: true, action });
+  const pendingRows = pending.match(/<li\b[^>]*>.*?<\/li>/g);
+  assert.doesNotMatch(pendingRows[0], /saving/);
+  assert.match(pendingRows[1], /role="status">saving</);
+
+  const failure = { ...action, error: { code: 'locked' } };
+  const failed = render({ ...snapshot, busy: false, action: failure });
+  const failedRows = failed.match(/<li\b[^>]*>.*?<\/li>/g);
+  assert.doesNotMatch(failedRows[0], /locked/);
+  assert.match(failedRows[1], /role="alert">locked</);
+  assert.equal((failed.match(/role="alert"/g) || []).length, 1);
+
+  const removed = render({ ...snapshot, busy: false, action: failure,
+    state: { ...BASE_STATE, servers: [snapshot.state.servers[0]] } });
+  assert.match(removed, /role="alert">target.*locked/);
+  assert.doesNotMatch(removed.match(/<li\b[^>]*>.*?<\/li>/)[0], /locked/);
 });

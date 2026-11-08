@@ -4,7 +4,7 @@
  */
 
 import * as React from 'react';
-import { Switch } from '@deepseek-ai/dsh-client-ui-primitives';
+import { Switch, Tag } from '@deepseek-ai/dsh-client-ui-primitives';
 import { createTranslator, registerLocale } from './i18n.js';
 import { createPage } from './page.js';
 import css from './style.css';
@@ -60,7 +60,7 @@ export function apply(ctx) {
       return 0;
     }
   };
-  const Page = createPage({ translate, subscribeLocale, localeVersion, Switch });
+  const Page = createPage({ translate, subscribeLocale, localeVersion, Switch, Tag });
 
   ctx.slots.inject('settings.section', () => ctx.slots.register({
     name: 'settings.section',

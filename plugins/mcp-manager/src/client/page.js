@@ -58,10 +58,10 @@ class Boundary extends React.Component {
 }
 
 /**
- * @param {{translate: (key: string, params?: object) => string, subscribeLocale: (listener: () => void) => () => void, localeVersion: () => number, Switch: React.ComponentType<{className?: string, checked: boolean, label: string, disabled: boolean, onChange: (checked: boolean) => void}>, createStore?: () => ReturnType<typeof createController>}} options
+ * @param {{translate: (key: string, params?: object) => string, subscribeLocale: (listener: () => void) => () => void, localeVersion: () => number, Switch: React.ComponentType<{className?: string, checked: boolean, label: string, disabled: boolean, onChange: (checked: boolean) => void}>, Tag: React.ComponentType<{tone: 'neutral' | 'warning', children: React.ReactNode}>, createStore?: () => ReturnType<typeof createController>}} options
  */
 export function createPage(options) {
-  const { translate, subscribeLocale, localeVersion, Switch } = options;
+  const { translate, subscribeLocale, localeVersion, Switch, Tag } = options;
   const createStore = options.createStore || createController;
 
   function Page() {
@@ -71,25 +71,17 @@ export function createPage(options) {
     const snapshot = React.useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
     React.useSyncExternalStore(subscribeLocale, localeVersion, localeVersion);
 
-    const [actionFailure, setActionFailure] = React.useState(null);
-
     const servers = snapshot.state && Array.isArray(snapshot.state.servers) ? snapshot.state.servers : [];
-    const busy = snapshot.busy;
+    const { busy, action } = snapshot;
     const loading = snapshot.state === null && snapshot.status !== 'error';
     const loadFailure = snapshot.error ? failureText(translate, snapshot.error) : null;
-    const actionFailureText = actionFailure ? failureText(translate, actionFailure) : null;
+    const actionServer = action && servers.find(server => server.id === action.id && server.name === action.name);
+    const actionFailureText = action?.error ? failureText(translate, action.error) : null;
 
     React.useEffect(() => {
       store.start();
       return () => store.stop();
     }, [store]);
-
-    const toggle = async (server, enabled) => {
-      if (busy) return;
-      setActionFailure(null);
-      const result = await store.setEnabled(server, enabled);
-      if (!result.ok) setActionFailure({ code: result.code, params: result.params });
-    };
 
     return h('section', {
       className: 'dshmcp_page',
@@ -107,16 +99,19 @@ export function createPage(options) {
       snapshot.state !== null
         ? h(React.Fragment, null,
           loadFailure ? h(Notice, null, loadFailure) : null,
-          actionFailureText ? h(Notice, null, actionFailureText) : null,
+          actionFailureText && !actionServer ? h(Notice, null, action.name, ' — ', actionFailureText) : null,
           servers.length > 0
             ? h('ul', { className: 'dshmcp_rows', role: 'list' },
               servers.map((server, index) => h(ServerRow, {
                 key: server.editable ? `service:${server.id}` : `readonly:${index}`,
                 server,
                 Switch,
+                Tag,
                 translate,
                 busy,
-                onToggle: toggle,
+                saving: busy && server === actionServer,
+                failure: server === actionServer ? actionFailureText : null,
+                onToggle: store.setEnabled,
               })),
             )
             : h('div', { className: 'dshmcp_group dshmcp_messagePanel' },

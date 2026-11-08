@@ -17,15 +17,17 @@ const READ_ONLY_KEYS = {
   'config-enabled': 'readOnlyConfigEnabled',
 };
 
-export function ServerRow({ server, translate, busy, Switch, onToggle }) {
+export function ServerRow({ server, translate, busy, saving, failure, Switch, Tag, onToggle }) {
   const name = serverLabel(server, translate);
   const readOnlyText = server.editable ? null : translate(READ_ONLY_KEYS[server.readOnlyCode] || 'readOnlyConfig');
   const canToggle = server.editable && server.enabled !== null;
   return h('li', { className: 'dshmcp_row' },
     h('span', { className: 'dshmcp_identity' },
       h('span', { className: 'dshmcp_name' }, name),
-      server.duplicate ? h('span', { className: 'dshmcp_tag', 'data-tone': 'warn', title: translate('duplicateHint') }, translate('duplicate')) : null,
-      readOnlyText ? h('span', { className: 'dshmcp_tag' }, translate('readOnly')) : null,
+      server.duplicate ? h('span', { title: translate('duplicateHint') },
+        h(Tag, { tone: 'warning' }, translate('duplicate')),
+      ) : null,
+      readOnlyText ? h(Tag, { tone: 'neutral' }, translate('readOnly')) : null,
     ),
     h('span', { className: 'dshmcp_transport' }, transportLabel(server, translate)),
     canToggle ? h(Switch, {
@@ -35,6 +37,8 @@ export function ServerRow({ server, translate, busy, Switch, onToggle }) {
       disabled: Boolean(busy),
       onChange: enabled => onToggle(server, enabled),
     }) : null,
+    saving ? h('p', { className: 'dshmcp_reason', role: 'status' }, translate('saving')) : null,
+    failure ? h('p', { className: 'dshmcp_reason dshmcp_notice_error', role: 'alert' }, failure) : null,
     readOnlyText ? h('span', { className: 'dshmcp_reason' }, readOnlyText) : null,
   );
 }

@@ -38,7 +38,7 @@ function fakeRequire() {
   return specifier => {
     if (specifier === 'react') return react;
     if (specifier === 'react-dom') return { createPortal: () => null };
-    if (specifier === '@deepseek-ai/dsh-client-ui-primitives') return { Switch: () => null };
+    if (specifier === '@deepseek-ai/dsh-client-ui-primitives') return { Switch: () => null, Tag: () => null };
     throw new Error(`unexpected client module: ${specifier}`);
   };
 }

@@ -73,20 +73,32 @@ test('a conflict reloads the state before returning the failure', async () => {
   assert.equal(posts, 1);
   assert.equal(fake.calls.filter(call => call.init.method === 'GET').length, 2);
   assert.equal(controller.getSnapshot().state.servers.length, 1);
+  assert.deepEqual(controller.getSnapshot().action, {
+    id: 'one', name: 'docs', error: { code: 'conflict', params: undefined },
+  });
   controller.dispose();
 });
 
 test('setEnabled posts the toggle and updates the state', async () => {
   let body;
+  let finishWrite;
+  const response = new Promise(resolve => { finishWrite = resolve; });
   const fake = fakeFetch((url, init) => {
     body = JSON.parse(init.body);
-    return reply(200, { ...STATE, servers: [{ ...STATE.servers[0], enabled: false }] });
+    return response;
   });
   const controller = createController({ fetchImpl: fake.fetchImpl });
-  const result = await controller.setEnabled({ id: 'one', name: 'docs', rowHash: 'r1' }, false);
+  const pending = controller.setEnabled({ id: 'one', name: 'docs', rowHash: 'r1' }, false);
+  assert.deepEqual(controller.getSnapshot().action, { id: 'one', name: 'docs' });
+  assert.equal(controller.getSnapshot().busy, true);
+  assert.equal((await controller.setEnabled({ id: 'two', name: 'other', rowHash: 'r2' }, false)).ok, false);
+  assert.equal(fake.calls.length, 1);
+  finishWrite(reply(200, { ...STATE, servers: [{ ...STATE.servers[0], enabled: false }] }));
+  const result = await pending;
   assert.equal(result.ok, true);
   assert.deepEqual(body, { action: 'setEnabled', id: 'one', name: 'docs', rowHash: 'r1', enabled: false });
   assert.equal(controller.getSnapshot().state.servers[0].enabled, false);
+  assert.equal(controller.getSnapshot().action, null);
   controller.dispose();
 });
 

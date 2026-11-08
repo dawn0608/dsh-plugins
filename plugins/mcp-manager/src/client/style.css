@@ -38,7 +38,8 @@
 
 .dshmcp_row,
 .dshmcp_skeletonRow {
-  padding: 10px 12px;
+  padding-block: 10px;
+  padding-inline-end: 12px;
 }
 
 .dshmcp_row {
@@ -67,15 +68,6 @@
   overflow-wrap: anywhere;
 }
 
-.dshmcp_tag {
-  padding: 0 6px;
-  border-radius: var(--dsw-radius-sm);
-  background: var(--dsw-alias-interactive-bg-hover);
-  color: var(--dsw-alias-label-secondary);
-  font-size: 11px;
-  line-height: 18px;
-}
-
 .dshmcp_transport,
 .dshmcp_reason {
   margin: 0;
@@ -97,10 +89,6 @@
 
 .dshmcp_reason {
   grid-column: 1 / -1;
-}
-
-.dshmcp_tag[data-tone='warn'] {
-  color: var(--dsw-alias-state-warn-label);
 }
 
 .dshmcp_notice,
