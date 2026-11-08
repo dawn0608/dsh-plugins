@@ -348,6 +348,8 @@ html[data-platform='darwin'] .dshskill_page {
   display: inline-flex;
   flex: none;
   align-items: center;
+  /* Balance the smaller link text against the title's visible glyphs. */
+  translate: 0 1px;
   gap: 4px;
   min-width: 0;
   max-width: 45%;
