@@ -331,18 +331,29 @@ html[data-platform='darwin'] .dshskill_page {
 
 .dshskill_detailTitleRow {
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   min-width: 0;
+  white-space: nowrap;
+}
+
+.dshskill_detailTitleRow h1,
+.dshskill_repositoryName {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .dshskill_repository {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 4px;
   min-width: 0;
+  max-width: 45%;
   color: var(--dsw-alias-label-secondary);
   font-size: 12px;
   line-height: 18px;
-  overflow-wrap: anywhere;
   text-decoration: underline;
   text-underline-offset: 0.15em;
 }
