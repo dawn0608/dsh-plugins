@@ -137,7 +137,7 @@ export function apply(ctx) {
         headers: {
           authorization: `Bearer ${apiKey}`,
           accept: 'application/json',
-          'user-agent': 'dsh-session-cost/1.2.0',
+          'user-agent': 'dsh-session-cost/1.2.1',
         },
         redirect: 'error',
         signal: controller.signal,
@@ -315,7 +315,7 @@ async function readPricingPage() {
   const timer = setTimeout(() => controller.abort(), 6000);
   try {
     const response = await fetch(DOCS_URL, {
-      headers: { accept: 'text/html,application/xhtml+xml', 'user-agent': 'dsh-session-cost/1.3.0' },
+      headers: { accept: 'text/html,application/xhtml+xml', 'user-agent': 'dsh-session-cost/1.2.1' },
       redirect: 'follow',
       signal: controller.signal,
     });
