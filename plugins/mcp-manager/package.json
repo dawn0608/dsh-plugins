@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "main": "./lib/index.js",
-  "description": "Manage Model Context Protocol servers from Settings and write them to the desktop profile patch.",
+  "description": "View and toggle Model Context Protocol servers from Settings.",
   "license": "MIT",
   "author": "dawn0608",
   "keywords": [

@@ -2,8 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { EditorCard } from '../src/client/editor.js';
-import { blankForm, serverToForm } from '../src/client/model.js';
 import { createPage } from '../src/client/page.js';
 
 const translate = key => key;
@@ -19,10 +17,7 @@ function createPageWith(snapshot) {
     getSnapshot: () => snapshot,
     load: () => {},
     stop: () => {},
-    save: async () => ({ ok: true }),
-    remove: async () => ({ ok: true }),
     setEnabled: async () => ({ ok: true }),
-    dismissNotice: () => {},
     dispose: () => {},
   };
   return createPage({
@@ -47,12 +42,11 @@ const BASE_STATE = {
   warnings: [],
 };
 
-test('renders service rows as edit targets beside their switches', () => {
+test('renders static service rows with refresh and enablement switches only', () => {
   const html = render({
     status: 'ready',
     error: null,
     busy: null,
-    notice: null,
     refreshing: false,
     state: {
       ...BASE_STATE,
@@ -88,8 +82,6 @@ test('renders service rows as edit targets beside their switches', () => {
   assert.match(html, />title</);
   assert.doesNotMatch(html, />intro<|pathLabel|\/tmp\/cordis\.patch\.yml/);
   assert.match(html, /aria-label="refresh"/);
-  assert.match(html, /<header[^>]*>[\s\S]*>add<[\s\S]*<\/header>/);
-  assert.match(html, />add</);
   assert.match(html, /docs/);
   assert.match(html, /transportHttp/);
   assert.match(html, /transportStdio/);
@@ -100,8 +92,8 @@ test('renders service rows as edit targets beside their switches', () => {
   assert.match(html, /aria-checked="false"/);
   assert.match(html, /data-tone="success"/);
   assert.match(html, /data-tone="warn"/);
-  assert.doesNotMatch(html, />edit<|aria-label="deleteServer"/);
-  assert.match(html, /<button[^>]*aria-label="editTitle"[^>]*>(?:(?!<button)[\s\S])*?>docs<(?:(?!<button)[\s\S])*?<\/button><button[^>]*role="switch"/);
+  assert.doesNotMatch(html, /aria-label="(?:editTitle|deleteServer)"|<form/);
+  assert.equal((html.match(/<button\b/g) || []).length, 3);
 });
 
 test('renders the empty and error states instead of throwing', () => {
@@ -109,14 +101,13 @@ test('renders the empty and error states instead of throwing', () => {
     status: 'ready',
     error: null,
     busy: null,
-    notice: null,
     refreshing: false,
     state: { ...BASE_STATE, servers: [] },
   });
   assert.match(empty, /emptyTitle/);
   assert.doesNotMatch(empty, /emptyHint/);
 
-  const failed = render({ status: 'error', state: null, error: { code: 'network' }, busy: null, notice: null, refreshing: false });
+  const failed = render({ status: 'error', state: null, error: { code: 'network' }, busy: null, refreshing: false });
   assert.match(failed, /loadFailed/);
   assert.match(failed, /retry/);
 });
@@ -126,7 +117,6 @@ test('renders a read-only row without a switch or edit action', () => {
     status: 'ready',
     error: null,
     busy: null,
-    notice: null,
     refreshing: false,
     state: {
       ...BASE_STATE,
@@ -138,7 +128,7 @@ test('renders a read-only row without a switch or edit action', () => {
           enabled: true,
           editable: false,
           readOnlyCode: 'not-insert',
-          deletable: false,
+          deletable: true,
           rowHash: null,
           tools: null,
           duplicate: false,
@@ -151,79 +141,4 @@ test('renders a read-only row without a switch or edit action', () => {
   assert.match(html, /readOnlyNotInsert/);
   assert.doesNotMatch(html, /role="switch"/);
   assert.doesNotMatch(html, /aria-label="editTitle"|aria-label="deleteServer"/);
-});
-
-test('a deletable read-only entry keeps its delete entry point', () => {
-  const html = render({
-    status: 'ready',
-    state: {
-      ...BASE_STATE,
-      servers: [{ id: 'readonly', name: 'legacy', editable: false, deletable: true, readOnlyCode: 'row-shape' }],
-    },
-  });
-  assert.match(html, /aria-label="deleteServer"/);
-  assert.doesNotMatch(html, /role="switch"|aria-label="editTitle"/);
-});
-
-function renderEditor(props = {}) {
-  return renderToStaticMarkup(React.createElement(EditorCard, {
-    mode: 'add',
-    form: blankForm(),
-    errors: [],
-    translate,
-    Switch,
-    onChange: () => {},
-    ...props,
-  }));
-}
-
-test('advanced settings collapse for a new service and open for existing credentials', () => {
-  assert.match(renderEditor(), /<details(?![^>]*\bopen="")[^>]*><summary[^>]*>advanced<\/summary>/);
-  const target = {
-    name: 'remote',
-    deletable: true,
-    transport: 'streamable-http',
-    config: { url: 'https://example.com/mcp', headers: [{ key: 'Authorization', mode: 'hidden' }] },
-  };
-  const html = renderEditor({ mode: 'edit', target, form: { ...serverToForm(target), name: 'draft-name' } });
-  assert.match(html, /<h2[^>]*>editTitle<\/h2>/);
-  assert.match(html, /<details[^>]*\bopen=""[^>]*>/);
-  assert.match(html, /https:\/\/example\.com\/mcp/);
-  assert.match(html, />hidden</);
-  assert.match(html, /aria-label="deleteServer"/);
-});
-
-test('the editor disables navigation and submission during a save', () => {
-  const html = renderEditor({ busy: { action: 'save' } });
-  assert.match(html, /<button[^>]*disabled=""[^>]*>[\s\S]*?>back</);
-  assert.match(html, /<fieldset[^>]*disabled=""/);
-  assert.match(html, /<button[^>]*type="submit"[^>]*disabled=""[^>]*>saving<\/button>/);
-});
-
-test('field hints describe inputs separately from their labels', () => {
-  const html = renderEditor();
-  assert.match(html, /<label[^>]*for="dshmcp-name"[^>]*>name<\/label><input[^>]*aria-describedby="dshmcp-name-hint"/);
-  assert.match(html, /<label[^>]*for="dshmcp-command"[^>]*>command<\/label><input[^>]*aria-describedby="dshmcp-command-hint"/);
-});
-
-test('renders notices for saved and pending states', () => {
-  const saved = render({
-    status: 'ready',
-    error: null,
-    busy: null,
-    notice: { code: 'saved', params: { name: 'docs' } },
-    refreshing: false,
-    state: { ...BASE_STATE, servers: [] },
-  });
-  assert.match(saved, /dshmcp_notice_success/);
-
-  const pending = render({
-    status: 'ready',
-    error: null,
-    busy: null,
-    notice: { code: 'savedPending' },
-    refreshing: false,
-    state: { ...BASE_STATE, servers: [] },
-  });
-  assert.match(pending, /dshmcp_notice_warn/);
 });

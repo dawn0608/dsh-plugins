@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "MCP Management",
-    "description": "View, add, edit, enable, disable, and delete MCP servers from Settings, and keep them in the desktop profile patch."
+    "description": "View and toggle MCP servers for the current profile from Settings."
   }
 }

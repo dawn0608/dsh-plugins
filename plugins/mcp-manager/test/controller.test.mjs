@@ -56,37 +56,6 @@ test('loads a failure without throwing and keeps it in the snapshot', async () =
   controller.dispose();
 });
 
-test('saves with the expected body and reports field errors', async () => {
-  let seen;
-  const fake = fakeFetch((url, init) => {
-    seen = JSON.parse(init.body);
-    if (seen.draft.name === 'bad') {
-      return reply(422, { ok: false, code: 'invalid', errors: [{ field: 'name', code: 'required' }] });
-    }
-    return reply(200, STATE);
-  });
-  const controller = createController({ fetchImpl: fake.fetchImpl });
-  const target = { id: 'one', name: 'docs', rowHash: 'r1' };
-  const ok = await controller.save({
-    name: 'docs',
-    transport: 'streamable-http',
-    enabled: false,
-    url: 'https://example.com/mcp',
-    headers: [],
-  }, { mode: 'edit', target });
-  assert.equal(ok.ok, true);
-  assert.equal(seen.action, 'save');
-  assert.equal(seen.mode, 'edit');
-  assert.equal(seen.id, 'one');
-  assert.equal(seen.rowHash, 'r1');
-  assert.deepEqual(controller.getSnapshot().notice, { code: 'saved', params: { name: 'docs' } });
-
-  const invalid = await controller.save({ name: 'bad', transport: 'stdio', enabled: false, command: '/bin/echo' }, { mode: 'add' });
-  assert.equal(invalid.ok, false);
-  assert.deepEqual(invalid.errors, [{ field: 'name', code: 'required' }]);
-  controller.dispose();
-});
-
 test('a conflict reloads the state before returning the failure', async () => {
   let posts = 0;
   const fake = fakeFetch((url, init) => {
@@ -98,7 +67,7 @@ test('a conflict reloads the state before returning the failure', async () => {
   });
   const controller = createController({ fetchImpl: fake.fetchImpl });
   await controller.load();
-  const result = await controller.remove({ id: 'one', name: 'docs', rowHash: 'r1' });
+  const result = await controller.setEnabled({ id: 'one', name: 'docs', rowHash: 'r1' }, false);
   assert.equal(result.ok, false);
   assert.equal(result.code, 'conflict');
   assert.equal(posts, 1);
@@ -118,6 +87,22 @@ test('setEnabled posts the toggle and updates the state', async () => {
   assert.equal(result.ok, true);
   assert.deepEqual(body, { action: 'setEnabled', id: 'one', name: 'docs', rowHash: 'r1', enabled: false });
   assert.equal(controller.getSnapshot().state.servers[0].enabled, false);
+  controller.dispose();
+});
+
+test('an older refresh cannot undo a confirmed toggle', async () => {
+  let release;
+  const refresh = new Promise(resolve => { release = resolve; });
+  const updated = { ...STATE, servers: [{ ...STATE.servers[0], enabled: false }] };
+  const fake = fakeFetch((url, init) => init.method === 'GET' ? refresh : reply(200, updated));
+  const controller = createController({ fetchImpl: fake.fetchImpl });
+  const pending = controller.load();
+  const result = await controller.setEnabled(STATE.servers[0], false);
+  release(reply(200, STATE));
+  await pending;
+  assert.equal(result.ok, true);
+  assert.equal(controller.getSnapshot().state.servers[0].enabled, false);
+  assert.equal(controller.getSnapshot().refreshing, false);
   controller.dispose();
 });
 

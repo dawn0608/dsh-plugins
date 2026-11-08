@@ -1,4 +1,4 @@
-/** Observable page state: one read model, one write path per action. */
+/** Observable page state: configuration and enablement. */
 
 import { ApiError, request } from './api.js';
 
@@ -14,13 +14,13 @@ export function createController(options = {}) {
     status: 'idle',
     state: null,
     error: null,
-    busy: null,
-    notice: null,
+    busy: false,
     refreshing: false,
   };
   const listeners = new Set();
   let generation = 0;
   let pollTimer;
+  let pollGeneration = 0;
   let disposed = false;
 
   function publish(patch) {
@@ -41,6 +41,7 @@ export function createController(options = {}) {
   }
 
   function stopPolling() {
+    pollGeneration += 1;
     if (pollTimer !== undefined) {
       clearTimeout(pollTimer);
       pollTimer = undefined;
@@ -80,83 +81,25 @@ export function createController(options = {}) {
 
   function startPolling(name) {
     stopPolling();
+    const currentPoll = pollGeneration;
     let attempts = 0;
     const tick = async () => {
       if (disposed) return;
       attempts += 1;
       await load({ silent: true });
-      if (disposed) return;
+      if (currentPoll !== pollGeneration || disposed) return;
       const servers = snapshot.state && Array.isArray(snapshot.state.servers) ? snapshot.state.servers : [];
       const server = servers.find(item => item.name === name);
-      if (server && typeof server.tools === 'number' && server.tools > 0) {
-        return;
-      }
-      if (attempts >= POLL_ATTEMPTS) {
-        publish({ notice: { code: 'savedPending' } });
-        return;
-      }
+      if (!server || server.enabled === false || server.tools > 0 || attempts >= POLL_ATTEMPTS) return;
       pollTimer = setTimeout(tick, POLL_DELAY_MS);
     };
     pollTimer = setTimeout(tick, POLL_DELAY_MS);
   }
 
-  async function save(draft, options_) {
-    const target = options_.target;
-    const mode = options_.mode;
-    stopPolling();
-    publish({ busy: { action: 'save', id: target && target.id ? target.id : null }, notice: null });
-    try {
-      const { payload } = await request({
-        method: 'POST',
-        fetchImpl,
-        body: {
-          action: 'save',
-          mode,
-          id: target && target.id ? target.id : undefined,
-          name: target && target.name ? target.name : undefined,
-          rowHash: target && target.rowHash ? target.rowHash : undefined,
-          draft,
-        },
-      });
-      if (payload.ok === true) {
-        publish({ busy: null, status: 'ready', state: payload, error: null, notice: { code: 'saved', params: { name: draft.name } } });
-        if (draft.enabled !== false) startPolling(draft.name);
-        return { ok: true };
-      }
-      if (payload.code === 'conflict') await load({ silent: true });
-      publish({ busy: null });
-      return { ok: false, code: payload.code, params: payload.params, errors: payload.errors };
-    } catch (error) {
-      publish({ busy: null });
-      return { ok: false, code: failure(error).code };
-    }
-  }
-
-  async function remove(target) {
-    stopPolling();
-    publish({ busy: { action: 'delete', id: target && target.id ? target.id : null }, notice: null });
-    try {
-      const { payload } = await request({
-        method: 'POST',
-        fetchImpl,
-        body: { action: 'delete', id: target.id, name: target.name, rowHash: target.rowHash },
-      });
-      if (payload.ok === true) {
-        publish({ busy: null, status: 'ready', state: payload, notice: { code: 'deleted', params: { name: target.name } } });
-        return { ok: true };
-      }
-      if (payload.code === 'conflict') await load({ silent: true });
-      publish({ busy: null });
-      return { ok: false, code: payload.code, params: payload.params };
-    } catch (error) {
-      publish({ busy: null });
-      return { ok: false, code: failure(error).code };
-    }
-  }
-
   async function setEnabled(target, enabled) {
     stopPolling();
-    publish({ busy: { action: 'toggle', id: target && target.id ? target.id : null } });
+    const current = ++generation;
+    publish({ busy: true, refreshing: false });
     try {
       const { payload } = await request({
         method: 'POST',
@@ -164,33 +107,30 @@ export function createController(options = {}) {
         body: { action: 'setEnabled', id: target.id, name: target.name, rowHash: target.rowHash, enabled },
       });
       if (payload.ok === true) {
-        publish({ busy: null, status: 'ready', state: payload, error: null });
-        if (enabled) startPolling(target.name);
+        publish({ busy: false, status: 'ready', state: payload, error: null });
+        if (enabled && current === generation && !disposed) startPolling(target.name);
         return { ok: true };
       }
       if (payload.code === 'conflict') await load({ silent: true });
-      publish({ busy: null });
+      publish({ busy: false });
       return { ok: false, code: payload.code, params: payload.params };
     } catch (error) {
-      publish({ busy: null });
+      publish({ busy: false });
       return { ok: false, code: failure(error).code };
     }
   }
 
-  function dismissNotice() {
-    publish({ notice: null });
-  }
-
   /** Stop background work without invalidating the controller (React StrictMode remounts). */
   function stop() {
+    generation += 1;
     stopPolling();
   }
 
   function dispose() {
     disposed = true;
-    stopPolling();
+    stop();
     listeners.clear();
   }
 
-  return { subscribe, getSnapshot, load, save, remove, setEnabled, dismissNotice, stop, dispose };
+  return { subscribe, getSnapshot, load, setEnabled, stop, dispose };
 }
