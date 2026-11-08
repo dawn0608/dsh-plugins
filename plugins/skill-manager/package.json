@@ -23,7 +23,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "node ../../scripts/build-plugin.mjs",
+    "build": "node ../../scripts/build-plugin.mjs --entry src/sync-daemon.js --entry src/install-sync.js",
     "pretest": "npm run build",
     "test": "node --test test/*.test.mjs",
     "prepack": "npm run build"
@@ -71,5 +71,8 @@
     "skills",
     "skill-manager",
     "dsh-plugin"
-  ]
+  ],
+  "bin": {
+    "dsh-skill-sync-install": "lib/install-sync.js"
+  }
 }
