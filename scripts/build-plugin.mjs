@@ -92,7 +92,7 @@ if (clientEntry !== undefined) {
     platform: 'browser',
     target: 'es2022',
     external: externals,
-    loader: { '.css': 'text' },
+    loader: { '.css': 'text', '.svg': 'dataurl' },
     banner: { js: banner },
     footer: { js: footer },
     sourcemap: 'linked',

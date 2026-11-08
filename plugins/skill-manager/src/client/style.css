@@ -1,3 +1,12 @@
+.dshskill_navIcon {
+  display: inline-block;
+  flex-shrink: 0;
+  background-color: currentColor;
+  mask-position: center;
+  mask-repeat: no-repeat;
+  mask-size: 150%;
+}
+
 .dshskill_page {
   --skill-hover: var(--dsw-alias-interactive-bg-hover);
   height: 100%;
