@@ -84,6 +84,7 @@ Failures are explicit instead of a permanent spinner: `missing-key`, `unauthoriz
 - An exact cost renders as `¥2.30`; when the official price table cannot be read, the pill shows `—` and the panel names the reason.
 - The pill never ellipsizes: it keeps its intrinsic width (`flex: none`), so the balance stays fully readable beside the other statistics.
 - Interface copy follows the DSH language (zh/en); styling uses only `--dsw-*` theme tokens.
+- If another client module already holds the `session-cost` slot id (for example a stale copy left by a package rename), this module skips its own registration and logs a warning instead of failing the page sync; restart the app to clear the stale copy.
 
 ## Updating the Client half
 

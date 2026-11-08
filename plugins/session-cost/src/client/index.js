@@ -254,6 +254,20 @@ function Icon(props) {
   ]);
 }
 
+/**
+ * Whether another client module already occupies this plugin's slot cell.
+ * A package renamed while the Client stayed open can leave the old module
+ * loaded; skipping the duplicate keeps this module's activation from failing.
+ */
+function slotOccupied(ctx, name, id) {
+  try {
+    const entries = typeof ctx.slots.entries === 'function' ? ctx.slots.entries(name) : [];
+    return Array.isArray(entries) && entries.some(entry => entry.options.id === id);
+  } catch (error) {
+    return false;
+  }
+}
+
 export const inject = ['slots', 'locale'];
 
 export function apply(ctx) {
@@ -274,9 +288,16 @@ export function apply(ctx) {
   const store = createBalanceStore();
   const Entry = createEntry(store, translate);
 
-  ctx.slots.inject('conversation.composer.dock', () => ctx.slots.register({
-    name: 'conversation.composer.dock',
-    id: 'session-cost',
-    order: 2,
-  }, Entry));
+  ctx.slots.inject('conversation.composer.dock', () => {
+    if (slotOccupied(ctx, 'conversation.composer.dock', 'session-cost')) {
+      console.warn('@dawn0608/dsh-session-cost: conversation.composer.dock already has a "session-cost" entry; skipping duplicate registration (restart DeepSeek Harness to clear the stale copy)');
+      return;
+    }
+    return ctx.slots.register({
+      name: 'conversation.composer.dock',
+      id: 'session-cost',
+      order: 2,
+      registrant: '@dawn0608/dsh-session-cost',
+    }, Entry);
+  });
 }
