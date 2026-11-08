@@ -23,6 +23,21 @@ test('renders headings, GFM tables, footnotes, code controls and math', () => {
   assert.match(html, /color:var\(--shiki-/);
 });
 
+test('uses the native scroll layout only for wide tables outside blockquotes', () => {
+  const wide = '| A | B | C | D |\n| - | - | - | - |\n| 1 | 2 | 3 | 4 |';
+  const narrow = '| A | B | C |\n| - | - | - |\n| 1 | 2 | 3 |';
+  const quoted = wide.split('\n').map(line => `>   ${line}`).join('\n');
+  const markdown = `${narrow}\n\n> - Quoted table\n>\n${quoted}\n\n${wide}`;
+  const html = render({ status: 'found', markdown });
+  const tables = JSDOM.fragment(html).querySelectorAll('.dshdoc_md_tableScroll > table');
+
+  assert.deepEqual(Array.from(tables, table => table.parentElement.className), [
+    'dshdoc_md_tableScroll dshdoc_md_tableFill',
+    'dshdoc_md_tableScroll dshdoc_md_tableFill',
+    'dshdoc_md_tableScroll md-table-wide',
+  ]);
+});
+
 test('omits raw HTML and images and does not activate unsafe or relative links', () => {
   const html = render({ status: 'found', markdown: '<script>alert(1)</script>\n\n[bad](javascript:alert%281%29) [file](./local.txt) [safe](https://example.com)\n\n![remote](https://example.com/a.png) ![local](a.png)' });
   assert.doesNotMatch(html, /<script|<img|javascript:|href="\.\//);

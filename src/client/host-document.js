@@ -68,6 +68,20 @@ function safeUrl(url) {
   } catch { return ''; }
 }
 
+function remarkWideTables() {
+  return function markWideTables(node) {
+    if (node.type === 'blockquote') return;
+    if (node.type === 'table') {
+      const columns = node.align?.length ?? node.children[0]?.children.length ?? 0;
+      if (columns >= 4) {
+        node.data = { ...node.data, hProperties: { ...node.data?.hProperties, className: ['md-table-wide'] } };
+      }
+      return;
+    }
+    for (const child of node.children ?? []) markWideTables(child);
+  };
+}
+
 function Document({ markdown, labels }) {
   const prefix = `dshdoc-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}-`;
   const components = useMemo(() => ({
@@ -76,11 +90,14 @@ function Document({ markdown, labels }) {
     a: ({ href, children, node: _node, ...props }) => !href ? h('span', null, children)
       : h('a', { ...props, href, ...(href.startsWith('#') ? {} : { target: '_blank', rel: 'noopener noreferrer' }) }, children),
     pre: ({ children }) => h(CodeBlock, { labels: labels.code }, children),
-    table: ({ children }) => h('div', { className: 'dshdoc_md_tableScroll dshdoc_md_tableFill', tabIndex: 0 }, h('table', null, children)),
+    table: ({ children, className }) => h('div', {
+      className: `dshdoc_md_tableScroll ${className ?? 'dshdoc_md_tableFill'}`,
+      tabIndex: 0,
+    }, h('table', null, children)),
   }), [labels.code]);
   return h('div', { className: 'dshdoc_md_markdown' }, h(Markdown, {
     skipHtml: true, urlTransform: safeUrl,
-    remarkPlugins: [remarkGfm, remarkMath],
+    remarkPlugins: [remarkGfm, remarkMath, remarkWideTables],
     rehypePlugins: [[rehypeKatex, { trust: false, throwOnError: false, strict: 'ignore' }]],
     remarkRehypeOptions: { footnoteLabel: labels.footnotes, footnoteBackLabel: labels.footnotes, clobberPrefix: prefix },
     components,
