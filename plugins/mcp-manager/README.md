@@ -21,15 +21,22 @@ References resolve against the Harness process environment.
 
 ## Install
 
-Build in the plugin repository, then install the local package through the DSH plugin entry point:
+In Desktop, open **Plugins → Add plugin** and enter `@dawn0608/dsh-mcp-manager`. For a CLI-managed profile, run:
 
 ```bash
-cd ~/Developer/dsh-plugins
+dsh plugin --profile <profile> add @dawn0608/dsh-mcp-manager
+```
+
+You can also download the `.tgz` from [GitHub Releases](https://github.com/dawn0608/dsh-plugins/releases?q=mcp-manager) and install it with `dsh plugin --profile <profile> add /path/to/package.tgz`. Fully quit Harness Desktop before using the CLI to manage its profile.
+
+To install from source, build from the repository root:
+
+```bash
 npm install
 npm run build
 ```
 
-In Desktop, use **Plugins → Add plugin** and select the local `plugins/mcp-manager` directory. If you have the previous package installed, uninstall it before adding the renamed package. Open **Settings → MCP Management** after installation. Restart Harness if prompted.
+Then select the local `plugins/mcp-manager` directory in the plugin picker. If an older installation is present, remove it before switching installation sources. Open **Settings → MCP Management** after installation and restart Harness if prompted.
 
 ## Configuration
 

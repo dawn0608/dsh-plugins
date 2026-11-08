@@ -21,15 +21,22 @@ headers:
 
 ## 安装
 
-在插件仓库根目录构建后，用 DSH 的插件安装入口安装本地包：
+在 Desktop 打开「插件 → 添加插件」，输入 `@dawn0608/dsh-mcp-manager`。通过 CLI 管理 profile 时，可运行以下命令。
 
 ```bash
-cd ~/Developer/dsh-plugins
+dsh plugin --profile <profile> add @dawn0608/dsh-mcp-manager
+```
+
+也可从 [GitHub Releases](https://github.com/dawn0608/dsh-plugins/releases?q=mcp-manager) 下载 `.tgz`，再运行 `dsh plugin --profile <profile> add /path/to/package.tgz` 安装。用 CLI 管理 desktop profile 前请完全退出 Harness Desktop。
+
+从源码安装时，在仓库根目录构建。
+
+```bash
 npm install
 npm run build
 ```
 
-在 Desktop「插件 → 添加插件」中选择本地目录 `plugins/mcp-manager`。如果已安装旧包，先卸载，再安装改名后的包。安装后打开「设置 → MCP 管理」，按应用提示重启。
+构建完成后，通过本地包入口选择 `plugins/mcp-manager`。切换安装来源时，先移除已有安装。安装后打开「设置 → MCP 管理」，按应用提示重启。
 
 ## 配置
 

@@ -1,7 +1,6 @@
 {
   "name": "@dawn0608/dsh-mcp-manager",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.1.1",
   "type": "module",
   "main": "./lib/index.js",
   "description": "View and toggle Model Context Protocol servers from Settings.",
