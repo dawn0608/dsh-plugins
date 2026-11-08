@@ -19,6 +19,7 @@ test('the built client contributes a matching sidebar and main entry owned by th
   });
   assert.equal(entry.id, '@dawn0608/dsh-skill-manager');
   const client = entry.factory(id => {
+    if (id === '@deepseek-ai/dsh-client-ui-primitives') return { IconChevronDownOutlineRegular: () => null };
     assert.equal(id, 'react');
     return React;
   });

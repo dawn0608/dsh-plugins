@@ -269,7 +269,25 @@ html[data-platform='darwin'] .dshskill_page {
 }
 
 .dshskill_back {
-  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--dsw-alias-label-tertiary);
+  font: inherit;
+  font-size: 12.5px;
+  line-height: normal;
+  cursor: pointer;
+}
+
+.dshskill_back:hover {
+  color: var(--dsw-alias-label-primary);
+}
+
+.dshskill_backIcon {
+  transform: rotate(90deg);
 }
 
 .dshskill_metadata {

@@ -23,7 +23,7 @@ function render(language, patch = {}) {
     bind: () => (key, params) => translateFrom(DICTS[language], key, params),
     subscribe: () => () => {}, getSnapshot: () => ({ active: language, revision: 1 }),
   };
-  const Page = createPage(locale, () => store);
+  const Page = createPage(locale, () => null, () => store);
   return renderToStaticMarkup(React.createElement(Page));
 }
 

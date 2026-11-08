@@ -40,7 +40,7 @@ function CatalogRows({ skills, query, translate: t, busy, store, openDetail }) {
   }));
 }
 
-function SkillDetail({ skill, titleRef, translate: t, busy, back, openRemove }) {
+function SkillDetail({ skill, titleRef, translate: t, busy, back, BackIcon, openRemove }) {
   const [preview, setPreview] = useState(null);
   useEffect(() => {
     const pending = new AbortController();
@@ -54,8 +54,8 @@ function SkillDetail({ skill, titleRef, translate: t, busy, back, openRemove }) 
   const unknownOrigin = preview?.body !== undefined && !preview.origin;
   const repository = preview?.repository;
   return h('div', { className: 'dshskill_detail' },
-    h('button', { type: 'button', className: 'dshskill_control dshskill_back', onClick: back },
-      h(SkillIcon, { kind: 'back', size: 16 }), t('back')),
+    h('button', { type: 'button', className: 'dshskill_back', 'aria-label': t('back'), onClick: back },
+      h(BackIcon, { className: 'dshskill_backIcon', 'aria-hidden': true }), h('span', null, t('title'))),
     h('header', { className: 'dshskill_header' },
       h('div', null,
         h('h1', { ref: titleRef, tabIndex: -1 }, skill.name),
@@ -79,7 +79,7 @@ function SkillDetail({ skill, titleRef, translate: t, busy, back, openRemove }) 
       preview?.body !== undefined && h('pre', { tabIndex: 0, 'aria-label': t('preview') }, preview.body)));
 }
 
-export function createPage(locale, createStore = createCatalog) {
+export function createPage(locale, BackIcon, createStore = createCatalog) {
   const t = createTranslator(locale);
   const subscribeLocale = listener => locale.subscribe(listener);
   const localeVersion = () => locale.getSnapshot().revision;
@@ -140,7 +140,7 @@ export function createPage(locale, createStore = createCatalog) {
       h('div', { className: 'dshskill_content' },
         currentSkill
           ? h(SkillDetail, {
-              skill: currentSkill, titleRef, translate: t, busy,
+              skill: currentSkill, titleRef, translate: t, busy, BackIcon,
               back: () => setDetail(null), openRemove: () => { store.clearMutationError(); setConfirmRemoval(true); },
             })
           : h('div', { className: 'dshskill_catalog' },
