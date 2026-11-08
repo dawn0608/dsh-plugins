@@ -5,7 +5,6 @@ import { RemoveDialog } from './dialog.js';
 import { createTranslator } from './i18n.js';
 
 const GROUPS = ['builtin', 'self', 'third-party'];
-const SOURCES = new Set(['project-dsh', 'project-agents', 'custom', 'user-dsh', 'user-agents', 'bundled', 'runtime']);
 
 function SkillToggle({ skill, busy, saving, store, translate: t, controls }) {
   const { StateDot, Switch } = controls;
@@ -53,8 +52,9 @@ function CatalogRows({ skills, query, translate: t, busy, savingId, store, openD
 }
 
 function SkillDetail({ skill, titleRef, translate: t, busy, saving, back, openRemove, controls, store }) {
-  const { BackIcon, Button, SkillEmblem, TrashIcon } = controls;
+  const { BackIcon, Button, SkillDocument, SkillEmblem, TrashIcon } = controls;
   const [preview, setPreview] = useState(null);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     const pending = new AbortController();
     request({ action: 'detail', workspaceId: null, id: skill.id },
@@ -62,13 +62,12 @@ function SkillDetail({ skill, titleRef, translate: t, busy, saving, back, openRe
       .then(result => { if (!pending.signal.aborted) setPreview(result); })
       .catch(error => { if (!pending.signal.aborted) setPreview({ error: error.code ?? 'unavailable' }); });
     return () => pending.abort();
-  }, [skill.id]);
+  }, [skill.id, attempt]);
 
-  const unknownOrigin = preview?.body !== undefined && !preview.origin;
-  const repository = preview?.repository;
   const imported = skill.group === 'imported';
   const canToggle = typeof skill.enabled === 'boolean';
-  const source = imported || !SOURCES.has(skill.source) ? skill.group : skill.source;
+  const source = preview?.origin ?? skill.origin ?? (imported ? 'imported' : 'unknownOrigin');
+  const repository = source === 'third-party' ? preview?.repository : undefined;
   return h('div', { className: 'dshskill_detail' },
     h('header', { className: 'dshskill_detailTop' },
       h('button', { type: 'button', className: 'dshskill_back', 'aria-label': t('back'), onClick: back },
@@ -84,22 +83,13 @@ function SkillDetail({ skill, titleRef, translate: t, busy, saving, back, openRe
           canToggle && h(SkillToggle, { skill, busy, saving, store, translate: t, controls })))),
     h('div', { className: 'dshskill_detailMain' },
       h('h1', { ref: titleRef, tabIndex: -1 }, skill.name),
-      h('dl', { className: 'dshskill_metadata dshskill_detailSource' },
-        h('dt', null, t('source')), h('dd', null, t(source))),
+      h('dl', { className: 'dshskill_detailSource' },
+        h('dt', null, t('source')),
+        h('dd', null, repository ? h('a', { href: repository, target: '_blank', rel: 'noopener noreferrer' },
+          repository.slice('https://'.length).replace(/\/$/, '')) : t(source))),
       skill.description && h('p', { className: 'dshskill_detailDescription' }, skill.description)),
     h('div', { className: 'dshskill_detailSections' },
-      (unknownOrigin || repository) && h('dl', { className: 'dshskill_metadata' },
-        unknownOrigin && h('dt', null, t('origin')),
-        unknownOrigin && h('dd', null, t('unknownOrigin')),
-        repository && h('dt', null, t('repository')),
-        repository && h('dd', null,
-          h('a', { href: repository, target: '_blank', rel: 'noopener noreferrer' }, repository))),
-      h('section', { className: 'dshskill_preview' },
-        h('h2', null, t('preview')),
-        preview === null && h('p', { role: 'status', className: 'dshskill_muted' }, t('loadingPreview')),
-        preview?.error && h('p', { role: 'alert', className: 'dshskill_error' }, t(preview.error)),
-        preview?.body !== undefined && h('div', { className: 'dshskill_document', tabIndex: 0, 'aria-label': t('preview') },
-          h('pre', null, preview.body)))));
+      h(SkillDocument, { preview, translate: t, onRetry: () => { setPreview(null); setAttempt(value => value + 1); } })));
 }
 
 export function createPage(locale, controls, createStore = createCatalog) {

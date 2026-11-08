@@ -34,18 +34,20 @@ html[data-platform='darwin'] .dshskill_page {
   margin-inline: auto;
 }
 
-.dshskill_page :where(h1, h2, p, pre, ul, dl, dd) {
+.dshskill_page :where(h1, h2, p, ul, dl, dd):not(:where(.dshskill_detailSections *)) {
   margin: 0;
 }
 
-.dshskill_page h1 {
+.dshskill_header h1,
+.dshskill_detailMain h1 {
   font-size: 20px;
   line-height: 28px;
   font-weight: 500;
   overflow-wrap: anywhere;
 }
 
-.dshskill_page h2 {
+.dshskill_group h2,
+.dshskill_dialog h2 {
   font-size: 14px;
   line-height: 22px;
   font-weight: 500;
@@ -111,7 +113,7 @@ html[data-platform='darwin'] .dshskill_page {
   color: var(--dsw-alias-label-secondary);
 }
 
-.dshskill_page :where(.dshskill_control, .dshskill_back, .dshskill_document, h1):focus-visible {
+.dshskill_page :where(.dshskill_control, .dshskill_back, .dshskill_header h1, .dshskill_detailMain h1):focus-visible {
   outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: 2px;
 }
@@ -339,57 +341,23 @@ html[data-platform='darwin'] .dshskill_page {
   margin-top: 32px;
 }
 
-.dshskill_metadata {
+.dshskill_detailSource {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
-  gap: 4px 12px;
-}
-
-.dshskill_metadata dt {
-  color: var(--dsw-alias-label-secondary);
-}
-
-.dshskill_metadata dd {
-  overflow-wrap: anywhere;
-}
-
-.dshskill_metadata a {
-  color: inherit;
-  text-decoration: underline;
-  text-underline-offset: 0.15em;
-}
-
-.dshskill_detailSource {
+  gap: 12px;
   color: var(--dsw-alias-label-tertiary);
   font-size: 12px;
   line-height: 18px;
 }
 
-.dshskill_detailSource dt {
-  color: inherit;
-}
-
-.dshskill_preview {
-  display: grid;
-  gap: 12px;
-  min-width: 0;
-}
-
-.dshskill_document {
-  max-height: min(560px, 60vh);
-  overflow-y: auto;
-  scrollbar-gutter: stable;
-  padding-block: 12px;
-  border-block: 0.5px solid var(--dsw-alias-border-l1);
-}
-
-.dshskill_preview pre {
-  padding: 16px 22px 20px;
-  border-radius: var(--dsw-radius-lg);
-  background: var(--dsw-alias-markdown-code-block);
-  font: var(--dsw-font-markdown-code-block, 11px/19px ui-monospace, monospace);
-  white-space: pre-wrap;
+.dshskill_detailSource dd {
   overflow-wrap: anywhere;
+}
+
+.dshskill_detailSource a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
 }
 
 .dshskill_dialog {
