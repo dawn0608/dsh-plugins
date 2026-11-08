@@ -107,6 +107,10 @@ html[data-platform='darwin'] .dshskill_page {
   min-width: 0;
 }
 
+.dshskill_search input::placeholder {
+  color: var(--dsw-alias-label-secondary);
+}
+
 .dshskill_page :where(.dshskill_control, .dshskill_back, .dshskill_document, h1):focus-visible {
   outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: 2px;
