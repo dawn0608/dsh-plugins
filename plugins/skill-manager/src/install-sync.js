@@ -157,6 +157,12 @@ export async function main(args = process.argv.slice(2)) {
   console.log('Installed ' + label + '. Backups: ' + result.backup);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(resolve(process.argv[1]))).href) {
+let directEntry = false;
+try {
+  directEntry = Boolean(process.argv[1]) && import.meta.url === pathToFileURL(realpathSync(resolve(process.argv[1]))).href;
+} catch {
+  // stdin and other non-file hosts may import the installer without a resolvable entry.
+}
+if (directEntry) {
   main().catch(error => { console.error(error.message); process.exitCode = 1; });
 }

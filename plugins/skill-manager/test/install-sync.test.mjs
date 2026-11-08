@@ -174,5 +174,10 @@ test('built CLI help and module import never write user state or start installat
   const imported = spawnSync(process.execPath, ['--input-type=module', '-e', 'await import(' + JSON.stringify(entry.href) + ')'], { env, encoding: 'utf8' });
   assert.equal(imported.status, 0, imported.stderr);
   assert.equal(imported.stdout, '');
+  const stdinImport = spawnSync(process.execPath, ['--input-type=module', '-'], {
+    env, encoding: 'utf8', input: 'await import(' + JSON.stringify(entry.href) + '); console.log("import-ok");',
+  });
+  assert.equal(stdinImport.status, 0, stdinImport.stderr);
+  assert.equal(stdinImport.stdout, 'import-ok\n');
   assert.deepEqual(await readdir(isolatedHome), []);
 });
