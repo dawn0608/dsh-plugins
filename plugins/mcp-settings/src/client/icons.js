@@ -41,3 +41,7 @@ export function CloseIcon({ size = 14 }) {
 export function TrashIcon({ size = 14 }) {
   return h(Svg, { size }, h(Path, { d: 'M3 5h10M6 5V3.2h4V5M4.5 5l.6 8h5.8l.6-8M6.8 7.6v2.8M9.2 7.6v2.8' }));
 }
+
+export function BackIcon({ size = 14 }) {
+  return h(Svg, { size }, h(Path, { d: 'M12.5 8h-9M7 4.5 3.5 8 7 11.5' }));
+}

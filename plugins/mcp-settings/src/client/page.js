@@ -1,4 +1,4 @@
-/** The MCP settings page: header, server rows, inline editor and delete dialog. */
+/** The MCP settings page: server list, dedicated editor and delete dialog. */
 
 import * as React from 'react';
 import { createController } from './controller.js';
@@ -40,16 +40,24 @@ function Notice(props) {
 }
 
 function Skeleton() {
-  return h('div', { className: 'dshmcp_rows', 'aria-hidden': true },
-    h('div', { className: 'dshmcp_card dshmcp_skeletonCard' },
+  return h('div', { className: 'dshmcp_group dshmcp_rows', 'aria-hidden': true },
+    h('div', { className: 'dshmcp_skeletonRow' },
       h('span', { className: 'dshmcp_skeletonLine', 'data-w': '34' }),
       h('span', { className: 'dshmcp_skeletonLine', 'data-w': '72' }),
     ),
-    h('div', { className: 'dshmcp_card dshmcp_skeletonCard' },
+    h('div', { className: 'dshmcp_skeletonRow' },
       h('span', { className: 'dshmcp_skeletonLine', 'data-w': '46' }),
       h('span', { className: 'dshmcp_skeletonLine', 'data-w': '64' }),
     ),
   );
+}
+
+// The settings shell owns scrolling. Find its scroll container without relying on its private CSS classes.
+function scrollContainer(element) {
+  for (let parent = element.parentElement; parent; parent = parent.parentElement) {
+    if (/^(auto|scroll|overlay)$/.test(getComputedStyle(parent).overflowY)) return parent;
+  }
+  return document.scrollingElement;
 }
 
 class Boundary extends React.Component {
@@ -86,13 +94,17 @@ export function createPage(options) {
     const [deleteTarget, setDeleteTarget] = React.useState(null);
     const [deleteFailure, setDeleteFailure] = React.useState(null);
     const [actionFailure, setActionFailure] = React.useState(null);
-    const returnFocusRef = React.useRef(null);
+    const panelRef = React.useRef(null);
+    const listPosition = React.useRef(null);
+    const deleteTrigger = React.useRef(null);
     const addButtonRef = React.useRef(null);
     const editButtonsRef = React.useRef(new Map());
 
     const servers = snapshot.state && Array.isArray(snapshot.state.servers) ? snapshot.state.servers : [];
     const patchPath = snapshot.state && typeof snapshot.state.patchPath === 'string' ? snapshot.state.patchPath : '';
-    const loading = snapshot.status === 'loading' && snapshot.state === null;
+    const inEditor = editor !== null;
+    const busy = snapshot.busy;
+    const loading = snapshot.state === null && snapshot.status !== 'error';
     const refreshing = snapshot.refreshing === true || snapshot.status === 'loading';
     const loadFailure = snapshot.error ? failureText(translate, snapshot.error) : null;
     const actionFailureText = actionFailure ? failureText(translate, actionFailure) : null;
@@ -135,35 +147,37 @@ export function createPage(options) {
       store.load();
     };
 
-    const openAdd = event => {
-      setActionFailure(null);
-      returnFocusRef.current = event.currentTarget;
-      setEditor({ mode: 'add', target: null, form: blankForm('stdio'), errors: [], failure: null });
-    };
+    React.useLayoutEffect(() => {
+      const position = listPosition.current;
+      if (!position) return;
+      const { scroller, top, serverId } = position;
+      if (inEditor) {
+        if (scroller) scroller.scrollTop = 0;
+        return;
+      }
+      listPosition.current = null;
+      if (scroller) scroller.scrollTop = top;
+      const editButton = editButtonsRef.current.get(serverId);
+      if (editButton) editButton.focus({ preventScroll: true });
+      else addButtonRef.current?.focus();
+    }, [inEditor]);
 
-    const openEdit = (server, trigger) => {
+    const openEditor = (mode, target = null) => {
+      if (busy) return;
+      const scroller = scrollContainer(panelRef.current);
+      listPosition.current = { scroller, top: scroller?.scrollTop || 0, serverId: target?.id };
       setActionFailure(null);
-      returnFocusRef.current = trigger;
-      setEditor({ mode: 'edit', target: server, form: serverToForm(server), errors: [], failure: null });
-    };
-
-    const restoreFocus = serverId => {
-      const fallback = returnFocusRef.current;
-      setTimeout(() => {
-        const registered = serverId === undefined ? undefined : editButtonsRef.current.get(serverId);
-        const node = registered && registered.isConnected
-          ? registered
-          : fallback && fallback.isConnected
-            ? fallback
-            : addButtonRef.current;
-        if (node && typeof node.focus === 'function') node.focus();
-      }, 0);
+      setEditor({
+        mode,
+        target,
+        form: target ? serverToForm(target) : blankForm(),
+        errors: [],
+        failure: null,
+      });
     };
 
     const closeEditor = () => {
-      const serverId = editor && editor.mode === 'edit' && editor.target ? editor.target.id : undefined;
-      setEditor(null);
-      restoreFocus(serverId);
+      if (!busy) setEditor(null);
     };
 
     const registerEditButton = (server, element) => {
@@ -174,17 +188,15 @@ export function createPage(options) {
     };
 
     const submit = async () => {
-      if (editor === null || (snapshot.busy && snapshot.busy.action === 'save')) return;
+      if (!editor || busy) return;
       const { draft, errors } = validateForm(editor.form, contextFor(servers, editor.target));
       if (errors.length > 0) {
         setEditor(current => (current === null ? null : { ...current, errors, failure: null }));
         return;
       }
-      const serverId = editor.mode === 'edit' && editor.target ? editor.target.id : undefined;
       const result = await store.save(draft, { mode: editor.mode, target: editor.target });
       if (result.ok) {
         setEditor(null);
-        restoreFocus(serverId);
         return;
       }
       if (Array.isArray(result.errors) && result.errors.length > 0) {
@@ -195,30 +207,36 @@ export function createPage(options) {
     };
 
     const toggle = async server => {
+      if (busy) return;
       setActionFailure(null);
       const result = await store.setEnabled(server, server.enabled === false);
       if (!result.ok) setActionFailure({ code: result.code, params: result.params });
     };
 
     const askDelete = (server, trigger) => {
+      if (busy) return;
+      deleteTrigger.current = trigger;
       setActionFailure(null);
       setDeleteFailure(null);
-      returnFocusRef.current = trigger;
       setDeleteTarget(server);
     };
 
     const cancelDelete = () => {
-      if (snapshot.busy && snapshot.busy.action === 'delete') return;
+      if (busy) return;
       setDeleteTarget(null);
       setDeleteFailure(null);
     };
 
     const confirmDelete = async () => {
-      if (deleteTarget === null || (snapshot.busy && snapshot.busy.action === 'delete')) return;
+      if (!deleteTarget || busy) return;
       setDeleteFailure(null);
       const result = await store.remove(deleteTarget);
       if (result.ok) {
         setDeleteTarget(null);
+        if (inEditor) {
+          listPosition.current = { ...listPosition.current, top: 0, serverId: undefined };
+          setEditor(null);
+        }
         setTimeout(() => {
           if (addButtonRef.current) addButtonRef.current.focus();
         }, 0);
@@ -227,116 +245,95 @@ export function createPage(options) {
       setDeleteFailure(failureText(translate, result));
     };
 
-    const editingId = editor && editor.mode === 'edit' && editor.target ? editor.target.id : undefined;
-    const addOpen = editor !== null && editor.mode === 'add';
-    const showAddButton = !addOpen;
-
     return h('section', {
+      ref: panelRef,
       className: 'dshmcp_page',
       'aria-labelledby': 'dshmcp-title',
       'aria-busy': loading ? 'true' : undefined,
     },
-      h('div', { className: 'dshmcp_pageHead' },
-        h('div', { className: 'dshmcp_pageCopy' },
-          h('h2', { className: 'dshmcp_title', id: 'dshmcp-title' }, translate('title')),
-          h('p', { className: 'dshmcp_intro' }, translate('intro')),
-        ),
-        h('button', {
-          type: 'button',
-          className: 'dshmcp_button dshmcp_buttonSm dshmcp_buttonOutline dshmcp_refresh',
-          'aria-busy': refreshing ? 'true' : undefined,
-          disabled: refreshing,
-          onClick: refresh,
-        },
-        h('span', { className: refreshing ? 'dshmcp_spin' : undefined }, h(RefreshIcon, { size: 14 })),
-        h('span', null, translate('refresh')),
-        ),
-      ),
-      loading ? h(Skeleton) : null,
-      !loading && snapshot.state === null && loadFailure
-        ? h('div', { className: 'dshmcp_errorPanel', role: 'alert' },
-          h('p', { className: 'dshmcp_notice dshmcp_notice_error' }, translate('loadFailed')),
-          h('p', { className: 'dshmcp_hint' }, loadFailure),
-          h('button', { type: 'button', className: 'dshmcp_button dshmcp_buttonSm dshmcp_buttonOutline', onClick: refresh }, translate('retry')),
-        )
-        : null,
-      snapshot.state !== null
-        ? h(React.Fragment, null,
-          loadFailure && snapshot.status !== 'error'
-            ? h(Notice, { tone: 'error', onRetry: refresh, retryLabel: translate('retry') }, loadFailure)
-            : null,
-          actionFailureText ? h(Notice, { tone: 'error' }, actionFailureText) : null,
-          noticeText ? h(Notice, { tone: noticeTone }, noticeText) : null,
-          h('ul', { className: 'dshmcp_rows' },
-            servers.map((server, index) => {
-              const key = server.id || `${server.name || 'entry'}-${index}`;
-              if (editingId !== undefined && server.id === editingId) {
-                return h('li', { key, className: 'dshmcp_card dshmcp_editorCard' }, h(EditorCard, {
-                  mode: 'edit',
-                  target: editor.target,
-                  form: editor.form,
-                  errors: editor.errors,
-                  failure: editor.failure,
-                  busy: snapshot.busy,
-                  translate,
-                  onChange: form => setEditor(current => (current === null ? null : { ...current, form, failure: null })),
-                  onSubmit: submit,
-                  onClose: closeEditor,
-                }));
-              }
-              return h(ServerRow, {
-                key,
-                server,
-                translate,
-                busy: snapshot.busy,
-                onEdit: openEdit,
-                onDelete: askDelete,
-                onToggle: toggle,
-                onRegisterEdit: registerEditButton,
-              });
-            }),
+      inEditor
+        ? h(EditorCard, {
+          mode: editor.mode,
+          target: editor.target,
+          form: editor.form,
+          errors: editor.errors,
+          failure: editor.failure,
+          busy,
+          translate,
+          onChange: form => setEditor(current => current && { ...current, form, errors: [], failure: null }),
+          onSubmit: submit,
+          onClose: closeEditor,
+          onDelete: event => askDelete(editor.target, event.currentTarget),
+        })
+        : h(React.Fragment, null,
+          h('header', { className: 'dshmcp_pageHead' },
+            h('div', { className: 'dshmcp_headingRow' },
+              h('h2', { className: 'dshmcp_title', id: 'dshmcp-title' }, translate('title')),
+              h('div', { className: 'dshmcp_toolbar' },
+                h('button', {
+                  type: 'button',
+                  className: 'dshmcp_iconButton dshmcp_refresh',
+                  'aria-label': translate('refresh'),
+                  title: translate('refresh'),
+                  'aria-busy': refreshing ? 'true' : undefined,
+                  disabled: refreshing || Boolean(busy),
+                  onClick: refresh,
+                }, h('span', { className: refreshing ? 'dshmcp_spin' : undefined }, h(RefreshIcon, { size: 16 }))),
+                h('button', {
+                  type: 'button',
+                  ref: addButtonRef,
+                  className: 'dshmcp_button dshmcp_buttonSm dshmcp_buttonPrimary',
+                  disabled: snapshot.state === null || Boolean(busy),
+                  onClick: () => openEditor('add'),
+                }, h(PlusIcon, { size: 14 }), h('span', null, translate('add'))),
+              ),
+            ),
+            h('p', { className: 'dshmcp_intro' }, translate('intro')),
           ),
-          servers.length === 0 && !addOpen
-            ? h('div', { className: 'dshmcp_empty' },
-              h('p', { className: 'dshmcp_emptyTitle' }, translate('emptyTitle')),
-              h('p', { className: 'dshmcp_emptyHint' }, translate('emptyHint')),
+          loading ? h(Skeleton) : null,
+          loadFailure && snapshot.state === null
+            ? h('div', { className: 'dshmcp_group dshmcp_messagePanel', role: 'alert' },
+              h('p', { className: 'dshmcp_messageTitle' }, translate('loadFailed')),
+              loadFailure === translate('loadFailed') ? null : h('p', { className: 'dshmcp_hint' }, loadFailure),
+              h('button', { type: 'button', className: 'dshmcp_button dshmcp_buttonSm dshmcp_buttonOutline', onClick: refresh }, translate('retry')),
             )
             : null,
-          addOpen
-            ? h('div', { className: 'dshmcp_card dshmcp_editorCard' }, h(EditorCard, {
-              mode: 'add',
-              target: null,
-              form: editor.form,
-              errors: editor.errors,
-              failure: editor.failure,
-              busy: snapshot.busy,
-              translate,
-              onChange: form => setEditor(current => (current === null ? null : { ...current, form, failure: null })),
-              onSubmit: submit,
-              onClose: closeEditor,
-            }))
-            : null,
-          showAddButton
-            ? h('button', {
-              type: 'button',
-              ref: addButtonRef,
-              className: 'dshmcp_addButton',
-              disabled: Boolean(snapshot.busy),
-              onClick: openAdd,
-            }, h(PlusIcon, { size: 14 }), h('span', null, translate('add')))
-            : null,
-          patchPath
-            ? h('p', { className: 'dshmcp_footnote' },
-              h('span', { className: 'dshmcp_footnoteLabel' }, translate('pathLabel')),
-              h('code', { className: 'dshmcp_path', title: patchPath }, patchPath),
+          snapshot.state !== null
+            ? h(React.Fragment, null,
+              loadFailure ? h(Notice, { tone: 'error', onRetry: refresh, retryLabel: translate('retry') }, loadFailure) : null,
+              actionFailureText ? h(Notice, { tone: 'error' }, actionFailureText) : null,
+              noticeText ? h(Notice, { tone: noticeTone }, noticeText) : null,
+              servers.length > 0
+                ? h('ul', { className: 'dshmcp_group dshmcp_rows', role: 'list' },
+                  servers.map((server, index) => h(ServerRow, {
+                    key: server.editable ? `editable:${server.id}` : `readonly:${index}`,
+                    server,
+                    translate,
+                    busy,
+                    onEdit: target => openEditor('edit', target),
+                    onDelete: askDelete,
+                    onToggle: toggle,
+                    onRegisterEdit: registerEditButton,
+                  })),
+                )
+                : h('div', { className: 'dshmcp_group dshmcp_messagePanel' },
+                  h('p', { className: 'dshmcp_messageTitle' }, translate('emptyTitle')),
+                  h('p', { className: 'dshmcp_hint' }, translate('emptyHint')),
+                ),
+              patchPath
+                ? h('details', { className: 'dshmcp_footnote' },
+                  h('summary', { className: 'dshmcp_pathLabel' }, translate('pathLabel')),
+                  h('code', { className: 'dshmcp_path' }, patchPath),
+                )
+                : null,
             )
             : null,
-        )
-        : null,
+        ),
       h(DeleteDialog, {
         open: deleteTarget !== null,
+        trigger: deleteTrigger.current,
         name: deleteTarget === null ? '' : serverLabel(deleteTarget, translate),
-        busy: Boolean(snapshot.busy && snapshot.busy.action === 'delete'),
+        busy: Boolean(busy && busy.action === 'delete'),
         failure: deleteFailure,
         translate,
         onCancel: cancelDelete,

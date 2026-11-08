@@ -8,22 +8,21 @@ const h = React.createElement;
 const FOCUSABLE = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])';
 
 /**
- * @param {{open: boolean, name: string, busy: boolean, failure: string | null, translate: Function, onCancel: Function, onConfirm: Function}} props
+ * @param {{open: boolean, trigger: HTMLElement | null, name: string, busy: boolean, failure: string | null, translate: Function, onCancel: Function, onConfirm: Function}} props
  */
 export function DeleteDialog(props) {
-  const { open, name, busy, failure, translate, onCancel, onConfirm } = props;
+  const { open, trigger, name, busy, failure, translate, onCancel, onConfirm } = props;
   const titleId = React.useId();
   const bodyId = React.useId();
   const dialogRef = React.useRef(null);
   const cancelRef = React.useRef(null);
-  const restoreRef = React.useRef(null);
   const cancelHandler = React.useRef(onCancel);
   cancelHandler.current = onCancel;
 
   React.useEffect(() => {
     if (!open) return undefined;
     if (typeof document === 'undefined') return undefined;
-    restoreRef.current = document.activeElement;
+    const restoreTarget = trigger || document.activeElement;
     const timer = setTimeout(() => {
       if (cancelRef.current) cancelRef.current.focus();
     }, 0);
@@ -36,10 +35,16 @@ export function DeleteDialog(props) {
       }
       if (event.key !== 'Tab' || !dialogRef.current) return;
       const nodes = [...dialogRef.current.querySelectorAll(FOCUSABLE)];
-      if (nodes.length === 0) return;
+      if (nodes.length === 0) {
+        event.preventDefault();
+        return;
+      }
       const first = nodes[0];
       const last = nodes[nodes.length - 1];
-      if (event.shiftKey && document.activeElement === first) {
+      if (!dialogRef.current.contains(document.activeElement)) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      } else if (event.shiftKey && document.activeElement === first) {
         event.preventDefault();
         last.focus();
       } else if (!event.shiftKey && document.activeElement === last) {
@@ -51,10 +56,9 @@ export function DeleteDialog(props) {
     return () => {
       clearTimeout(timer);
       document.removeEventListener('keydown', onKeyDown, true);
-      const target = restoreRef.current;
-      if (target && target.isConnected) target.focus();
+      if (restoreTarget?.isConnected) restoreTarget.focus();
     };
-  }, [open]);
+  }, [open, trigger]);
 
   if (!open || typeof document === 'undefined') return null;
 
@@ -101,5 +105,5 @@ export function DeleteDialog(props) {
       onClick: onConfirm,
     }, busy ? translate('deleting', { name }) : translate('deleteConfirm', { name })),
   ),
-  )));
+  )), document.body);
 }

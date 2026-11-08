@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { EditorCard } from '../src/client/editor.js';
+import { blankForm, serverToForm } from '../src/client/model.js';
 import { createPage } from '../src/client/page.js';
 
 const translate = key => key;
@@ -79,16 +81,15 @@ test('renders the ready page with header, rows, add action and path', () => {
   assert.match(html, /class="dshmcp_page"/);
   assert.match(html, />title</);
   assert.match(html, />intro</);
-  assert.match(html, />refresh</);
-  assert.match(html, /class="dshmcp_addButton"/);
+  assert.match(html, /aria-label="refresh"/);
+  assert.match(html, /<header[^>]*>[\s\S]*>add<[\s\S]*<\/header>/);
   assert.match(html, />add</);
   assert.match(html, /class="dshmcp_footnote"/);
-  assert.match(html, /\/tmp\/cordis\.patch\.yml/);
+  assert.match(html, /<details[^>]*><summary[^>]*>pathLabel<\/summary>[\s\S]*\/tmp\/cordis\.patch\.yml/);
   assert.match(html, /docs/);
   assert.match(html, /transportHttp/);
   assert.match(html, /transportStdio/);
-  assert.match(html, /https:\/\/example\.com\/mcp/);
-  assert.match(html, /\/bin\/echo hello/);
+  assert.doesNotMatch(html, /https:\/\/example\.com\/mcp|\/bin\/echo hello/);
   assert.match(html, /duplicate/);
   assert.match(html, /role="switch"/);
   assert.match(html, /aria-checked="true"/);
@@ -96,7 +97,7 @@ test('renders the ready page with header, rows, add action and path', () => {
   assert.match(html, /data-tone="success"/);
   assert.match(html, /data-tone="warn"/);
   assert.match(html, />edit</);
-  assert.match(html, />delete</);
+  assert.doesNotMatch(html, /aria-label="deleteServer"/);
 });
 
 test('renders the empty and error states instead of throwing', () => {
@@ -145,8 +146,59 @@ test('renders a read-only row without a switch or edit action', () => {
   assert.match(html, /readOnly/);
   assert.match(html, /readOnlyNotInsert/);
   assert.doesNotMatch(html, /role="switch"/);
-  assert.doesNotMatch(html, /class="dshmcp_button dshmcp_buttonSm dshmcp_buttonOutline"/);
-  assert.doesNotMatch(html, /dshmcp_buttonDanger/);
+  assert.doesNotMatch(html, /aria-label="editTitle"|aria-label="deleteServer"/);
+});
+
+test('a deletable read-only entry keeps its delete entry point', () => {
+  const html = render({
+    status: 'ready',
+    state: {
+      ...BASE_STATE,
+      servers: [{ id: 'readonly', name: 'legacy', editable: false, deletable: true, readOnlyCode: 'row-shape' }],
+    },
+  });
+  assert.match(html, /aria-label="deleteServer"/);
+  assert.doesNotMatch(html, /role="switch"|aria-label="editTitle"/);
+});
+
+function renderEditor(props = {}) {
+  return renderToStaticMarkup(React.createElement(EditorCard, {
+    mode: 'add',
+    form: blankForm(),
+    errors: [],
+    translate,
+    onChange: () => {},
+    ...props,
+  }));
+}
+
+test('advanced settings collapse for a new service and open for existing credentials', () => {
+  assert.match(renderEditor(), /<details(?![^>]*\bopen="")[^>]*><summary[^>]*>advanced<\/summary>/);
+  const target = {
+    name: 'remote',
+    deletable: true,
+    transport: 'streamable-http',
+    config: { url: 'https://example.com/mcp', headers: [{ key: 'Authorization', mode: 'hidden' }] },
+  };
+  const html = renderEditor({ mode: 'edit', target, form: { ...serverToForm(target), name: 'draft-name' } });
+  assert.match(html, /<h2[^>]*>editTitle<\/h2>/);
+  assert.match(html, /<details[^>]*\bopen=""[^>]*>/);
+  assert.match(html, /https:\/\/example\.com\/mcp/);
+  assert.match(html, />hidden</);
+  assert.match(html, /aria-label="deleteServer"/);
+});
+
+test('the editor disables navigation and submission during a save', () => {
+  const html = renderEditor({ busy: { action: 'save' } });
+  assert.match(html, /<button[^>]*disabled=""[^>]*>[\s\S]*?>back</);
+  assert.match(html, /<fieldset[^>]*disabled=""/);
+  assert.match(html, /<button[^>]*type="submit"[^>]*disabled=""[^>]*>saving<\/button>/);
+});
+
+test('field hints describe inputs separately from their labels', () => {
+  const html = renderEditor();
+  assert.match(html, /<label[^>]*for="dshmcp-name"[^>]*>name<\/label><input[^>]*aria-describedby="dshmcp-name-hint"/);
+  assert.match(html, /<label[^>]*for="dshmcp-command"[^>]*>command<\/label><input[^>]*aria-describedby="dshmcp-command-hint"/);
 });
 
 test('renders notices for saved and pending states', () => {

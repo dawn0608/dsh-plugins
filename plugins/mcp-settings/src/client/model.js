@@ -145,19 +145,8 @@ export function transportLabel(server, translate) {
   return translate('transportUnknown');
 }
 
-/** One-line endpoint or command summary shown under the server name. */
-export function serverSummary(server) {
-  const config = server && server.config && typeof server.config === 'object' ? server.config : {};
-  if (server && server.transport === 'streamable-http') {
-    return typeof config.url === 'string' ? config.url : '';
-  }
-  const command = typeof config.command === 'string' ? config.command : '';
-  const args = Array.isArray(config.args) ? config.args.filter(value => typeof value === 'string') : [];
-  return [command, ...args].filter(value => value !== '').join(' ');
-}
-
 /**
- * Visual state for the row's right-hand status.
+ * Visual state for the row's tool status.
  * @returns {{tone: 'success'|'warn'|'muted', text: string, dot: boolean}}
  */
 export function serverStatus(server, translate) {

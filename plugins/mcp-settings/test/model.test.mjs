@@ -1,16 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { serverLabel, serverStatus, serverSummary, transportLabel } from '../src/client/model.js';
+import { serverLabel, serverStatus, transportLabel } from '../src/client/model.js';
 
 const translate = (key, params) => (params && params.name ? `${key}:${params.name}` : key);
-
-test('summarizes stdio commands and HTTP URLs', () => {
-  assert.equal(serverSummary({ transport: 'stdio', config: { command: '/bin/node', args: ['srv.mjs', '--x'] } }), '/bin/node srv.mjs --x');
-  assert.equal(serverSummary({ transport: 'stdio', config: { command: '/bin/node', args: [] } }), '/bin/node');
-  assert.equal(serverSummary({ transport: 'streamable-http', config: { url: 'https://example.com/mcp' } }), 'https://example.com/mcp');
-  assert.equal(serverSummary({ transport: 'stdio', config: null }), '');
-  assert.equal(serverSummary({}), '');
-});
 
 test('localizes transport names and falls back for unknown transports', () => {
   assert.equal(transportLabel({ transport: 'stdio' }, translate), 'transportStdio');
