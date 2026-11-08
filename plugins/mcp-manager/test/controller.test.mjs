@@ -102,26 +102,38 @@ test('an older refresh cannot undo a confirmed toggle', async () => {
   await pending;
   assert.equal(result.ok, true);
   assert.equal(controller.getSnapshot().state.servers[0].enabled, false);
-  assert.equal(controller.getSnapshot().refreshing, false);
   controller.dispose();
 });
 
-test('reports a manual refresh while it is in flight', async () => {
-  let release;
-  const gate = new Promise(resolve => {
-    release = resolve;
-  });
-  const fake = fakeFetch(async () => {
-    await gate;
-    return reply(200, STATE);
-  });
+test('automatically reloads changed configuration, recovers from errors, and stops on cleanup', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const settle = () => new Promise(resolve => setImmediate(resolve));
+  let result = reply(200, STATE);
+  const fake = fakeFetch(() => result);
   const controller = createController({ fetchImpl: fake.fetchImpl });
-  const pending = controller.load();
-  assert.equal(controller.getSnapshot().refreshing, true);
-  release();
-  await pending;
-  assert.equal(controller.getSnapshot().refreshing, false);
-  controller.dispose();
+  t.after(() => controller.dispose());
+
+  controller.start();
+  await settle();
+  assert.equal(controller.getSnapshot().state, STATE);
+  assert.equal(fake.calls.length, 1);
+
+  result = reply(500, { ok: false, code: 'internal' });
+  t.mock.timers.tick(2000);
+  await settle();
+  assert.equal(controller.getSnapshot().error.code, 'internal');
+  assert.equal(controller.getSnapshot().state, STATE);
+
+  const updated = { ...STATE, servers: [...STATE.servers, { ...STATE.servers[0], id: 'two', name: 'added' }] };
+  result = reply(200, updated);
+  t.mock.timers.tick(2000);
+  await settle();
+  assert.equal(controller.getSnapshot().error, null);
+  assert.equal(controller.getSnapshot().state.servers[1].name, 'added');
+
+  controller.stop();
+  t.mock.timers.tick(10000);
+  assert.equal(fake.calls.length, 3);
 });
 
 test('a disabled controller ignores later publications', async () => {

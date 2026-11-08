@@ -15,7 +15,7 @@ function createPageWith(snapshot) {
   const controller = {
     subscribe: () => () => {},
     getSnapshot: () => snapshot,
-    load: () => {},
+    start: () => {},
     stop: () => {},
     setEnabled: async () => ({ ok: true }),
     dispose: () => {},
@@ -42,12 +42,11 @@ const BASE_STATE = {
   warnings: [],
 };
 
-test('renders static service rows with refresh and enablement switches only', () => {
+test('renders static service rows with enablement switches only', () => {
   const html = render({
     status: 'ready',
     error: null,
     busy: null,
-    refreshing: false,
     state: {
       ...BASE_STATE,
       servers: [
@@ -81,7 +80,7 @@ test('renders static service rows with refresh and enablement switches only', ()
   assert.match(html, /class="dshmcp_page"/);
   assert.match(html, />title</);
   assert.doesNotMatch(html, />intro<|pathLabel|\/tmp\/cordis\.patch\.yml/);
-  assert.match(html, /aria-label="refresh"/);
+  assert.doesNotMatch(html, /aria-label="refresh"/);
   assert.match(html, /docs/);
   assert.match(html, /transportHttp/);
   assert.match(html, /transportStdio/);
@@ -93,7 +92,7 @@ test('renders static service rows with refresh and enablement switches only', ()
   assert.match(html, /data-tone="success"/);
   assert.match(html, /data-tone="warn"/);
   assert.doesNotMatch(html, /aria-label="(?:editTitle|deleteServer)"|<form/);
-  assert.equal((html.match(/<button\b/g) || []).length, 3);
+  assert.equal((html.match(/<button\b/g) || []).length, 2);
 });
 
 test('renders the empty and error states instead of throwing', () => {
@@ -101,15 +100,14 @@ test('renders the empty and error states instead of throwing', () => {
     status: 'ready',
     error: null,
     busy: null,
-    refreshing: false,
     state: { ...BASE_STATE, servers: [] },
   });
   assert.match(empty, /emptyTitle/);
   assert.doesNotMatch(empty, /emptyHint/);
 
-  const failed = render({ status: 'error', state: null, error: { code: 'network' }, busy: null, refreshing: false });
+  const failed = render({ status: 'error', state: null, error: { code: 'network' }, busy: null });
   assert.match(failed, /loadFailed/);
-  assert.match(failed, /retry/);
+  assert.doesNotMatch(failed, /<button/);
 });
 
 test('renders a read-only row without a switch or edit action', () => {
@@ -117,7 +115,6 @@ test('renders a read-only row without a switch or edit action', () => {
     status: 'ready',
     error: null,
     busy: null,
-    refreshing: false,
     state: {
       ...BASE_STATE,
       servers: [

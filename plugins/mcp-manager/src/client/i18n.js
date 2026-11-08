@@ -5,9 +5,7 @@ export const NS = 'mcpManager';
 export const DICTS = {
   zh: {
     title: 'MCP 管理',
-    refresh: '刷新',
     loadFailed: '读取配置失败',
-    retry: '重试',
     emptyTitle: '还没有 MCP 服务',
     tools: '{count} 个工具',
     toolsNone: '未发现工具',
@@ -43,9 +41,7 @@ export const DICTS = {
 
 DICTS.en = {
   title: 'MCP Management',
-  refresh: 'Refresh',
   loadFailed: 'Could not read the configuration',
-  retry: 'Retry',
   emptyTitle: 'No MCP servers yet',
   tools: '{count} tools',
   toolsNone: 'No tools found',

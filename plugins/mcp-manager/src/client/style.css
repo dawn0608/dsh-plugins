@@ -12,13 +12,6 @@
   line-height: 22px;
 }
 
-.dshmcp_headingRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
 .dshmcp_title {
   min-width: 0;
   margin: 0;
@@ -122,61 +115,7 @@
   color: var(--dsw-alias-state-warn-label);
 }
 
-/* Controls */
-
-.dshmcp_iconButton {
-  box-sizing: border-box;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: 28px;
-  min-height: 28px;
-  padding: 0;
-  border: 0;
-  border-radius: var(--dsw-radius-sm);
-  background: transparent;
-  color: var(--dsw-alias-label-secondary);
-  cursor: pointer;
-}
-
-.dshmcp_icon {
-  display: block;
-  flex: none;
-}
-
-.dshmcp_spin {
-  display: inline-flex;
-}
-
-.dshmcp_iconButton:disabled {
-  cursor: default;
-  opacity: 0.5;
-}
-
-.dshmcp_iconButton:focus-visible,
-.dshmcp_retry:focus-visible {
-  outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
-  outline-offset: 2px;
-}
-
-@media (hover: hover) {
-  .dshmcp_iconButton:hover:not(:disabled) {
-    background: var(--dsw-alias-interactive-bg-hover);
-  }
-}
-
-/* List feedback */
-
-.dshmcp_noticeRow {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
 .dshmcp_notice,
-.dshmcp_retry,
 .dshmcp_hint {
   margin: 0;
   font-size: 12px;
@@ -190,17 +129,6 @@
 
 .dshmcp_hint {
   color: var(--dsw-alias-label-tertiary);
-}
-
-.dshmcp_retry {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--dsw-alias-label-secondary);
-  font-family: inherit;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
 }
 
 .dshmcp_messagePanel {
@@ -233,17 +161,9 @@
 .dshmcp_skeletonLine[data-w='72'] { width: 72%; }
 
 @media (prefers-reduced-motion: no-preference) {
-  .dshmcp_spin {
-    animation: dshmcp-spin 0.8s linear infinite;
-  }
-
   .dshmcp_skeletonLine {
     animation: dshmcp-pulse 1.6s ease-in-out infinite;
   }
-}
-
-@keyframes dshmcp-spin {
-  to { transform: rotate(360deg); }
 }
 
 @keyframes dshmcp-pulse {

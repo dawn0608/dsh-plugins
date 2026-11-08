@@ -3,7 +3,7 @@
 View and toggle MCP servers for the current Desktop profile under **Settings → MCP Management**. The panel supports local `stdio` and remote Streamable HTTP servers.
 
 - Rows show the server name, transport, enablement, and discovered tool count.
-- Give the provider’s setup instructions to your AI assistant so it can update the profile’s `cordis.patch.yml`. Select **Refresh** to see the latest configuration.
+- Give the provider’s setup instructions to your AI assistant so it can update the profile’s `cordis.patch.yml`. While the panel is open, it automatically picks up changes to the configuration and tool counts.
 - The switch updates the selected row’s `disabled` state under the profile writer lock. Harness hot reloads the change, and external synchronizers pick it up on their next poll.
 
 ## Credentials
