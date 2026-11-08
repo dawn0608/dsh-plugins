@@ -32,7 +32,7 @@ function CatalogRows({ skills, query, translate: t, busy, store, openDetail }) {
             h('span', { className: 'dshskill_rowName' },
               skill.name, skill.shadowed && h('span', { className: 'dshskill_badge' }, t('shadowed'))),
             skill.description && h('span', { className: 'dshskill_description' }, skill.description))),
-          skill.group === 'imported' && typeof skill.enabled === 'boolean' && h('button', {
+          typeof skill.enabled === 'boolean' && h('button', {
             type: 'button', className: 'dshskill_switch', role: 'switch', 'aria-checked': skill.enabled,
             'aria-label': t('switchLabel', { name: skill.name }), 'aria-disabled': busy || undefined,
             onClick: () => { void store.mutate({ action: 'setEnabled', id: skill.id, enabled: !skill.enabled }); },

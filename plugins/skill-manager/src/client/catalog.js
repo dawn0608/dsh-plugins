@@ -34,7 +34,7 @@ export function createCatalog(send = request) {
       }
       if (result.complete) {
         hasCompleteCatalog = true;
-        publish({ skills: result.skills, listError: null });
+        publish({ skills: result.skills, listError: result.syncError ?? null });
       } else if (!hasCompleteCatalog) {
         publish({ skills: result.skills, listError: 'incomplete' });
       } else {

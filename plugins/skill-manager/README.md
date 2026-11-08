@@ -6,6 +6,12 @@ The list groups skills as Built-in, Self-authored, and Third-party. Harness iden
 
 Previously imported skills can be switched on or off from the list and uninstalled from their details. The plugin stores its copies in `$DSH_HOME/skill-manager/bundles` and activates them in `$DSH_HOME/skills` for Harness profiles using that home.
 
+## Shared skill sync
+
+On macOS, run `node scripts/install-skill-sync.mjs` from the local checkout to install the user service and back up Codex and Claude Code settings. Restart Harness to load the updated plugin and reopen Claude Code sessions to register their working directories. The service starts at login and handles Codex and Claude Code changes while Harness is closed.
+
+Save a shared skill as `~/.agents/skills/<name>/SKILL.md` with the same folder and skill name. The service maintains the Claude Code symlink. Use the Codex Skills page, Claude Code's `/skills` menu, or the Harness Skills page to turn a shared skill on or off. Claude Code syncs the fully enabled and disabled states. Harness shows an error if it detects a conflict or a matching name in another location. Changes from Harness or Claude Code reach Codex settings immediately. If an open Codex desktop window still shows the previous state, restart Codex to load the change.
+
 ## Install
 
 Build from the repository root:

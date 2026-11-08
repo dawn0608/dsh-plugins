@@ -2,6 +2,7 @@ import { isAbsolute, join, normalize } from 'node:path';
 import { isManagedName, isRecord, isSkillName, ManagerError, MANAGED_ID, validateBundle } from './host-bundle.js';
 import { readProvenance } from './host-provenance.js';
 import { createSkillStore } from './host-store.js';
+import { readSyncState, requestSync } from './shared-sync.js';
 
 export const ROUTE = '/api/skill-manager';
 const MAX_REQUEST_BYTES = 12 * 1024 * 1024;
@@ -47,7 +48,7 @@ function skillProvenance(skill, provenance) {
   return skill.source === 'bundled' ? { origin: 'builtin' } : provenance(skill);
 }
 
-function catalogRow(skill, provenance) {
+function catalogRow(skill, provenance, shared) {
   const origin = skillProvenance(skill, provenance)?.origin;
   return {
     id: `catalog:${skill.name}`,
@@ -55,7 +56,8 @@ function catalogRow(skill, provenance) {
     description: skill.description,
     group: SOURCES.get(skill.source) ?? 'local',
     source: SOURCES.has(skill.source) ? skill.source : 'other',
-    enabled: null,
+    enabled: skill.source === 'user-agents' && typeof shared?.[skill.path]?.enabled === 'boolean'
+      ? shared[skill.path].enabled : null,
     shadowed: false,
     ...(origin && { origin }),
   };
@@ -105,7 +107,9 @@ export function createSkillManager({ home, agentsHome, skills, workspaceRegistry
 
   async function list(options) {
     const workspaces = workspaceRegistry.list().map(({ id, title }) => ({ id, title }));
-    const [catalog, provenance] = await Promise.all([snapshot(options), readProvenance(agentsHome)]);
+    const [catalog, provenance, sync] = await Promise.all([
+      snapshot(options), readProvenance(agentsHome), readSyncState(home).catch(() => ({ error: 'unavailable' })),
+    ]);
     const managed = store.list();
     const byName = new Map(catalog.skills.map(skill => [skill.name, skill]));
     const rows = [];
@@ -123,9 +127,13 @@ export function createSkillManager({ home, agentsHome, skills, workspaceRegistry
         shadowed: skill.enabled && Boolean(match) && !ownWinner,
       });
     }
-    rows.push(...[...byName.values()].map(skill => catalogRow(skill, provenance)));
+    rows.push(...[...byName.values()].map(skill => catalogRow(skill, provenance, sync?.entries)));
     rows.sort((left, right) => left.name.localeCompare(right.name) || Number(right.group === 'imported') - Number(left.group === 'imported'));
-    return { skills: rows, workspaces, complete: catalog.complete && managed.complete };
+    const syncError = sync?.error ?? Object.values(sync?.entries ?? {}).find(entry => entry.error)?.error;
+    return {
+      skills: rows, workspaces, complete: catalog.complete && managed.complete,
+      ...(syncError && { syncError: syncError === 'conflict' ? 'sharedConflict' : 'sharedUnavailable' }),
+    };
   }
 
   async function detail(id, options) {
@@ -171,6 +179,17 @@ export function createSkillManager({ home, agentsHome, skills, workspaceRegistry
       case 'setEnabled':
       case 'remove': {
         const { kind, name, installId } = parseId(payload.id);
+        if (kind === 'catalog' && action === 'setEnabled') {
+          if (typeof payload.enabled !== 'boolean') throw new ManagerError('invalid');
+          return scoped(options, async scopedOptions => {
+            const skill = await load(name, scopedOptions);
+            const sync = await readSyncState(home);
+            if (skill?.source !== 'user-agents' || !sync?.entries[skill.path]) throw new ManagerError('forbidden');
+            signal?.throwIfAborted();
+            await requestSync(home, { type: 'set', path: skill.path, enabled: payload.enabled });
+            return null;
+          });
+        }
         if (kind !== 'managed') throw new ManagerError('forbidden');
         signal?.throwIfAborted();
         if (action === 'setEnabled') {
