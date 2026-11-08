@@ -2,14 +2,14 @@ import { createElement as h, useEffect, useId, useLayoutEffect, useRef, useState
 import { request } from './api.js';
 import { createCatalog } from './catalog.js';
 import { RemoveDialog } from './dialog.js';
-import { SkillIcon } from './icon.js';
+import { SearchIcon } from './icon.js';
 import { createTranslator } from './i18n.js';
 
 const GROUPS = ['builtin', 'self', 'third-party'];
 const SOURCES = new Set(['project-dsh', 'project-agents', 'custom', 'user-dsh', 'user-agents', 'bundled', 'runtime']);
 
 function CatalogRows({ skills, query, translate: t, busy, savingId, store, openDetail, controls }) {
-  const { StateDot, Switch, Tag } = controls;
+  const { SkillEmblem, StateDot, Switch, Tag } = controls;
   const headingId = useId();
   const term = query.trim().toLocaleLowerCase();
   const visible = skills.filter(skill => !term || [skill.name, skill.description]
@@ -26,7 +26,7 @@ function CatalogRows({ skills, query, translate: t, busy, savingId, store, openD
         const descriptionId = skill.description ? headingId + '-' + skill.id : undefined;
         const saving = savingId === skill.id;
         return h('li', { key: skill.id, className: 'dshskill_row' },
-          h('span', { className: 'dshskill_icon' }, h(SkillIcon, { size: 24 })),
+          h('span', { className: 'dshskill_icon' }, h(SkillEmblem, { size: 24 })),
           h('div', { className: 'dshskill_rowText' },
             h('div', { className: 'dshskill_titleRow' },
               h('button', {
@@ -155,7 +155,7 @@ export function createPage(locale, controls, createStore = createCatalog) {
             h('header', { className: 'dshskill_header' },
               h('h1', { ref: titleRef, tabIndex: -1 }, t('title')),
               h('label', { className: 'dshskill_search' },
-                h(SkillIcon, { kind: 'search', size: 16 }),
+                h(SearchIcon),
                 h('input', {
                   type: 'search', 'aria-label': t('search'), placeholder: t('search'), value: query,
                   onChange: event => setQuery(event.currentTarget.value),

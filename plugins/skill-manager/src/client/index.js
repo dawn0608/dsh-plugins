@@ -7,9 +7,9 @@ import css from './style.css';
 
 export const inject = ['slots', 'locale'];
 
-function SidebarSkillIcon({ size = 16 } = {}) {
+function SkillEmblem({ size = 16 } = {}) {
   return h('span', {
-    className: 'dshskill_navIcon',
+    className: 'dshskill_emblem',
     'aria-hidden': true,
     style: { width: size, height: size, maskImage: `url(${JSON.stringify(skillEmblem)})` },
   });
@@ -28,8 +28,8 @@ export function apply(ctx) {
   const translate = createTranslator(ctx.locale);
   ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
     name: 'sidebar.panellist', id: 'skill-manager', order: 5, label: () => translate('title'), locale: NS,
-  }, SidebarSkillIcon));
+  }, SkillEmblem));
   ctx.slots.inject('main', () => ctx.slots.register({
     name: 'main', key: 'skill-manager', locale: NS,
-  }, createPage(ctx.locale, { BackIcon: IconChevronDownOutlineRegular, StateDot, Switch, Tag })));
+  }, createPage(ctx.locale, { BackIcon: IconChevronDownOutlineRegular, SkillEmblem, StateDot, Switch, Tag })));
 }

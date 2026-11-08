@@ -15,6 +15,7 @@ const skills = [
 
 const controls = {
   BackIcon: () => null,
+  SkillEmblem: () => null,
   StateDot: () => null,
   Switch: ({ checked, label, disabled }) => React.createElement('button', {
     type: 'button', role: 'switch', 'aria-label': label, 'aria-checked': checked, disabled,
