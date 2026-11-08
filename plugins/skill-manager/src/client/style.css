@@ -338,21 +338,26 @@ html[data-platform='darwin'] .dshskill_page {
 }
 
 .dshskill_detailTitleRow h1,
-.dshskill_repositoryName {
+.dshskill_attributionText {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dshskill_detailTitleRow .dshskill_detailAttribution {
+  box-sizing: border-box;
+  flex: none;
+  min-width: 0;
+  max-width: 45%;
+  /* Balance the smaller attribution text against the title's visible glyphs. */
+  translate: 0 1px;
 }
 
 .dshskill_repository {
   display: inline-flex;
-  flex: none;
   align-items: center;
-  /* Balance the smaller link text against the title's visible glyphs. */
-  translate: 0 1px;
   gap: 4px;
-  min-width: 0;
-  max-width: 45%;
   color: var(--dsw-alias-label-secondary);
   font-size: 12px;
   line-height: 18px;

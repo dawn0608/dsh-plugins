@@ -87,10 +87,11 @@ function SkillDetail({ skill, titleRef, translate: t, busy, saving, back, openRe
       h('div', { className: 'dshskill_detailTitleRow' },
         h('h1', { ref: titleRef, tabIndex: -1, title: skill.name }, skill.name),
         repository ? h('a', {
-          className: 'dshskill_repository', href: repository, target: '_blank', rel: 'noopener noreferrer',
+          className: 'dshskill_detailAttribution dshskill_repository', href: repository, target: '_blank', rel: 'noopener noreferrer',
           title: repositoryLabel, 'aria-label': t('openRepository', { repository: repositoryLabel }),
-        }, h('span', { className: 'dshskill_repositoryName' }, repositoryLabel),
-        h('span', { 'aria-hidden': true }, '↗')) : h(Tag, { tone: 'neutral' }, originLabel)),
+        }, h('span', { className: 'dshskill_attributionText' }, repositoryLabel),
+        h('span', { 'aria-hidden': true }, '↗')) : h(Tag, { className: 'dshskill_detailAttribution', tone: 'neutral' },
+          h('span', { className: 'dshskill_attributionText', title: originLabel }, originLabel))),
       skill.description && h('p', { className: 'dshskill_detailDescription' }, skill.description)),
     h('div', { className: 'dshskill_detailSections' },
       h(SkillDocument, { preview, translate: t, onRetry: () => { setPreview(null); setAttempt(value => value + 1); } })));
