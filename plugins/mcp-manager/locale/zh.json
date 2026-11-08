@@ -1,6 +1,7 @@
 {
   "meta": {
     "title": "MCP 管理",
-    "description": "在设置中查看和启停当前 profile 的 MCP 服务。"
+    "description": "在设置中查看和启停当前 profile 的 MCP 服务。",
+    "detail": "README.zh.md"
   }
 }

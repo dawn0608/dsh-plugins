@@ -1,6 +1,7 @@
 {
   "meta": {
     "title": "MCP Management",
-    "description": "View and toggle MCP servers for the current profile from Settings."
+    "description": "View and toggle MCP servers for the current profile from Settings.",
+    "detail": "README.md"
   }
 }

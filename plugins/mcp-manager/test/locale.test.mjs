@@ -20,13 +20,17 @@ test('client zh/en dictionaries expose identical key sets', () => {
   }
 });
 
-test('locale metadata carries a title and description in both languages', () => {
+test('locale metadata points to a packaged detail document in both languages', () => {
+  const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
   for (const [language, title] of Object.entries({ en: 'MCP Management', zh: 'MCP 管理' })) {
     const meta = readLocale(language).meta;
     assert.equal(meta?.title, title);
     assert.equal(DICTS[language].title, title);
     assert.equal(typeof meta?.description, 'string', `${language} meta.description`);
     assert.notEqual(meta.description.trim(), '');
+    assert.ok(pkg.files.includes(meta.detail), `${language} meta.detail must name a packaged file`);
+    const document = readFileSync(new URL(`../${meta.detail}`, import.meta.url), 'utf8');
+    assert.equal(document.split('\n', 1)[0], `# ${title}`);
   }
 });
 
