@@ -242,15 +242,19 @@ function createEntry(store, translate) {
 
 function Icon(props) {
   return h('svg', {
-    viewBox: '0 0 64 64',
+    viewBox: '0 0 24 24',
     className: props && props.className ? props.className : 'dshco_icon',
     'aria-hidden': true,
     style: { display: 'block' },
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 2,
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
   }, [
-    h('circle', { key: 'c', cx: 32, cy: 32, r: 24, fill: 'none', stroke: 'currentColor', strokeWidth: 7 }),
-    h('path', { key: 'y', d: 'M19 17 32 29 45 17', fill: 'none', stroke: 'currentColor', strokeWidth: 7, strokeLinecap: 'round', strokeLinejoin: 'round' }),
-    h('path', { key: 's', d: 'M32 29v18', fill: 'none', stroke: 'currentColor', strokeWidth: 7, strokeLinecap: 'round' }),
-    h('path', { key: 'b', d: 'M23 38h18', fill: 'none', stroke: 'currentColor', strokeWidth: 7, strokeLinecap: 'round' }),
+    h('path', { key: 'page', d: 'M14.5 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8.5L14.5 3Z' }),
+    h('path', { key: 'fold', d: 'M14.5 3v4.5a1 1 0 0 0 1 1H20' }),
+    h('path', { key: 'bars', d: 'M8 17v-2M12 17v-3.5M16 17v-5' }),
   ]);
 }
 
