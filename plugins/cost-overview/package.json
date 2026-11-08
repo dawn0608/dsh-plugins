@@ -3,7 +3,7 @@
   "version": "1.0.3",
   "type": "module",
   "main": "./lib/index.js",
-  "description": "Shows the current session cost at official unit prices and the DeepSeek account balance beside composer stats.",
+  "description": "Estimate the current session cost and view model costs and the DeepSeek API balance below the composer.",
   "license": "MIT",
   "author": "dawn0608",
   "keywords": [

@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "Skill Management",
-    "description": "Browse skills and manage local imports in DeepSeek Harness.",
+    "description": "Search global skills, preview Markdown, and toggle or uninstall managed copies from the Harness sidebar.",
     "detail": "README.md"
   }
 }

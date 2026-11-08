@@ -3,7 +3,7 @@
   "version": "0.1.2",
   "type": "module",
   "main": "./lib/index.js",
-  "description": "Browse, preview, and manage local skills in DeepSeek Harness.",
+  "description": "Search global skills, preview Markdown, and toggle or uninstall managed copies from the Harness sidebar.",
   "license": "MIT",
   "author": "dawn0608",
   "exports": {
@@ -67,7 +67,9 @@
     "deepseek",
     "deepseek-harness",
     "dsh",
-    "dsh-plugin",
-    "skills"
+    "plugin",
+    "skills",
+    "skill-manager",
+    "dsh-plugin"
   ]
 }

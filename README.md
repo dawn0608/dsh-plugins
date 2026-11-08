@@ -6,13 +6,13 @@
 
 | 插件 | 说明 | 适用 DSH | 安装包 |
 | --- | --- | --- | --- |
-| [费用概览](plugins/cost-overview/README.zh.md) | 在输入框下方显示当前会话费用与 DeepSeek 账户余额 | `>=0.2.2-rc.1 <0.3.0` | `@dawn0608/dsh-cost-overview` |
-| [MCP 管理](plugins/mcp-manager/README.zh.md) | 在原生设置中查看和启停 MCP 服务 | `>=0.2.2-rc.1 <0.3.0` | `@dawn0608/dsh-mcp-manager` |
-| [技能管理](plugins/skill-manager/README.zh.md) | 在侧栏浏览技能并管理本地导入 | `>=0.2.2-rc.1 <0.3.0` | `@dawn0608/dsh-skill-manager` |
+| [费用概览](plugins/cost-overview/README.zh.md) | 在输入框下方查看当前会话的费用估算、模型明细和 DeepSeek API 账户余额 | `>=0.2.2-rc.1 <0.3.0` | `@dawn0608/dsh-cost-overview` |
+| [MCP 管理](plugins/mcp-manager/README.zh.md) | 在设置中查看当前 profile 的 STDIO 和 Streamable HTTP 服务，并启停可编辑条目 | `>=0.2.2-rc.1 <0.3.0` | `@dawn0608/dsh-mcp-manager` |
+| [技能管理](plugins/skill-manager/README.zh.md) | 在侧栏搜索全局技能、预览 Markdown，并启停或卸载已有的受管技能 | `>=0.2.2-rc.1 <0.3.0` | `@dawn0608/dsh-skill-manager` |
 
 ## 安装
 
-三个插件均可在 Desktop「插件」页按 npm 包名安装。非 Desktop profile 也可以使用 CLI；选择需要的包安装：
+三个插件均可在 Desktop「插件 → 添加插件」按 npm 包名安装。非 Desktop profile 也可以使用 CLI；选择需要的包安装：
 
 ```bash
 dsh plugin --profile <profile> add @dawn0608/dsh-cost-overview
