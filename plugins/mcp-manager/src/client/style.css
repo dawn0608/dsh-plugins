@@ -89,6 +89,12 @@
   white-space: nowrap;
 }
 
+/* Composite the native off track over the same base surface as the Plugins page. */
+.dshmcp_switch[aria-checked='false'] {
+  background-color: var(--dsw-alias-bg-base);
+  background-image: linear-gradient(var(--dsw-alias-border-l3), var(--dsw-alias-border-l3));
+}
+
 .dshmcp_reason {
   grid-column: 1 / -1;
 }

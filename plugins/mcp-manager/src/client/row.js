@@ -29,6 +29,7 @@ export function ServerRow({ server, translate, busy, Switch, onToggle }) {
     ),
     h('span', { className: 'dshmcp_transport' }, transportLabel(server, translate)),
     canToggle ? h(Switch, {
+      className: 'dshmcp_switch',
       checked: server.enabled === true,
       label: translate('switchLabel', { name }),
       disabled: Boolean(busy),
