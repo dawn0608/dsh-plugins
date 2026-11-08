@@ -8,7 +8,7 @@ const STATE = {
   patchPath: '/tmp/cordis.patch.yml',
   revision: 'a'.repeat(64),
   servers: [
-    { id: 'one', name: 'docs', transport: 'streamable-http', enabled: true, editable: true, deletable: true, rowHash: 'r1', tools: 2, config: { url: 'https://example.com/mcp', headers: [] } },
+    { id: 'one', name: 'docs', transport: 'streamable-http', enabled: true, editable: true, deletable: true, rowHash: 'r1', tools: 2 },
   ],
   warnings: [],
 };
@@ -158,4 +158,56 @@ test('a disabled controller ignores later publications', async () => {
   controller.dispose();
   await controller.load();
   assert.equal(notifications, 0);
+});
+
+test('reconciles authoritative state after a network failure before releasing busy', async () => {
+  const updated = { ...STATE, servers: [{ ...STATE.servers[0], enabled: false }] };
+  const fake = fakeFetch((url, init) => {
+    if (init.method === 'POST') throw new TypeError('response was lost after commit');
+    return reply(200, updated);
+  });
+  const controller = createController({ fetchImpl: fake.fetchImpl });
+  assert.deepEqual(await controller.setEnabled(STATE.servers[0], false), { ok: false, code: 'network' });
+  assert.equal(controller.getSnapshot().busy, false);
+  assert.equal(controller.getSnapshot().state?.servers[0].enabled, false);
+  assert.equal(controller.getSnapshot().action.error.code, 'network');
+  controller.dispose();
+});
+
+test('times out a hung write, aborts fetch, reloads and ignores the late response', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let late;
+  const response = new Promise(resolve => { late = resolve; });
+  const authoritative = { ...STATE, revision: 'authoritative' };
+  const fake = fakeFetch((url, init) => init.method === 'POST' ? response : reply(200, authoritative));
+  const controller = createController({ fetchImpl: fake.fetchImpl, writeTimeoutMs: 25 });
+  t.after(() => controller.dispose());
+  const pending = controller.setEnabled(STATE.servers[0], false);
+  t.mock.timers.tick(25);
+  const signal = fake.calls[0].init.signal;
+  assert.equal(signal?.aborted, true);
+  assert.deepEqual(await pending, { ok: false, code: 'timeout' });
+  assert.equal(controller.getSnapshot().busy, false);
+  assert.equal(controller.getSnapshot().state.revision, 'authoritative');
+  late(reply(200, { ...STATE, revision: 'late' }));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(controller.getSnapshot().state.revision, 'authoritative');
+});
+
+test('stopping the controller aborts a write without publishing its late response after restart', async t => {
+  let late;
+  const response = new Promise(resolve => { late = resolve; });
+  const authoritative = { ...STATE, revision: 'authoritative' };
+  const fake = fakeFetch((url, init) => init.method === 'POST' ? response : reply(200, authoritative));
+  const controller = createController({ fetchImpl: fake.fetchImpl });
+  t.after(() => controller.dispose());
+  const pending = controller.setEnabled(STATE.servers[0], false);
+  controller.stop();
+  assert.equal(fake.calls[0].init.signal?.aborted, true);
+  assert.equal(controller.getSnapshot().busy, false);
+  controller.start();
+  late(reply(200, { ...STATE, revision: 'late' }));
+  assert.deepEqual(await pending, { ok: false, code: 'aborted' });
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(controller.getSnapshot().state.revision, 'authoritative');
 });

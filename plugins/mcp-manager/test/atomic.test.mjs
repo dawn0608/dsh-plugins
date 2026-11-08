@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { chmodSync, mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync, writeFileSync, lstatSync } from 'node:fs';
+import { chmodSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, symlinkSync, writeFileSync, lstatSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -129,6 +129,39 @@ test('keeps permission bits when the patch was narrower', () => {
     const { text, mode } = readProfilePatch(space.patch);
     writeProfilePatch(space.patch, `${text}# tail\n`, { expected: text, mode: 0o600 });
     assert.equal(lstatSync(space.patch).mode & 0o777, 0o600);
+  } finally {
+    space.cleanup();
+  }
+});
+
+test('a contender cannot reap a stale lock while another writer holds the shared claim', async () => {
+  const space = workspace();
+  const lock = join(space.dir, 'package.json.lock');
+  const claim = `${lock}.takeover`;
+  try {
+    writeFileSync(lock, '999999\n');
+    writeFileSync(claim, `${process.pid}\n`);
+    await assert.rejects(
+      withProfileLock(space.dir, () => assert.fail('contender entered'), { timeoutMs: 30 }),
+      error => expectCode(error, 'locked'),
+    );
+    assert.equal(readFileSync(lock, 'utf8'), '999999\n');
+    assert.equal(readFileSync(claim, 'utf8'), `${process.pid}\n`);
+  } finally {
+    space.cleanup();
+  }
+});
+
+test('release does not unlink a replacement lock created while the operation was running', async () => {
+  const space = workspace();
+  const lock = join(space.dir, 'package.json.lock');
+  try {
+    await withProfileLock(space.dir, () => {
+      renameSync(lock, `${lock}.previous`);
+      // Same process and PID contents, but a different lock owner by file identity.
+      writeFileSync(lock, `${process.pid}\n`, { flag: 'wx' });
+    });
+    assert.equal(readFileSync(lock, 'utf8'), `${process.pid}\n`);
   } finally {
     space.cleanup();
   }

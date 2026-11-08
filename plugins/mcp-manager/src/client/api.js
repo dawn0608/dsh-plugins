@@ -1,7 +1,6 @@
-/** Browser transport for the settings API. */
+/** Browser transport for the authenticated connection channel. */
 
 const CONNECTION_PATH = 'api/mcp-manager';
-const PLAIN_PATH = '/plugin/mcp-manager';
 
 export class ApiError extends Error {
   constructor(code, status) {
@@ -12,51 +11,16 @@ export class ApiError extends Error {
   }
 }
 
-function streamOrigin() {
-  const transport = globalThis.window && globalThis.window.__DSH_TRANSPORT__;
-  if (!transport || typeof transport.streamBaseUrl !== 'string' || transport.streamBaseUrl === '') return undefined;
-  try {
-    const url = new URL(transport.streamBaseUrl, globalThis.location && globalThis.location.href);
-    return `${url.protocol === 'wss:' ? 'https:' : url.protocol === 'ws:' ? 'http:' : url.protocol}//${url.host}`;
-  } catch {
-    return undefined;
-  }
-}
-
-function documentBase() {
-  const location = globalThis.location;
-  if (!location || (location.protocol !== 'http:' && location.protocol !== 'https:')) return undefined;
-  return location.origin;
-}
-
-/** Candidate URLs, most specific first. Writes stay on the authenticated channel. */
-export function candidatesFor(method) {
-  const urls = [];
-  if (method !== 'POST') {
-    const stream = streamOrigin();
-    if (stream) urls.push(`${stream}${PLAIN_PATH}`);
-    const document = documentBase();
-    if (document) urls.push(`${document}${PLAIN_PATH}`);
-  }
-  urls.push(CONNECTION_PATH);
-  if (method === 'POST') {
-    const document = documentBase();
-    if (document) urls.push(`${document}${PLAIN_PATH}`);
-  }
-  return urls.filter((value, index) => urls.indexOf(value) === index);
-}
-
 function isResult(payload) {
   return Boolean(payload) && typeof payload === 'object' && typeof payload.ok === 'boolean';
 }
 
 /**
- * @param {{method?: string, body?: unknown, signal?: AbortSignal, fetchImpl?: typeof fetch}} request
+ * @param {{method?: string, body?: unknown, signal?: AbortSignal, fetchImpl?: typeof fetch}} input
  * @returns {Promise<{status: number, payload: object}>}
  */
 export async function request(input) {
-  const method = input.method || 'GET';
-  const fetchImpl = input.fetchImpl || globalThis.fetch;
+  const { method = 'GET', fetchImpl = globalThis.fetch, signal } = input;
   const headers = { accept: 'application/json' };
   let body;
   if (input.body !== undefined) {
@@ -64,39 +28,31 @@ export async function request(input) {
     headers['x-dsh-mcp-manager'] = '1';
     body = JSON.stringify(input.body);
   }
-  let lastCode = 'network';
-  for (const url of candidatesFor(method)) {
-    let response;
-    try {
-      response = await fetchImpl(url, {
-        method,
-        headers,
-        body,
-        cache: 'no-store',
-        credentials: 'same-origin',
-        signal: input.signal,
+
+  let abort;
+  try {
+    signal?.throwIfAborted();
+    const aborted = signal && new Promise((_, reject) => {
+      abort = () => reject(signal.reason);
+      signal.addEventListener('abort', abort, { once: true });
+    });
+    const response = (async () => {
+      const result = await fetchImpl(CONNECTION_PATH, {
+        method, headers, body, cache: 'no-store', credentials: 'same-origin', signal,
       });
-    } catch (error) {
-      if (error && error.name === 'AbortError') throw new ApiError('aborted', 0);
-      lastCode = 'network';
-      continue;
-    }
-    let payload;
-    try {
-      payload = await response.json();
-    } catch {
-      payload = undefined;
-    }
-    if (isResult(payload)) return { status: response.status, payload };
-    if (response.status === 401 || response.status === 403) {
-      lastCode = 'unauthorized';
-      continue;
-    }
-    if (response.status === 404) {
-      lastCode = 'network';
-      continue;
-    }
-    lastCode = 'network';
+      const payload = await result.json().catch(() => undefined);
+      if (isResult(payload)) return { status: result.status, payload };
+      if (result.status === 401 || result.status === 403) throw new ApiError('unauthorized', result.status);
+      throw new ApiError('network', result.status);
+    })();
+    // The host fetch bridge may ignore cancellation while waiting for a reply.
+    return await (aborted ? Promise.race([response, aborted]) : response);
+  } catch (error) {
+    if (signal?.aborted) throw new ApiError(signal.reason?.name === 'TimeoutError' ? 'timeout' : 'aborted', 0);
+    if (error instanceof ApiError) throw error;
+    if (error?.name === 'AbortError') throw new ApiError('aborted', 0);
+    throw new ApiError('network', 0);
+  } finally {
+    if (abort) signal.removeEventListener('abort', abort);
   }
-  throw new ApiError(lastCode, 0);
 }

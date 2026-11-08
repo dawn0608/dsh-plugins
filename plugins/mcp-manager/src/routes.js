@@ -1,12 +1,4 @@
-/**
- * HTTP faces of the settings API.
- *
- * The browser reaches two seats with one handler:
- * - `/api/mcp-manager` on the authenticated connection channel (the seat the
- *   panel uses, including the Electron shell's fetch bridge);
- * - `/plugin/mcp-manager` on the loopback web server (fallback and the route
- *   this repository's verification uses).
- */
+/** Request validation and adapter for the authenticated connection channel. */
 
 import { DraftError, PatchError } from './errors.js';
 
@@ -75,28 +67,6 @@ async function dispatch(payload, store) {
   }
 }
 
-function loopbackHostname(hostname) {
-  const value = String(hostname).toLowerCase().replace(/^\[|\]$/g, '');
-  return value === '127.0.0.1' || value === '::1' || value === 'localhost' || /^127\./.test(value);
-}
-
-/** Same-origin browser check for the unauthenticated loopback route. */
-export function trustedRequest(headers) {
-  const host = headers.host;
-  if (typeof host !== 'string' || host === '') return false;
-  let url;
-  try {
-    url = new URL(`http://${host}`);
-  } catch {
-    return false;
-  }
-  if (!loopbackHostname(url.hostname)) return false;
-  const origin = headers.origin;
-  if (origin !== undefined && origin !== null && origin !== 'null' && origin !== url.origin) return false;
-  if (String(headers['sec-fetch-site'] || '').toLowerCase() === 'cross-site') return false;
-  return true;
-}
-
 /**
  * @param {{store: ReturnType<import('./store.js').createStore>, log: (event: string, fields?: object) => void}} options
  */
@@ -110,9 +80,6 @@ export function createApi(options) {
         return { status: 200, body: await store.readState(), head: method === 'HEAD' };
       }
       if (method !== 'POST') return { status: 405, body: body('method') };
-      if (request.checkTrust !== false && !trustedRequest(request.headers || {})) {
-        return { status: 403, body: body('forbidden') };
-      }
       const headers = request.headers || {};
       if (String(headers['x-dsh-mcp-manager'] || '') !== '1') return { status: 403, body: body('forbidden') };
       if (!/^application\/json\b/i.test(String(headers['content-type'] || ''))) {
@@ -131,47 +98,6 @@ export function createApi(options) {
     } catch (error) {
       return mapError(error, log);
     }
-  };
-}
-
-/** `node:http` adapter for the loopback web route. */
-export function createWebHandler(api) {
-  return async function handler(request, response) {
-    let text = '';
-    if (request.method === 'POST') {
-      const chunks = [];
-      let size = 0;
-      try {
-        for await (const chunk of request) {
-          size += chunk.length;
-          if (size > MAX_BODY_BYTES) {
-            response.writeHead(413, { 'content-type': 'application/json; charset=utf-8' });
-            response.end(JSON.stringify(body('invalid')));
-            request.destroy();
-            return;
-          }
-          chunks.push(chunk);
-        }
-        text = Buffer.concat(chunks).toString('utf8');
-      } catch {
-        response.writeHead(400, { 'content-type': 'application/json; charset=utf-8' });
-        response.end(JSON.stringify(body('invalid')));
-        return;
-      }
-    }
-    const result = await api({
-      method: request.method,
-      headers: request.headers,
-      body: text,
-      checkTrust: true,
-    });
-    const serialized = JSON.stringify(result.body);
-    response.writeHead(result.status, {
-      'content-type': 'application/json; charset=utf-8',
-      'cache-control': 'no-store',
-      'content-length': Buffer.byteLength(serialized),
-    });
-    response.end(result.head ? undefined : serialized);
   };
 }
 
@@ -195,8 +121,8 @@ export function createFetchHandler(api) {
     request.headers.forEach((value, key) => {
       headers[key.toLowerCase()] = value;
     });
-    const result = await api({ method: request.method, headers, body: text, checkTrust: false });
-    return new Response(JSON.stringify(result.body), {
+    const result = await api({ method: request.method, headers, body: text });
+    return new Response(result.head ? null : JSON.stringify(result.body), {
       status: result.status,
       headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
     });

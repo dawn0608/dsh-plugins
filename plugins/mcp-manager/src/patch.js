@@ -9,8 +9,9 @@
  */
 
 import { createHash } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
 import { parseDocument, LineCounter, isMap, isSeq } from 'yaml';
-import { isExpression, isSensitiveKey, matchReference, quoteDouble, quoteSingle, referenceExpression, SERVER_NAME } from './shared/references.js';
+import { isExpression, quoteDouble, quoteSingle, referenceExpression, SERVER_NAME } from './shared/references.js';
 import { normalizeDraft, validateDraft } from './shared/draft.js';
 import { DraftError, PatchError } from './errors.js';
 
@@ -226,41 +227,6 @@ function emittedConfig(config) {
   return out;
 }
 
-function configForApi(entry) {
-  const config = entry.config;
-  if (entry.transport === 'stdio') {
-    return {
-      command: typeof config.command === 'string' ? config.command : '',
-      args: Array.isArray(config.args) ? config.args.filter(value => typeof value === 'string') : [],
-      cwd: typeof config.cwd === 'string' ? config.cwd : '',
-      env: Object.entries(config.env && typeof config.env === 'object' ? config.env : {}).map(([key, value]) => ({
-        key,
-        ...describe(value, key),
-      })),
-    };
-  }
-  return {
-    url: typeof config.url === 'string' ? config.url : '',
-    headers: Object.entries(config.headers && typeof config.headers === 'object' ? config.headers : {}).map(([key, value]) => ({
-      key,
-      ...describe(value, key),
-    })),
-  };
-}
-
-function describe(value, key) {
-  if (isExpression(value)) {
-    const reference = matchReference(value.__jsExpr);
-    if (reference) return { mode: 'ref', variable: reference.variable, prefix: reference.prefix };
-    return { mode: 'expr', configured: true, secret: true };
-  }
-  if (typeof value === 'string') {
-    if (isSensitiveKey(key)) return { mode: 'literal', secret: true, configured: true };
-    return { mode: 'literal', value, secret: false };
-  }
-  return { mode: 'literal', secret: false, configured: false };
-}
-
 function readConfig(config, transport) {
   if (!config || typeof config !== 'object' || Array.isArray(config)) {
     throw new PatchError('read-only', { code: 'config-invalid' });
@@ -290,14 +256,10 @@ export function readPatch(text) {
   const warnings = [];
   const blocks = [];
   const topIds = new Set();
-  const topOverrides = new Set();
 
   doc.contents.items.forEach((blockNode, index) => {
     const value = clean(blockNode.toJSON());
     if (value && typeof value === 'object' && typeof value.id === 'string') topIds.add(value.id);
-    if (value && typeof value === 'object' && typeof value.id === 'string' && Object.hasOwn(value, 'name') && value.name === MCP_CLIENT) {
-      topOverrides.add(value.id);
-    }
     blocks.push({
       index,
       node: blockNode,
@@ -308,7 +270,14 @@ export function readPatch(text) {
     });
   });
 
-  const rowIds = [];
+  // Cordis IDs share the same namespace even when an insert belongs to another package.
+  const idCounts = new Map();
+  for (const { value } of blocks) {
+    if (!Array.isArray(value?.insert)) continue;
+    for (const row of value.insert) {
+      if (typeof row?.id === 'string') idCounts.set(row.id, (idCounts.get(row.id) || 0) + 1);
+    }
+  }
   blocks.forEach((block, blockIndex) => {
     if (block.value && typeof block.value === 'object' && typeof block.value.id === 'string' && block.value.name === MCP_CLIENT) {
       entries.push({
@@ -335,7 +304,6 @@ export function readPatch(text) {
       const row = clean(rowNode.toJSON());
       if (!row || typeof row !== 'object' || row.name !== MCP_CLIENT) return;
       const id = typeof row.id === 'string' ? row.id : undefined;
-      if (id !== undefined) rowIds.push(id);
       const config = row.config && typeof row.config === 'object' && !Array.isArray(row.config) ? row.config : {};
       const name = typeof config.serverName === 'string' ? config.serverName : undefined;
       const transport = config.transport === 'stdio' || config.transport === 'streamable-http'
@@ -346,11 +314,12 @@ export function readPatch(text) {
             ? 'streamable-http'
             : undefined;
       const span = rowSpan(parsed, text, rowNode);
+      const conditional = rowNode.has('disabled') && typeof row.disabled !== 'boolean';
       const entry = {
         name,
         id,
         transport,
-        enabled: true,
+        enabled: conditional ? null : row.disabled !== true,
         editable: true,
         readOnlyCode: null,
         blockIndex,
@@ -369,15 +338,12 @@ export function readPatch(text) {
       } else if (typeof row.id !== 'string' || row.id === '') {
         entry.editable = false;
         entry.readOnlyCode = 'missing-id';
-      } else if (id !== undefined && topIds.has(id)) {
+      } else if (topIds.has(id) || idCounts.get(id) > 1) {
         entry.editable = false;
         entry.readOnlyCode = 'duplicate-id';
-      } else if (row.disabled !== undefined && typeof row.disabled !== 'boolean') {
+      } else if (conditional) {
         entry.editable = false;
         entry.readOnlyCode = 'conditional-disabled';
-        entry.enabled = null;
-      } else {
-        entry.enabled = row.disabled !== true;
       }
       if (Object.hasOwn(config, 'enabled')) {
         entry.editable = false;
@@ -397,22 +363,8 @@ export function readPatch(text) {
           entry.readOnlyCode = 'config-invalid';
         }
       }
-      if (entry.editable) {
-        entry.api = configForApi(entry);
-      }
       entries.push(entry);
     });
-  });
-
-  // A row id is unique across the whole patch, not only inside its own insert list.
-  const idCounts = new Map();
-  for (const id of rowIds) idCounts.set(id, (idCounts.get(id) || 0) + 1);
-  entries.forEach(entry => {
-    if (entry.rowIndex === null || !entry.editable) return;
-    if (entry.id !== undefined && idCounts.get(entry.id) > 1) {
-      entry.editable = false;
-      entry.readOnlyCode = 'duplicate-id';
-    }
   });
 
   const nameCounts = new Map();
@@ -605,42 +557,65 @@ export function buildDelete(text, entry) {
   return { text: nextText, id: current.id, name: current.name };
 }
 
+function withoutDisabled(doc, blockIndex, rowIndex) {
+  // Resolve aliases; a reference to the old flag elsewhere must still compare equal.
+  const blocks = doc.toJS();
+  const block = blocks[blockIndex];
+  const insert = block.insert.slice();
+  const row = { ...insert[rowIndex] };
+  delete row.disabled;
+  insert[rowIndex] = row;
+  return blocks.with(blockIndex, { ...block, insert });
+}
+
 /** Produce the next patch text with one row's `disabled` flag changed. */
 export function buildSetEnabled(text, entry, enabled) {
   if (!entry || entry.rowIndex === null) throw new PatchError('not-found');
   if (!entry.editable) throw new PatchError('read-only', { code: entry.readOnlyCode });
   const parsed = readPatch(text);
-  const current = parsed.entries.find(item => item.id === entry.id && item.rowIndex === entry.rowIndex);
+  const current = parsed.entries.find(item => item.id === entry.id && item.blockIndex === entry.blockIndex
+    && item.rowIndex === entry.rowIndex);
   if (!current) throw new PatchError('not-found');
-  const keepHidden = pair => ({ ...pair, mode: pair.mode === 'expr' || (pair.mode === 'literal' && pair.secret) ? 'keep' : pair.mode });
-  const config = composeConfig(current.config, normalizeDraft({
-    name: current.name,
-    transport: current.transport,
-    enabled: current.enabled,
-    command: current.api.command ?? '',
-    args: current.api.args ?? [],
-    cwd: current.api.cwd ?? '',
-    env: (current.api.env ?? []).map(keepHidden),
-    url: current.api.url ?? '',
-    headers: (current.api.headers ?? []).map(keepHidden),
-  }));
-  const dashIndent = current.span.dashIndent >= 0 ? current.span.dashIndent : 2;
-  const rowText = emitRow({ id: current.id, disabled: !enabled, config, dashIndent });
-  const nextText = `${text.slice(0, current.span.start)}${rowText}${text.slice(current.span.end)}`;
+  if (!current.editable) throw new PatchError('read-only', { code: current.readOnlyCode });
+  const result = { text, id: current.id, name: current.name, enabled };
+  if (current.enabled === enabled) return result;
+
+  const { blockIndex, rowIndex } = current;
+  const row = parsed.blocks[blockIndex].insertNode.items[rowIndex];
+  const flag = row.get('disabled', true);
+  let start;
+  let end;
+  let replacement;
+  if (flag) {
+    // The scalar value range excludes the key, tag/anchor and trailing comment.
+    [start, end] = flag.range;
+    replacement = String(!enabled);
+  } else if (row.flow) {
+    start = end = row.range[0] + 1;
+    replacement = 'disabled: true, ';
+  } else {
+    start = end = row.range[0];
+    const lineStart = lineStartOf(text, start);
+    const newline = (text.slice(start).match(/\r?\n/) || text.match(/\r?\n/))?.[0] || '\n';
+    replacement = `disabled: true${newline}${' '.repeat(start - lineStart)}`;
+  }
+  const nextText = `${text.slice(0, start)}${replacement}${text.slice(end)}`;
   const after = readPatch(nextText);
-  const target = after.entries.find(item => item.id === current.id);
-  if (!target) throw new PatchError('verify-failed');
-  verify(text, nextText, { blockIndex: current.blockIndex, rowIndex: current.rowIndex }, {
-    blockIndex: target.blockIndex,
-    rowIndex: target.rowIndex,
-  }, {
-    id: current.id,
-    name: current.name,
-    transport: current.transport,
-    enabled,
-    config: emittedConfig(config),
-  });
-  return { text: nextText, id: current.id, name: current.name, enabled };
+  const updated = after.entries.find(item => item.blockIndex === blockIndex && item.rowIndex === rowIndex);
+  if (!updated?.editable || updated.id !== current.id || updated.enabled !== enabled) {
+    throw new PatchError('verify-failed');
+  }
+
+  // Check the entire document, including this row's configuration, with only the flag omitted.
+  try {
+    if (isDeepStrictEqual(
+      withoutDisabled(parsed.doc, blockIndex, rowIndex),
+      withoutDisabled(after.doc, blockIndex, rowIndex),
+    )) return { ...result, text: nextText };
+  } catch {
+    // Unresolved aliases cannot be verified.
+  }
+  throw new PatchError('verify-failed');
 }
 
 /** The row fingerprint the browser sends back for conflict detection. */

@@ -83,7 +83,6 @@ function toServer(entry, duplicateNames, countTools) {
     deletable: entry.rowIndex !== null,
     tools: entry.name ? countTools(entry.name) : null,
     duplicate: entry.name ? duplicateNames.has(entry.name) : false,
-    config: entry.api ?? null,
   };
 }
 
@@ -149,7 +148,9 @@ export function createStore(options) {
     await withProfileLock(dirname(resolved.patchPath), async () => {
       const fresh = readProfilePatch(resolved.patchPath);
       result = operation(fresh);
-      writeProfilePatch(resolved.patchPath, result.text, { expected: fresh.text, mode: fresh.mode });
+      if (result.text !== fresh.text) {
+        writeProfilePatch(resolved.patchPath, result.text, { expected: fresh.text, mode: fresh.mode });
+      }
     }, lockOptions);
     log(event, {
       action: request.action,

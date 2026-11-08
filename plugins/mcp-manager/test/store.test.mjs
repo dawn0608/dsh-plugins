@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -64,7 +64,7 @@ test('finds the profile directory the desktop launcher passes as an argument', (
   }
 });
 
-test('reads the patch as a redacted, actionable state', async () => {
+test('reads the patch as an actionable state without configuration details', async () => {
   const space = profile();
   try {
     const state = await space.store.readState();
@@ -76,7 +76,8 @@ test('reads the patch as a redacted, actionable state', async () => {
     assert.equal(state.servers[0].tools, 2);
     assert.equal(state.servers[2].enabled, false);
     assert.equal(state.servers[0].deletable, true);
-    assert.equal(state.servers[0].config.headers[0].mode, 'ref');
+    assert.ok(state.servers.every(server => !Object.hasOwn(server, 'config')));
+    assert.doesNotMatch(JSON.stringify(state), /docs\.example\.com|DOCS_TOKEN|JAVA_HOME|\/usr\/bin\/env/);
     assert.equal(typeof state.servers[0].rowHash, 'string');
     assert.deepEqual(state.warnings, []);
   } finally {
@@ -84,16 +85,12 @@ test('reads the patch as a redacted, actionable state', async () => {
   }
 });
 
-test('masks a literal secret in the state and keeps it on an unrelated edit', async () => {
+test('keeps a literal secret on an unrelated save without exposing it in the response', async () => {
   const space = profile();
   try {
     writeFileSync(space.patchPath, FIXTURE.replace("        X-Trace: !!js 'process.env.TRACE_TOKEN'", '        X-Api-Key: "plain-text-secret"'), { mode: 0o600 });
     const state = await space.store.readState();
     const docs = state.servers.find(server => server.name === 'docs');
-    const secret = docs.config.headers.find(pair => pair.key === 'X-Api-Key');
-    assert.equal(secret.mode, 'literal');
-    assert.equal(secret.secret, true);
-    assert.equal(secret.value, undefined);
     assert.ok(!JSON.stringify(state).includes('plain-text-secret'));
 
     const saved = await space.store.save({
@@ -107,10 +104,14 @@ test('masks a literal secret in the state and keeps it on an unrelated edit', as
         transport: 'streamable-http',
         enabled: true,
         url: 'https://docs2.example.com/mcp',
-        headers: docs.config.headers.map(pair => (pair.secret ? { key: pair.key, mode: 'keep' } : pair)),
+        headers: [
+          { key: 'Authorization', mode: 'ref', variable: 'DOCS_TOKEN', prefix: 'Bearer ' },
+          { key: 'X-Api-Key', mode: 'keep' },
+        ],
       },
     });
-    assert.ok(saved.servers.some(server => server.config && server.config.url === 'https://docs2.example.com/mcp'));
+    assert.ok(saved.servers.every(server => !Object.hasOwn(server, 'config')));
+    assert.ok(space.text().includes('https://docs2.example.com/mcp'));
     assert.ok(space.text().includes('plain-text-secret'));
   } finally {
     space.cleanup();
@@ -152,10 +153,7 @@ test('adds, edits, disables and deletes through the lock-protected store', async
         env: [{ key: 'PANEL_TOKEN', mode: 'ref', variable: 'PANEL_TEST_TOKEN' }],
       },
     });
-    assert.deepEqual(
-      edited.servers.find(server => server.name === 'panel-test').config.args,
-      ['/tmp/echo.mjs', '--edited'],
-    );
+    assert.match(space.text(), /- "--edited"/);
 
     const current = edited.servers.find(server => server.name === 'panel-test');
     const disabled = await space.store.setEnabled({
@@ -247,4 +245,15 @@ test('stateFromText counts tools through the supplied reader', () => {
   });
   assert.equal(state.servers[0].tools, 7);
   assert.equal(state.servers[1].tools, null);
+});
+
+test('a toggle to the existing value leaves the patch file untouched', async t => {
+  const space = profile();
+  t.after(space.cleanup);
+  const before = await space.store.readState();
+  const inode = statSync(space.patchPath, { bigint: true }).ino;
+  const [docs] = before.servers;
+  const after = await space.store.setEnabled({ action: 'setEnabled', id: docs.id, rowHash: docs.rowHash, enabled: true });
+  assert.equal(after.revision, before.revision);
+  assert.equal(statSync(space.patchPath, { bigint: true }).ino, inode);
 });

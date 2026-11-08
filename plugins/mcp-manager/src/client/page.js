@@ -11,6 +11,7 @@ const CODE_KEYS = {
   locked: 'locked',
   'profile-unavailable': 'profileUnavailable',
   network: 'network',
+  timeout: 'timeout',
   unauthorized: 'unauthorized',
   'read-only': 'readOnlyFailure',
   'not-found': 'conflict',

@@ -27,10 +27,11 @@ export const DICTS = {
     saving: '正在保存…',
     invalid: '请求无效。',
     internal: '操作未完成，请查看 Harness 日志。',
-    conflict: '配置文件已被其他程序修改，已刷新列表，请重试。',
+    conflict: '配置文件已被其他程序修改，请确认当前状态后重试。',
     locked: '配置文件正被其他操作占用，请稍后重试。',
     profileUnavailable: '无法定位或读写当前 profile 补丁文件。',
     network: '无法连接 Harness。',
+    timeout: '请求超时，请查看列表中的当前状态。',
     unauthorized: '当前页面没有访问 Host 的权限。',
   },
 };
@@ -59,10 +60,11 @@ DICTS.en = {
   saving: 'Saving…',
   invalid: 'The request is invalid.',
   internal: 'The operation did not complete; check the Harness logs.',
-  conflict: 'The configuration changed on disk. The list was refreshed; try again.',
+  conflict: 'The configuration changed on disk. Check the current state and try again.',
   locked: 'The profile is being written by another operation. Try again shortly.',
   profileUnavailable: 'The profile patch for this desktop profile cannot be located or written.',
   network: 'Could not reach Harness.',
+  timeout: 'The request timed out. Check the current state in the list.',
   unauthorized: 'This page is not authorized to call the Host.',
 };
 

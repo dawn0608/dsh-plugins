@@ -102,8 +102,6 @@ test('keeps a hidden literal value when the draft says keep', () => {
   );
   const parsed = readPatch(source);
   const docs = entry(parsed, 'docs');
-  assert.equal(docs.api.headers.find(pair => pair.key === 'X-Api-Key').secret, true);
-  assert.equal(docs.api.headers.find(pair => pair.key === 'X-Api-Key').value, undefined);
   const result = buildSave(source, docs, {
     name: 'docs',
     transport: 'streamable-http',
@@ -140,7 +138,7 @@ test('toggling a row preserves hidden literal and opaque expression values', () 
   const opaque = FIXTURE.replace("        X-Trace: !!js 'process.env.TRACE_TOKEN'", "        X-Custom: !!js lookup('custom')");
   const opaqueDocs = entry(readPatch(opaque), 'docs');
   const toggledAgain = buildSetEnabled(opaque, opaqueDocs, false);
-  assert.ok(toggledAgain.text.includes("!!js 'lookup(''custom'')'"));
+  assert.ok(toggledAgain.text.includes("X-Custom: !!js lookup('custom')"));
 });
 
 test('delete removes an added row and restores the original text', () => {
@@ -257,4 +255,74 @@ test('marks structurally unsupported rows read-only with a reason', () => {
     ['dup', false, 'duplicate-id'],
   ]);
   assert.equal(parsed.entries[2].enabled, null);
+});
+
+test('changes only the existing disabled value, preserving comments, references, CRLF and EOF', () => {
+  const source = [
+    '- insert:',
+    '    - id: sample',
+    `      name: "${MCP_CLIENT}" # package`,
+    '      "disabled": TRUE # leave this comment',
+    '      config:',
+    '        serverName: sample',
+    "        command: '/bin/echo'",
+    '        env: { TOKEN: !!js process.env.TEST_TOKEN, EMPTY: null } # keep',
+    '        args: []',
+    '        other: &setting [x, y] # custom config',
+    '# trailing comment',
+  ].join('\r\n');
+  const expected = source.replace('TRUE', 'false');
+  assert.equal(buildSetEnabled(source, entry(readPatch(source), 'sample'), true).text, expected);
+  assert.equal(buildSetEnabled(expected, entry(readPatch(expected), 'sample'), true).text, expected);
+});
+
+for (const [transport, pairs, settings] of [
+  ['stdio', 'env', 'command: /bin/echo'],
+  ['streamable-http', 'headers', 'url: https://example.com/mcp'],
+]) {
+  test(`inserts disabled without rewriting ${pairs} when 65 entries exceed draft limits`, () => {
+    const source = [
+      '- insert:',
+      '  - id: sample # id comment',
+      `    name: '${MCP_CLIENT}'`,
+      '    config:',
+      '      serverName: sample',
+      `      transport: ${transport}`,
+      `      ${settings}`,
+      `      ${pairs}:`,
+      '        P0: !!js process.env.MCP_TOKEN',
+      ...Array.from({ length: 64 }, (_, i) => `        P${i + 1}: 'v${i + 1}' # preserve`),
+    ].join('\n');
+    const result = buildSetEnabled(source, entry(readPatch(source), 'sample'), false);
+    assert.match(result.text, /(?:^|\n) +(?:- )?disabled: true(?:\n|$)/);
+    // Remove only the inserted YAML field, regardless of its position in the map.
+    const restored = result.text
+      .replace(/(^[ ]*- )disabled: true\n[ ]+(?=id:)/m, '$1')
+      .replace(/^[ ]+disabled: true\n/m, '');
+    assert.equal(restored, source);
+    assert.equal(entry(readPatch(result.text), 'sample').enabled, false);
+  });
+}
+
+test('marks an MCP row with a foreign insert ID collision read-only across blocks', () => {
+  const source = `${FIXTURE}- insert:\n  - id: mcp-sync-docs\n    name: example-other-plugin\n`;
+  const row = entry(readPatch(source), 'docs');
+  assert.equal(row.editable, false);
+  assert.equal(row.readOnlyCode, 'duplicate-id');
+  assert.throws(() => buildSetEnabled(source, row, false), { code: 'read-only' });
+});
+
+test('refuses a toggle when another setting aliases the disabled value', () => {
+  const source = [
+    '- insert:',
+    '  - id: one',
+    "    name: '@deepseek-ai/dsh-mcp-client'",
+    '    disabled: &status true',
+    '    config: {serverName: one, command: /bin/echo, customOption: *status}',
+    '',
+  ].join('\n');
+  assert.throws(
+    () => buildSetEnabled(source, entry(readPatch(source), 'one'), true),
+    { code: 'verify-failed' },
+  );
 });

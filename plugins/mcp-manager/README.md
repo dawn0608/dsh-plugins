@@ -1,27 +1,16 @@
 # MCP Management
 
-View and toggle MCP servers for the current Desktop profile under **Settings → MCP Management**. The panel supports local `stdio` and remote Streamable HTTP servers.
+[简体中文](README.zh.md)
 
-- Each row shows the server name, transport (STDIO or Streamable HTTP), and enablement switch.
-- Give the provider’s setup instructions to your AI assistant so it can update the profile’s `cordis.patch.yml`. The panel automatically picks up configuration changes while open.
-- The switch updates the selected row’s `disabled` state under the profile writer lock. Harness hot reloads the change, and external synchronizers pick it up on their next poll.
+## Features
 
-## Credentials
+- Shows the MCP servers in the current profile under **Settings → MCP Management**, with their names, transport, and enablement switches.
+- Supports local STDIO and remote Streamable HTTP. The list refreshes while the panel is open.
+- Toggles a server by changing only its row-level `disabled` field. The plugin locks the profile and replaces the patch atomically, preserving the other configuration, references, and comments.
 
-Store sensitive MCP values (env values, header values) with the Loader `!!js` reference Harness supports instead of plaintext:
+## Installation
 
-```yaml
-env:
-  MCP_TOKEN: !!js 'process.env.MCP_TOKEN'
-headers:
-  Authorization: !!js '`Bearer ${process.env.MCP_TOKEN}`'
-```
-
-References resolve against the Harness process environment.
-
-## Install
-
-In Desktop, open **Plugins → Add plugin** and enter `@dawn0608/dsh-mcp-manager`. For a CLI-managed profile, run:
+Search for `@dawn0608/dsh-mcp-manager` on the Desktop Plugins page, or run this command for your profile.
 
 ```bash
 dsh plugin --profile <profile> add @dawn0608/dsh-mcp-manager
@@ -29,18 +18,13 @@ dsh plugin --profile <profile> add @dawn0608/dsh-mcp-manager
 
 You can also download the `.tgz` from [GitHub Releases](https://github.com/dawn0608/dsh-plugins/releases?q=mcp-manager) and install it with `dsh plugin --profile <profile> add /path/to/package.tgz`. Fully quit Harness Desktop before using the CLI to manage its profile.
 
-To install from source, build from the repository root:
+To install from source, run `npm ci` and `npm run build` from the repository root, then select `plugins/mcp-manager` in the local plugin picker. Remove the previous installation before switching sources. Open **Settings → MCP Management** after installation and restart Harness if prompted.
 
-```bash
-npm install
-npm run build
-```
+## Usage and configuration
 
-Then select the local `plugins/mcp-manager` directory in the plugin picker. If an older installation is present, remove it before switching installation sources. Open **Settings → MCP Management** after installation and restart Harness if prompted.
+Use the switch to enable or disable an existing server. To add or change server settings, give your AI assistant the provider's setup instructions and ask it to update the profile's `cordis.patch.yml`.
 
-## Configuration
-
-The plugin has no required configuration. Optional:
+The plugin resolves the profile from `DSH_PROFILE_DIR`, then `DSH_HOME/profiles/DSH_PROFILE` when both variables are set, then an absolute profile directory passed by the Desktop launcher that contains a profile manifest and patch file. It reports an unavailable profile if it cannot locate or read the patch. For a nonstandard layout, set the optional absolute `patchPath` explicitly:
 
 ```yaml
 - id: mcp-manager
@@ -49,23 +33,22 @@ The plugin has no required configuration. Optional:
     patchPath: /absolute/path/to/cordis.patch.yml
 ```
 
-Use `patchPath` only for a non-standard profile layout; the default derives from `DSH_PROFILE_DIR`.
+Keep sensitive env and header values in the Harness process environment and reference them with Loader `!!js`:
 
-## Limitations
+```yaml
+env:
+  MCP_TOKEN: !!js 'process.env.MCP_TOKEN'
+headers:
+  Authorization: !!js '`Bearer ${process.env.MCP_TOKEN}`'
+```
 
-- Only the current profile's **user patch file** is managed; bundle-provided rows, Codex/Claude configuration, and other profiles are out of scope.
-- Rows must sit in a top-level `insert` list, carry a unique id, and use a boolean `disabled`; entries that cannot be safely toggled are shown as read-only.
-- The list flags duplicate names in the same file.
-- Rows using `!!js`, `headers`, or a non-portable environment are skipped by the three-end synchronizer by design: credentials stay local.
-- `yaml` is used at build time and inlined into `lib/index.js`, so the runtime has no extra dependency; see the upstream `eemeli/yaml` repository for its ISC license.
+## Compatibility and limitations
+
+- DSH `>=0.2.2-rc.1 <0.3.0` and Node.js 24 or later for local development.
+- The panel manages the current profile's user patch. It does not manage bundle-provided rows, other profiles, or Codex or Claude configuration.
+- To toggle a row, it must be in a top-level `insert` list with a unique ID and either no `disabled` field or a boolean value. Rows the panel cannot safely toggle are read-only. Duplicate server names are flagged separately.
+- The settings page uses the authenticated Harness connection. The list response includes server summaries and omits configuration fields such as URLs, command arguments, environment variables, and headers.
 
 ## Development
 
-```bash
-npm test          # builds first; covers patch editing, validation, references, locking and atomic writes, and the state API
-npm run verify    # from the repository root
-```
-
-## License
-
-MIT
+Run `npm test -w @dawn0608/dsh-mcp-manager` from the repository root for the plugin checks, or `npm run verify` for the entire repository. The build bundles the YAML parser into the host entry. The plugin is [MIT licensed](LICENSE); the bundled [YAML parser](https://github.com/eemeli/yaml) uses the ISC license.

@@ -1,7 +1,7 @@
 /**
  * Profile writer: the same `package.json.lock` exclusive-create lock the
- * Harness profile operations and the MCP synchronizer use, followed by a
- * same-directory temporary file and a rename.
+ * Harness profile operations use, followed by a same-directory temporary
+ * file and a rename.
  *
  * Readers never take the lock (the rename is atomic); only read-modify-write
  * cycles do, and every write re-checks the bytes it based its edit on.
@@ -9,10 +9,13 @@
 
 import {
   closeSync,
+  constants,
+  fstatSync,
   fsyncSync,
   lstatSync,
   openSync,
   readFileSync,
+  readSync,
   renameSync,
   statSync,
   unlinkSync,
@@ -60,47 +63,61 @@ function alive(pid) {
     process.kill(pid, 0);
     return true;
   } catch (error) {
-    return described(error) === 'EPERM';
+    return described(error) !== 'ESRCH';
   }
 }
 
-function lockPid(lockPath) {
+function lockPid(fd) {
+  const stats = fstatSync(fd);
+  if (!stats.isFile() || stats.size > 64) return undefined;
+  const buffer = Buffer.alloc(64);
+  const size = readSync(fd, buffer, 0, buffer.length, 0);
+  const record = buffer.toString('utf8', 0, size).trim();
+  if (!/^\d+$/.test(record)) return undefined;
+  const pid = Number(record);
+  return Number.isSafeInteger(pid) && pid > 0 ? pid : undefined;
+}
+
+function ownsPath(fd, path) {
+  const opened = fstatSync(fd, { bigint: true });
+  const current = lstatSync(path, { bigint: true });
+  return opened.dev === current.dev && opened.ino === current.ino;
+}
+
+function closeLock(fd, path) {
+  if (fd === undefined) return;
   try {
-    const record = readFileSync(lockPath, 'utf8').trim();
-    const pid = Number.parseInt(record, 10);
-    return Number.isInteger(pid) && pid > 0 ? pid : undefined;
+    if (path !== undefined && ownsPath(fd, path)) unlinkSync(path);
   } catch {
-    return undefined;
+    // Gone, replaced or inaccessible.
+  }
+  try {
+    closeSync(fd);
+  } catch {
+    // Best-effort cleanup.
   }
 }
 
-/** Remove a lock whose recorded process has exited; concurrent contenders race one claim file. */
+/** Only one contender can reclaim a stale lock, and only the file it inspected. */
 function takeover(lockPath) {
-  const claim = `${lockPath}.takeover-${randomBytes(4).toString('hex')}`;
-  let fd;
+  const claim = `${lockPath}.takeover`;
+  let staleFd;
+  let claimFd;
   try {
-    fd = openSync(claim, 'wx', 0o600);
-  } catch {
-    return false;
-  }
-  try {
-    const pid = lockPid(lockPath);
+    staleFd = openSync(lockPath, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    const pid = lockPid(staleFd);
     if (pid === undefined || alive(pid)) return false;
+
+    claimFd = openSync(claim, 'wx', 0o600);
+    writeSync(claimFd, `${process.pid}\n`);
+    if (lockPid(staleFd) !== pid || alive(pid) || !ownsPath(staleFd, lockPath)) return false;
     unlinkSync(lockPath);
     return true;
   } catch {
     return false;
   } finally {
-    try {
-      closeSync(fd);
-    } catch {
-      // already closed
-    }
-    try {
-      unlinkSync(claim);
-    } catch {
-      // already gone
-    }
+    closeLock(staleFd);
+    closeLock(claimFd, claim);
   }
 }
 
@@ -132,8 +149,7 @@ export async function withProfileLock(profileDir, operation, options = {}) {
           throw new PatchError('locked', { reason: 'EPERM' });
         }
       }
-      const pid = lockPid(lockPath);
-      if (pid !== undefined && !alive(pid) && takeover(lockPath)) continue;
+      if (takeover(lockPath)) continue;
       if (Date.now() >= deadline) throw new PatchError('locked', { timeoutMs });
       await sleep(20 + Math.floor(Math.random() * 60));
       continue;
@@ -141,31 +157,13 @@ export async function withProfileLock(profileDir, operation, options = {}) {
     try {
       writeSync(fd, `${process.pid}\n`);
     } catch (error) {
-      try {
-        closeSync(fd);
-      } catch {
-        // ignore
-      }
-      try {
-        unlinkSync(lockPath);
-      } catch {
-        // ignore
-      }
+      closeLock(fd, lockPath);
       throw new PatchError('locked', { reason: described(error) || 'record' });
     }
     try {
       return await operation();
     } finally {
-      try {
-        closeSync(fd);
-      } catch {
-        // ignore
-      }
-      try {
-        unlinkSync(lockPath);
-      } catch {
-        // ignore
-      }
+      closeLock(fd, lockPath);
     }
   }
 }
