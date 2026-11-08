@@ -15,6 +15,8 @@ const skills = [
 
 const controls = {
   BackIcon: () => null,
+  Input: ({ icon, ...props }) => React.createElement(React.Fragment, null, icon, React.createElement('input', props)),
+  SearchIcon: () => null,
   SkillEmblem: () => null,
   StateDot: () => null,
   Switch: ({ checked, label, disabled }) => React.createElement('button', {

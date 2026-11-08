@@ -1,5 +1,7 @@
 import { createElement as h } from 'react';
-import { Button, IconChevronDownOutlineRegular, IconTrashOutlineRegular, StateDot, Switch, Tag } from '@deepseek-ai/dsh-client-ui-primitives';
+import {
+  Button, IconChevronDownOutlineRegular, IconSearchOutlineRegular, IconTrashOutlineRegular, Input, StateDot, Switch, Tag,
+} from '@deepseek-ai/dsh-client-ui-primitives';
 import skillEmblem from '../../icon.svg';
 import { createTranslator, DICTS, NS } from './i18n.js';
 import { createPage } from './page.js';
@@ -33,6 +35,7 @@ export function apply(ctx) {
   ctx.slots.inject('main', () => ctx.slots.register({
     name: 'main', key: 'skill-manager', locale: NS,
   }, createPage(ctx.locale, {
-    BackIcon: IconChevronDownOutlineRegular, Button, SkillEmblem, StateDot, Switch, Tag, TrashIcon: IconTrashOutlineRegular,
+    BackIcon: IconChevronDownOutlineRegular, Button, Input, SearchIcon: IconSearchOutlineRegular,
+    SkillEmblem, StateDot, Switch, Tag, TrashIcon: IconTrashOutlineRegular,
   })));
 }

@@ -60,7 +60,7 @@ html[data-platform='darwin'] .dshskill_page {
 .dshskill_header {
   display: flex;
   flex-wrap: wrap;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
 }
@@ -70,8 +70,7 @@ html[data-platform='darwin'] .dshskill_page {
   max-width: 100%;
 }
 
-.dshskill_control,
-.dshskill_search {
+.dshskill_control {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -102,32 +101,13 @@ html[data-platform='darwin'] .dshskill_page {
 }
 
 .dshskill_search {
+  box-sizing: border-box;
   width: 200px;
   max-width: 100%;
-  color: var(--dsw-alias-label-secondary);
-}
-
-.dshskill_search input {
-  appearance: none;
-  width: 100%;
   min-width: 0;
-  border: 0;
-  background: transparent;
-  color: var(--dsw-alias-label-primary);
-  font: inherit;
 }
 
-.dshskill_search input::placeholder {
-  color: var(--dsw-alias-label-tertiary);
-  opacity: 1;
-}
-
-.dshskill_search input:focus {
-  outline: none;
-}
-
-.dshskill_page :where(.dshskill_control, .dshskill_back, .dshskill_document, h1):focus-visible,
-.dshskill_search:has(input:focus-visible) {
+.dshskill_page :where(.dshskill_control, .dshskill_back, .dshskill_document, h1):focus-visible {
   outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: 2px;
 }

@@ -2,7 +2,6 @@ import { createElement as h, useEffect, useId, useLayoutEffect, useRef, useState
 import { request } from './api.js';
 import { createCatalog } from './catalog.js';
 import { RemoveDialog } from './dialog.js';
-import { SearchIcon } from './icon.js';
 import { createTranslator } from './i18n.js';
 
 const GROUPS = ['builtin', 'self', 'third-party'];
@@ -170,12 +169,11 @@ export function createPage(locale, controls, createStore = createCatalog) {
           : h('div', { className: 'dshskill_catalog' },
             h('header', { className: 'dshskill_header' },
               h('h1', { ref: titleRef, tabIndex: -1 }, t('title')),
-              h('label', { className: 'dshskill_search' },
-                h(SearchIcon),
-                h('input', {
-                  type: 'search', 'aria-label': t('search'), placeholder: t('search'), value: query,
-                  onChange: event => setQuery(event.currentTarget.value),
-                }))),
+              h(controls.Input, {
+                className: 'dshskill_search', type: 'search', icon: h(controls.SearchIcon, { size: 14 }),
+                'aria-label': t('search'), placeholder: t('search'), value: query,
+                onChange: event => setQuery(event.currentTarget.value),
+              })),
             listError && h('p', { role: 'alert', className: 'dshskill_error' }, t(listError)),
             skills === null
               ? !listError && h('p', { role: 'status', className: 'dshskill_muted' }, t('loading'))
