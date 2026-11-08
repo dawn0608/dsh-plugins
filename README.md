@@ -36,6 +36,7 @@ npm run build      # 构建 plugins/* 的 lib/ 产物
 npm run check      # 校验插件布局与产物
 npm run check:profile -- ~/.dsh/profiles/desktop  # 检查 profile 中重复的插件 insert id
 npm test           # 运行全部插件测试
+npm run verify     # build + check + test
 ```
 
 包名统一为 `@dawn0608/dsh-<目录名>`，`npm run check` 会强制校验。
@@ -46,16 +47,15 @@ npm test           # 运行全部插件测试
 
 1. `cp -R templates/plugin plugins/<name>`，替换包名、目录名、`cordis.patch.yml` 的 `id`、client 注册 id、locale 文案、CSS 前缀、README 与图标。
 2. 在根 `README.md` 的插件表增加一行。
-3. 运行 `npm run build && npm run check && npm test`。
+3. 运行 `npm run verify`；发布按下方发布清单。
 
 ## 发布
 
-```bash
-cd plugins/<name>
-npm publish        # prepack 会先构建 lib/
-```
-
-发布前用 `npm pack --dry-run` 核对 tarball 内容；发布后同步版本 tag 与根 README 的插件表。
+1. bump `plugins/<name>/package.json` 的版本。
+2. 在仓库根目录运行 `npm run verify`。
+3. `cd plugins/<name>` 后运行 `npm pack --dry-run` 核对内容，再 `npm publish`（`prepack` 会自动构建 `lib/`）。
+4. 打 tag 并创建 GitHub Release，附 `.tgz` 与 `SHA256SUMS.txt`。
+5. 同步根 README 插件表；在目标 profile 安装后，回到仓库根目录运行 `npm run check:profile -- <profile-dir>`。
 
 ## 获取仓库
 
