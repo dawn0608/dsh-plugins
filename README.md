@@ -8,10 +8,11 @@
 | --- | --- | --- | --- |
 | [session-cost](plugins/session-cost/README.md) | 在输入框下方显示当前会话花费与 DeepSeek 账户余额 | `>=0.2.2-rc.1 <0.3.0` | `@dawn0608/dsh-session-cost` |
 | [MCP 管理](plugins/mcp-manager/README.md) | 在原生设置中查看和启停 MCP 服务 | `>=0.2.2-rc.1 <0.3.0` | `@dawn0608/dsh-mcp-manager` |
+| [技能](plugins/skill-manager/README.zh.md) | 在侧栏浏览技能并管理本地导入 | `>=0.2.2-rc.1 <0.3.0` | [本地安装](plugins/skill-manager/README.zh.md#安装) |
 
 ## 安装
 
-Desktop 应用请在「插件」页搜索/安装上表的 npm 包名。非 Desktop profile 也可以使用 CLI：
+已发布的插件可在 Desktop「插件」页按 npm 包名安装。本地插件按表中的安装说明操作。非 Desktop profile 也可以使用 CLI：
 
 ```bash
 dsh plugin --profile <profile> add @dawn0608/dsh-session-cost
