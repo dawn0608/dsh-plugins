@@ -1,4 +1,4 @@
-# Session Cost (@dawn0608/dsh-session-cost)
+# Cost Overview
 
 English | [中文](README.zh.md)
 
@@ -10,18 +10,29 @@ Adds a statistics pill next to the composer statistics that shows:
 ## Installation
 
 - DSH version: `>=0.2.2-rc.1 <0.3.0`
-- npm package: `@dawn0608/dsh-session-cost`
+- npm package: `@dawn0608/dsh-cost-overview`
 - In the Desktop app, search for and install this package on the Plugins page; non-Desktop profiles can use:
   ```bash
-  dsh plugin --profile <profile> add @dawn0608/dsh-session-cost
+  dsh plugin --profile <profile> add @dawn0608/dsh-cost-overview
   ```
 - The balance is read with the `DEEPSEEK_API_KEY` configured in the current DSH; it never uses the plugin author's or anyone else's credentials.
-- Use this single package name for local builds and upgrades. Do not install a second alias (for example `@local/dsh-session-cost`) of the same plugin: DSH keys each browser module by package name, so two names are two modules. When migrating from an alias, remove the old package and restart the app.
+- Use the same package name for local builds and upgrades. DSH loads a separate browser module for each installed package name.
 - After installation, the statistics pill appears below the composer once the Session has produced tokens; click it to see the breakdown.
 
 Source and issue tracker: [GitHub repository](https://github.com/dawn0608/dsh-plugins).
 
 Clicking the pill opens the same layout as the built-in statistics dialog — the same 16px padding, 12px/18px type, 8px title rule, and 6px row rhythm — with a title row carrying the total and a flat list of: model, model requests, web search & fetch counts (always shown, including `0`; their charge is folded into the total), and the account balance. A Session that switched models lists one line per model, with that model's own cost and request count. Escape, an outside pointer press, or the button itself closes it. Token counts are deliberately absent: the built-in `usage` pill already shows them.
+
+### Migrating from Session Cost
+
+Remove `@dawn0608/dsh-session-cost`, install `@dawn0608/dsh-cost-overview`, then restart DSH. Use the Desktop Plugins page or run these commands for the target profile:
+
+```bash
+dsh plugin --profile <profile> remove @dawn0608/dsh-session-cost
+dsh plugin --profile <profile> add @dawn0608/dsh-cost-overview
+```
+
+Existing sessions and DeepSeek credentials are reused. If you set the old plugin-specific launch override `SESSION_COST_API_KEY_ENV`, rename it to `COST_OVERVIEW_API_KEY_ENV`.
 
 ## What "exact" means here
 
@@ -38,7 +49,7 @@ DeepSeek publishes **prices**, not a bill: there is no per-session usage or bill
 
 ### One price source: the official page
 
-The plugin uses only the table published at [`DOCS_URL`](pricing.js#L12), with no built-in model price copy and no local override, so model prices are always official. Only when a readable page omits its Search/Fetch rows does it use the last-resort Search/Fetch fallback price (¥5 / 1,000). The page is re-read at most once every 24 hours; a failed read (including a failed refresh after a successful load) retries after 1 minute. The parse is accepted only when all six prices exist, are in a plausible range, and every peak price is exactly twice its off-peak price — the page states that rule; a mismatch means the layout or the billing scheme changed.
+The plugin uses only the table published at [`DOCS_URL`](https://github.com/dawn0608/dsh-plugins/blob/main/plugins/cost-overview/src/pricing.js#L12), with no built-in model price copy and no local override, so model prices are always official. Only when a readable page omits its Search/Fetch rows does it use the last-resort Search/Fetch fallback price (¥5 / 1,000). The page is re-read at most once every 24 hours; a failed read (including a failed refresh after a successful load) retries after 1 minute. The parse is accepted only when all six prices exist, are in a plausible range, and every peak price is exactly twice its off-peak price — the page states that rule; a mismatch means the layout or the billing scheme changed.
 
 Consequences of having no model-price fallback:
 
@@ -64,13 +75,13 @@ The account balance is account-wide: title generation, other Sessions, and other
 
 The browser never sees the API key. `index.js` (Host half):
 
-1. reads the live `apiKeyEnv` and `baseURL` of the `llm-deepseek` entry from the settings catalog (defaults: `DEEPSEEK_API_KEY` and `https://api.deepseek.com`);
+1. reads the live `apiKeyEnv` and `baseURL` of the `llm-deepseek` entry from the settings catalog (launch environment fallbacks are `COST_OVERVIEW_API_KEY_ENV` and `DEEPSEEK_BASE_URL`, defaulting to `DEEPSEEK_API_KEY` and `https://api.deepseek.com`);
 2. resolves that key through `ctx.credentials`, then from the launch environment;
 3. calls `GET <baseURL>/user/balance`, cached for **1 minute** (success and failure alike), so it never hits the upstream endpoint more often;
 4. folds the current Session's log into an exact cost, reusing the previous fold while the log has not changed (cached by log offset, not by time);
 5. returns one payload on two routes:
-   - `GET /plugin/session-cost/state?session=<id>` — a plain Web route;
-   - `GET /api/session-cost/state?session=<id>` — an exact Fetch route on the connection's shared channel, for a shell carrier without a document origin.
+   - `GET /plugin/cost-overview/state?session=<id>` — a plain Web route;
+   - `GET /api/cost-overview/state?session=<id>` — an exact Fetch route on the connection's shared channel, for a shell carrier without a document origin.
 
 `client.js` (Client half) reads immediately when token totals change — the same event the built-in statistics pill moves on — when the Session changes, on mount, when the panel opens, every five minutes, and when the tab becomes visible. The balance in that payload comes from the Host's 1-minute cache, so this cost refresh never multiplies upstream balance requests. It tries the document origin (or the `__DSH_TRANSPORT__.streamBaseUrl` origin for a static desktop page) first, then the `api/...` channel form.
 
@@ -80,12 +91,12 @@ Failures are explicit instead of a permanent spinner: `missing-key`, `unauthoriz
 
 ## Behaviour
 
-- The pill is a `conversation.composer.dock` entry with id `session-cost` and order `2`, so it follows the built-in `activity` (0) and `usage` (1) pills and precedes the context meter. A new id only adds a control; it does not replace either built-in pill.
+- The pill is a `conversation.composer.dock` entry with id `cost-overview` and order `2`, so it follows the built-in `activity` (0) and `usage` (1) pills and precedes the context meter. A new id only adds a control; it does not replace either built-in pill.
 - The pill appears together with the built-in statistics: nothing until the Session has produced tokens, and nothing while this Session's own cost is still in flight.
 - An exact cost renders as `¥2.30`; when the official price table cannot be read, the pill shows `—` and the panel names the reason.
 - The pill never ellipsizes: it keeps its intrinsic width (`flex: none`), so the balance stays fully readable beside the other statistics.
 - Interface copy follows the DSH language (zh/en); styling uses only `--dsw-*` theme tokens.
-- If another client module already holds the `session-cost` slot id (for example a stale copy left by a package rename), this module skips its own registration and logs a warning instead of failing the page sync; restart the app to clear the stale copy.
+- If another client module already holds the `cost-overview` slot id, this module skips its own registration and logs a warning instead of failing the page sync; restart the app to clear the stale copy.
 
 ## Updating the Client half
 
@@ -105,7 +116,7 @@ Failures are explicit instead of a permanent spinner: `missing-key`, `unauthoriz
 | `src/client/store.js` | Browser state reader for the balance and the Session cost. |
 | `src/client/format.js` | Money, count, and currency formatting. |
 | `src/client/style.css` | Client styles, imported as text by the build. |
-| `locale/{en,zh}.json` | Plugin Manager title and description; the zh detail uses `README.zh.md`, en defaults to `README.md`. |
+| `locale/{en,zh}.json` | Plugin Manager title and description; the zh detail uses `README.zh.md`, and en uses `README.md`. |
 | `icon.svg` | Plugin row icon. |
 | `LICENSE` | MIT License. |
 | `lib/` | Build output (`lib/index.js`, `lib/client.js`); created by `npm run build`, not committed. |
@@ -113,7 +124,7 @@ Failures are explicit instead of a permanent spinner: `missing-key`, `unauthoriz
 ## Verification
 
 - `npm run build` bundles both halves; `npm test` rebuilds and covers the parser, refresh policy, cost fold, model resolution, price windows, Web request units, balance helpers, locale dictionary parity, and the client loader contract (`lib/client.js` id, factory, `apply`/`inject`).
-- `GET /plugin/session-cost/state?session=<id>` returns `{ balance, cost }`; `cost.total` equals an independent `foldCost` of the same Session log.
+- `GET /plugin/cost-overview/state?session=<id>` returns `{ balance, cost }`; `cost.total` equals an independent `foldCost` of the same Session log.
 - A live fetch of the official price page should yield Flash hit 0.02/0.04, miss 1/2, output 4/8; Pro hit 0.15/0.3, miss 4.5/9, output 13.5/27; Search/Fetch 0.005 per request.
-- `cordis_inspect_query` → Client `Slots.listSubTree` with root `conversation.composer.dock` reports the `session-cost` occupant while a Session is open.
+- `cordis_inspect_query` → Client `Slots.listSubTree` with root `conversation.composer.dock` reports the `cost-overview` occupant while a Session is open.
 - Visual confirmation of the rendered pill needs the connected page; opening the panel should trigger a new state read.

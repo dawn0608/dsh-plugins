@@ -1,9 +1,9 @@
 {
-  "name": "@dawn0608/dsh-session-cost",
-  "version": "1.2.2",
+  "name": "@dawn0608/dsh-cost-overview",
+  "version": "1.0.0",
   "type": "module",
   "main": "./lib/index.js",
-  "description": "Shows Session cost at official unit prices and the account balance beside composer stats.",
+  "description": "Shows the current session cost at official unit prices and the DeepSeek account balance beside composer stats.",
   "license": "MIT",
   "author": "dawn0608",
   "keywords": [
@@ -11,7 +11,7 @@
     "deepseek-harness",
     "dsh",
     "plugin",
-    "session-cost",
+    "cost-overview",
     "cost",
     "billing",
     "balance",
@@ -20,9 +20,9 @@
   "repository": {
     "type": "git",
     "url": "git+https://github.com/dawn0608/dsh-plugins.git",
-    "directory": "plugins/session-cost"
+    "directory": "plugins/cost-overview"
   },
-  "homepage": "https://github.com/dawn0608/dsh-plugins/tree/main/plugins/session-cost",
+  "homepage": "https://github.com/dawn0608/dsh-plugins/tree/main/plugins/cost-overview",
   "bugs": {
     "url": "https://github.com/dawn0608/dsh-plugins/issues"
   },

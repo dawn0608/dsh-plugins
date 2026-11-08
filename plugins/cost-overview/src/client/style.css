@@ -1,4 +1,4 @@
-.dshsc_anchor {
+.dshco_anchor {
   min-width: 0;
   flex: none;
   font-size: calc(var(--dsh-content-font-size-secondary, 13px) - 1px);
@@ -6,7 +6,7 @@
   display: inline-flex;
 }
 
-.dshsc_pill {
+.dshco_pill {
   box-sizing: border-box;
   border-radius: var(--dsw-radius-sm);
   color: var(--dsw-alias-label-tertiary);
@@ -23,28 +23,28 @@
   cursor: pointer;
 }
 
-.dshsc_pill:hover,
-.dshsc_pill[aria-expanded="true"] {
+.dshco_pill:hover,
+.dshco_pill[aria-expanded="true"] {
   background: var(--dsw-alias-interactive-bg-hover);
 }
 
-.dshsc_pill:focus-visible {
+.dshco_pill:focus-visible {
   outline: var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: 1px;
 }
 
-.dshsc_icon {
+.dshco_icon {
   width: 14px;
   height: 14px;
   flex: none;
   display: block;
 }
 
-.dshsc_label {
+.dshco_label {
   white-space: nowrap;
 }
 
-.dshsc_panel {
+.dshco_panel {
   z-index: 1100;
   box-sizing: border-box;
   border-radius: var(--dsw-radius-lg);
@@ -64,7 +64,7 @@
   position: fixed;
 }
 
-.dshsc_title {
+.dshco_title {
   color: var(--dsw-alias-label-primary);
   justify-content: space-between;
   gap: 16px;
@@ -73,29 +73,29 @@
   display: flex;
 }
 
-.dshsc_titleLabel {
+.dshco_titleLabel {
   align-items: center;
   gap: 6px;
   min-width: 0;
   display: inline-flex;
 }
 
-.dshsc_titleLabel svg {
+.dshco_titleLabel svg {
   flex: none;
   width: 14px;
   height: 14px;
 }
 
-.dshsc_titleValue {
+.dshco_titleValue {
   font-variant-numeric: tabular-nums;
 }
 
-.dshsc_rule {
+.dshco_rule {
   border-top: 0.5px solid var(--dsw-alias-border-l2);
   margin-bottom: 10px;
 }
 
-.dshsc_details {
+.dshco_details {
   color: var(--dsw-alias-label-tertiary);
   grid-template-columns: minmax(76px, auto) minmax(0, 1fr);
   gap: 6px 16px;
@@ -103,13 +103,13 @@
   display: grid;
 }
 
-.dshsc_details dt,
-.dshsc_details dd {
+.dshco_details dt,
+.dshco_details dd {
   min-width: 0;
   margin: 0;
 }
 
-.dshsc_details dd {
+.dshco_details dd {
   color: var(--dsw-alias-label-secondary);
   font-variant-numeric: tabular-nums;
   text-align: right;

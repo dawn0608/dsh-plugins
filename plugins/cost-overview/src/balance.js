@@ -1,5 +1,5 @@
 /**
- * Pure balance helpers for the session-cost plugin.
+ * Pure balance helpers for the cost-overview plugin.
  *
  * The account balance route and the config fallback are kept separate from the
  * Cordis service so they can be exercised without a running Host.

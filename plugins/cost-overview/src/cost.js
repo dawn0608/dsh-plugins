@@ -1,5 +1,5 @@
 /**
- * Pure cost fold for the session-cost plugin.
+ * Pure cost fold for the cost-overview plugin.
  *
  * The host folds the durable Session log one logged model call at a time:
  * provider-reported tokens × the official unit price of that call's model and
@@ -124,7 +124,7 @@ export function searchUnits(name, args) {
  */
 export function foldCost(events, table, toolPrices) {
   if (table === null || typeof table !== 'object') {
-    throw new TypeError('session-cost: a parsed price table is required');
+    throw new TypeError('cost-overview: a parsed price table is required');
   }
   const prices = toolPrices === null || typeof toolPrices !== 'object' ? {} : toolPrices;
   const priceOf = name => {

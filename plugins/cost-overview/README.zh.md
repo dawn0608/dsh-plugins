@@ -1,4 +1,4 @@
-# 会话花费（@dawn0608/dsh-session-cost）
+# 费用概览
 
 [English](README.md) | 中文
 
@@ -10,18 +10,29 @@
 ## 安装
 
 - 适用 DSH 版本：`>=0.2.2-rc.1 <0.3.0`
-- npm 包名：`@dawn0608/dsh-session-cost`
+- npm 包名：`@dawn0608/dsh-cost-overview`
 - Desktop 应用请在「插件」页搜索/安装该包名；非 Desktop profile 可以使用：
   ```bash
-  dsh plugin --profile <profile> add @dawn0608/dsh-session-cost
+  dsh plugin --profile <profile> add @dawn0608/dsh-cost-overview
   ```
 - 余额读取使用当前 DSH 配置的 `DEEPSEEK_API_KEY`，不会使用插件作者或其他人的凭据。
-- 本地构建与升级都使用这一个包名；不要同时安装同一插件的第二个别名（例如 `@local/dsh-session-cost`）。DSH 以包名作为客户端模块的身份，两个包名就是两个模块。从别名迁移时，先卸载旧包，再重启应用。
+- 本地构建与升级使用同一个包名。DSH 会按安装包名分别加载客户端模块。
 - 安装后，在输入框下方产生 token 后出现统计 pill；点击可查看明细。
 
 源码与问题反馈：[GitHub 仓库](https://github.com/dawn0608/dsh-plugins)。
 
 点击 pill 会打开与内置统计弹窗一致的布局——相同的 16px 内边距、12px/18px 字号、8px 标题分隔线和 6px 行间距——标题行显示总额，下面是一列明细：模型、模型请求次数、网页搜索与抓取次数（始终显示，包括 `0 次`；其费用已折入总额）以及账户余额。会话切换过模型时，每个模型单独一行，分别显示该模型的费用和请求次数。按 Escape、点击面板外部或再次点击按钮都会关闭。这里刻意不显示 token 数：内置的 `usage` pill 已经显示它们。
+
+### 从「会话花费」迁移
+
+先卸载 `@dawn0608/dsh-session-cost`，再安装 `@dawn0608/dsh-cost-overview`，然后重启 DSH。可在 Desktop「插件」页操作，或在目标 profile 执行：
+
+```bash
+dsh plugin --profile <profile> remove @dawn0608/dsh-session-cost
+dsh plugin --profile <profile> add @dawn0608/dsh-cost-overview
+```
+
+新插件继续读取已有会话和 DeepSeek 凭据。如果启动环境设置了旧插件专用的 `SESSION_COST_API_KEY_ENV`，将其改为 `COST_OVERVIEW_API_KEY_ENV`。
 
 ## 这里的“精确”指什么
 
@@ -38,7 +49,7 @@ DeepSeek 公布的是**价格**，不是账单：没有按会话查询用量或�
 
 ### 唯一价格来源：官方页面
 
-插件只使用 [`DOCS_URL`](pricing.js#L12) 公布的价格表，没有内置的模型价格副本，也没有本地覆盖，因此模型价格始终是官方价格。只有可读页面缺少 Search/Fetch 行时，才使用 Search/Fetch 的最后兜底价格（¥5 / 1,000）。页面最多每 24 小时重读一次；读取失败（包括成功加载后的某次刷新失败）会在 1 分钟后重试。只有六个价格都存在、处于合理范围，并且每个高峰价格恰好是空闲价格的 2 倍时才接受解析结果——这是页面声明的规则，不一致说明布局或计费方案已变化。
+插件只使用 [`DOCS_URL`](https://github.com/dawn0608/dsh-plugins/blob/main/plugins/cost-overview/src/pricing.js#L12) 公布的价格表，没有内置的模型价格副本，也没有本地覆盖，因此模型价格始终是官方价格。只有可读页面缺少 Search/Fetch 行时，才使用 Search/Fetch 的最后兜底价格（¥5 / 1,000）。页面最多每 24 小时重读一次；读取失败（包括成功加载后的某次刷新失败）会在 1 分钟后重试。只有六个价格都存在、处于合理范围，并且每个高峰价格恰好是空闲价格的 2 倍时才接受解析结果——这是页面声明的规则，不一致说明布局或计费方案已变化。
 
 没有模型价格兜底的后果：
 
@@ -50,7 +61,7 @@ DeepSeek 公布的是**价格**，不是账单：没有按会话查询用量或�
 
 不在 DeepSeek 家族中的模型 id，或未知的 DeepSeek id，会保留自己的行和真实 id，但按 `deepseek-flash` 价格计费，确保总额不会被静默丢弃；payload 会在 `unknownModels` 中列出这些 id。
 
-账户余额是账户级的：标题生成、其他会话和其他进程也会消耗余额，所以 `会话花费` 和余额下降不要求精确到分一致。
+账户余额是账户级的：标题生成、其他会话和其他进程也会消耗余额，所以当前会话费用和余额下降不要求精确到分一致。
 
 ### 已知限制
 
@@ -64,13 +75,13 @@ DeepSeek 公布的是**价格**，不是账单：没有按会话查询用量或�
 
 浏览器永远看不到 API Key。`index.js`（Host 半侧）：
 
-1. 从设置目录读取 `llm-deepseek` 条目的实时 `apiKeyEnv` 和 `baseURL`（默认值：`DEEPSEEK_API_KEY` 和 `https://api.deepseek.com`）；
+1. 从设置目录读取 `llm-deepseek` 条目的实时 `apiKeyEnv` 和 `baseURL`（启动环境可用 `COST_OVERVIEW_API_KEY_ENV` 和 `DEEPSEEK_BASE_URL` 设置回退值，默认分别为 `DEEPSEEK_API_KEY` 和 `https://api.deepseek.com`）；
 2. 通过 `ctx.credentials` 解析该 key，再从启动环境解析；
 3. 调用 `GET <baseURL>/user/balance`，缓存 **1 分钟**（成功和失败都缓存），因此不会比这更频繁地访问上游；
 4. 把当前 Session 的日志折叠成精确成本，日志没有变化时复用上一次折叠结果（按日志偏移缓存，而不是按时间）；
 5. 通过两条路由返回同一份 payload：
-   - `GET /plugin/session-cost/state?session=<id>` —— 普通 Web 路由；
-   - `GET /api/session-cost/state?session=<id>` —— 连接共享通道上的精确 Fetch 路由，用于没有文档 origin 的 shell carrier。
+   - `GET /plugin/cost-overview/state?session=<id>` —— 普通 Web 路由；
+   - `GET /api/cost-overview/state?session=<id>` —— 连接共享通道上的精确 Fetch 路由，用于没有文档 origin 的 shell carrier。
 
 `client.js`（Client 半侧）会在 token 总量变化时立即读取——与内置统计 pill 移动的是同一个事件——在 Session 变化时、挂载时、打开面板时、每五分钟以及标签页重新可见时读取。payload 中的余额来自 Host 的 1 分钟缓存，因此这种成本刷新不会放大上游余额请求。它会先尝试文档 origin（静态桌面页面则用 `__DSH_TRANSPORT__.streamBaseUrl` 的 origin），再尝试 `api/...` 通道形式。
 
@@ -80,12 +91,12 @@ DeepSeek 公布的是**价格**，不是账单：没有按会话查询用量或�
 
 ## 行为
 
-- pill 是 `conversation.composer.dock` 的条目，id 为 `session-cost`，order 为 `2`，因此排在内置 `activity`（0）和 `usage`（1）之后，位于上下文 meter 之前。新 id 只增加一个控件，不会替换任何一个内置 pill。
+- pill 是 `conversation.composer.dock` 的条目，id 为 `cost-overview`，order 为 `2`，因此排在内置 `activity`（0）和 `usage`（1）之后，位于上下文 meter 之前。新 id 只增加一个控件，不会替换任何一个内置 pill。
 - pill 与内置统计同时出现：Session 产生 token 之前不显示，本 Session 自己的成本仍在读取时也不显示。
 - 精确成本显示为 `¥2.30`；官方价格表无法读取时 pill 显示 `—`，面板说明原因。
 - pill 不会省略：它保持固有宽度（`flex: none`），因此余额在其它统计旁仍完整可读。
 - 界面文案随 DSH 语言切换（zh/en）；样式只使用 `--dsw-*` 主题 token。
-- 如果另一个客户端模块已经占用了 `session-cost` 这个 slot id（例如换包名后残留的旧副本），本模块会跳过自己的注册并输出警告，而不是让页面同步失败；重启应用即可清掉旧副本。
+- 如果另一个客户端模块已经占用了 `cost-overview` 这个 slot id，本模块会跳过自己的注册并输出警告，而不是让页面同步失败；重启应用即可清掉旧副本。
 
 ## 更新 Client 半侧
 
@@ -102,10 +113,10 @@ DeepSeek 公布的是**价格**，不是账单：没有按会话查询用量或�
 | `src/balance.js` | 纯余额解析与端点归一化。 |
 | `src/client/index.js` | pill、面板、slot 注册。 |
 | `src/client/i18n.js` | 中英文字典与 locale 服务绑定。 |
-| `src/client/store.js` | 浏览器侧余额与 Session 花费状态读取。 |
+| `src/client/store.js` | 浏览器侧余额与会话费用状态读取。 |
 | `src/client/format.js` | 金额、数量与货币符号格式化。 |
 | `src/client/style.css` | 客户端样式，构建期作为文本内联。 |
-| `locale/{en,zh}.json` | 插件管理器标题和描述；`zh` 详情使用 `README.zh.md`，`en` 默认使用 `README.md`。 |
+| `locale/{en,zh}.json` | 插件管理器标题和描述；`zh` 详情使用 `README.zh.md`，`en` 使用 `README.md`。 |
 | `icon.svg` | 插件行图标。 |
 | `LICENSE` | MIT 许可证。 |
 | `lib/` | 构建产物（`lib/index.js`、`lib/client.js`），由 `npm run build` 生成，不入库。 |
@@ -113,7 +124,7 @@ DeepSeek 公布的是**价格**，不是账单：没有按会话查询用量或�
 ## 验证
 
 - `npm run build` 构建 Host 与 Client 两半；`npm test` 会先重建，再覆盖解析器、刷新策略、成本折叠、模型解析、价格时段、Web 请求计数、余额辅助函数、locale 字典对齐与 client loader 契约（`lib/client.js` 的 id、factory、`apply`/`inject`）。
-- `GET /plugin/session-cost/state?session=<id>` 返回 `{ balance, cost }`；`cost.total` 等于对同一 Session 日志独立执行 `foldCost` 的结果。
+- `GET /plugin/cost-overview/state?session=<id>` 返回 `{ balance, cost }`；`cost.total` 等于对同一 Session 日志独立执行 `foldCost` 的结果。
 - 实时抓取官方价格页应得到 Flash 命中 0.02/0.04、未命中 1/2、输出 4/8；Pro 命中 0.15/0.3、未命中 4.5/9、输出 13.5/27；Search/Fetch 每次请求 0.005。
-- `cordis_inspect_query` → Client `Slots.listSubTree`，根为 `conversation.composer.dock`，在有 Session 打开时会报告 `session-cost` 占用者。
+- `cordis_inspect_query` → Client `Slots.listSubTree`，根为 `conversation.composer.dock`，在有 Session 打开时会报告 `cost-overview` 占用者。
 - 渲染后的 pill 需要连接页面做视觉确认；打开面板应触发一次新的 state 读取。

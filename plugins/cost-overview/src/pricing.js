@@ -1,5 +1,5 @@
 /**
- * Official pricing for the session-cost plugin.
+ * Official pricing for the cost-overview plugin.
  *
  * The plugin prices Sessions with the table published at `DOCS_URL` and nothing
  * else: no built-in model price copy and no local override, so a figure can only

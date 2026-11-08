@@ -95,25 +95,25 @@ function createEntry(store, translate) {
 
     return h('div', {
       ref: panelRef,
-      className: 'dshsc_panel',
+      className: 'dshco_panel',
       role: 'dialog',
       'aria-label': translate('panelTitle'),
       style: position || { visibility: 'hidden' },
     }, [
-      h('div', { key: 'title', className: 'dshsc_title' }, [
-        h('span', { key: 'label', className: 'dshsc_titleLabel' }, [
+      h('div', { key: 'title', className: 'dshco_title' }, [
+        h('span', { key: 'label', className: 'dshco_titleLabel' }, [
           h(Icon, { key: 'icon' }),
           translate('costTitle'),
         ]),
-        h('span', { key: 'value', className: 'dshsc_titleValue' },
+        h('span', { key: 'value', className: 'dshco_titleValue' },
           view.exact ? money(view.amount, '¥') : '—'),
       ]),
-      h('div', { key: 'rule', className: 'dshsc_rule', 'aria-hidden': true }),
-      h('dl', { key: 'details', className: 'dshsc_details' }, cells),
+      h('div', { key: 'rule', className: 'dshco_rule', 'aria-hidden': true }),
+      h('dl', { key: 'details', className: 'dshco_details' }, cells),
     ]);
   }
 
-  function SessionCostEntry(props) {
+  function CostOverviewEntry(props) {
     const usage = props.useProjection('tokenUsage');
     const snapshot = React.useSyncExternalStore(store.subscribe, store.current, store.current);
     const [open, setOpen] = React.useState(false);
@@ -217,33 +217,33 @@ function createEntry(store, translate) {
 
     return h('span', {
       ref: rootRef,
-      className: 'dshsc_anchor',
-      'data-composer-stat': 'session-cost',
+      className: 'dshco_anchor',
+      'data-composer-stat': 'cost-overview',
     }, [
       h('button', {
         key: 'button',
         type: 'button',
-        className: 'dshsc_pill',
+        className: 'dshco_pill',
         'aria-haspopup': 'dialog',
         'aria-expanded': open,
         'aria-label': `${translate('openDetails')}: ${label}`,
         onClick: () => setOpen(!open),
       }, [
-        h(Icon, { key: 'icon', className: 'dshsc_icon' }),
-        h('span', { key: 'label', className: 'dshsc_label' }, label),
+        h(Icon, { key: 'icon', className: 'dshco_icon' }),
+        h('span', { key: 'label', className: 'dshco_label' }, label),
       ]),
       panel,
     ]);
   }
 
-  SessionCostEntry.displayName = 'SessionCostEntry';
-  return SessionCostEntry;
+  CostOverviewEntry.displayName = 'CostOverviewEntry';
+  return CostOverviewEntry;
 }
 
 function Icon(props) {
   return h('svg', {
     viewBox: '0 0 64 64',
-    className: props && props.className ? props.className : 'dshsc_icon',
+    className: props && props.className ? props.className : 'dshco_icon',
     'aria-hidden': true,
     style: { display: 'block' },
   }, [
@@ -275,29 +275,29 @@ export function apply(ctx) {
 
   ctx.effect(() => {
     const tag = document.createElement('style');
-    tag.dataset.plugin = '@dawn0608/dsh-session-cost';
-    tag.dataset.pluginCss = '@dawn0608/dsh-session-cost/pill.css';
+    tag.dataset.plugin = '@dawn0608/dsh-cost-overview';
+    tag.dataset.pluginCss = '@dawn0608/dsh-cost-overview/pill.css';
     tag.textContent = css;
     document.head.appendChild(tag);
     return () => {
       tag.remove();
     };
-  }, 'session-cost: styles');
+  }, 'cost-overview: styles');
 
   const translate = createTranslator(ctx);
   const store = createBalanceStore();
   const Entry = createEntry(store, translate);
 
   ctx.slots.inject('conversation.composer.dock', () => {
-    if (slotOccupied(ctx, 'conversation.composer.dock', 'session-cost')) {
-      console.warn('@dawn0608/dsh-session-cost: conversation.composer.dock already has a "session-cost" entry; skipping duplicate registration (restart DeepSeek Harness to clear the stale copy)');
+    if (slotOccupied(ctx, 'conversation.composer.dock', 'cost-overview')) {
+      console.warn('@dawn0608/dsh-cost-overview: conversation.composer.dock already has a "cost-overview" entry; skipping duplicate registration (restart DeepSeek Harness to clear the stale copy)');
       return;
     }
     return ctx.slots.register({
       name: 'conversation.composer.dock',
-      id: 'session-cost',
+      id: 'cost-overview',
       order: 2,
-      registrant: '@dawn0608/dsh-session-cost',
+      registrant: '@dawn0608/dsh-cost-overview',
     }, Entry);
   });
 }

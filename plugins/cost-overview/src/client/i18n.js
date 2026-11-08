@@ -1,6 +1,6 @@
 /** Client dictionaries and the locale-service binding for the plugin UI. */
 
-export const NS = 'sessionCost';
+export const NS = 'costOverview';
 
 export const DICTS = {
   zh: {
@@ -9,8 +9,8 @@ export const DICTS = {
     pillBalanceUnknown: '余额 —',
     pillBalanceLoading: '余额 …',
     pillSeparator: '·',
-    panelTitle: '会话花费与余额',
-    costTitle: '会话花费',
+    panelTitle: '费用概览',
+    costTitle: '会话费用',
     modelLabel: '模型',
     callsLabel: '模型请求',
     callsValue: '{count} 次',
@@ -20,7 +20,7 @@ export const DICTS = {
     bonusLabel: '赠送余额',
     statusLabel: '状态',
     balanceLoading: '读取中…',
-    openDetails: '查看花费与余额明细',
+    openDetails: '查看费用与余额明细',
     reasonMissingKey: '未配置 API Key',
     reasonUnauthorized: 'API Key 无效',
     reasonNetwork: '网络请求失败',
@@ -42,7 +42,7 @@ DICTS.en = {
   pillBalanceUnknown: 'Balance —',
   pillBalanceLoading: 'Balance …',
   pillSeparator: '·',
-  panelTitle: 'Session cost & balance',
+  panelTitle: 'Cost Overview',
   costTitle: 'Session cost',
   modelLabel: 'Model',
   callsLabel: 'Model requests',
@@ -81,7 +81,7 @@ export function registerLocale(ctx) {
     } catch (error) {
       return () => {};
     }
-  }, 'session-cost: dictionaries');
+  }, 'cost-overview: dictionaries');
 }
 
 /** Resolve the active language through the locale service, falling back to English. */

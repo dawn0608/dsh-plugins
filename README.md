@@ -6,7 +6,7 @@
 
 | 插件 | 说明 | 适用 DSH | 安装包 |
 | --- | --- | --- | --- |
-| [session-cost](plugins/session-cost/README.md) | 在输入框下方显示当前会话花费与 DeepSeek 账户余额 | `>=0.2.2-rc.1 <0.3.0` | `@dawn0608/dsh-session-cost` |
+| [费用概览](plugins/cost-overview/README.zh.md) | 在输入框下方显示当前会话费用与 DeepSeek 账户余额 | `>=0.2.2-rc.1 <0.3.0` | `@dawn0608/dsh-cost-overview` |
 | [MCP 管理](plugins/mcp-manager/README.md) | 在原生设置中查看和启停 MCP 服务 | `>=0.2.2-rc.1 <0.3.0` | `@dawn0608/dsh-mcp-manager` |
 | [技能管理](plugins/skill-manager/README.zh.md) | 在侧栏浏览技能并管理本地导入 | `>=0.2.2-rc.1 <0.3.0` | [本地安装](plugins/skill-manager/README.zh.md#安装) |
 
@@ -15,10 +15,12 @@
 已发布的插件可在 Desktop「插件」页按 npm 包名安装。本地插件按表中的安装说明操作。非 Desktop profile 也可以使用 CLI：
 
 ```bash
-dsh plugin --profile <profile> add @dawn0608/dsh-session-cost
+dsh plugin --profile <profile> add @dawn0608/dsh-cost-overview
 ```
 
 安装后需要在 DSH 中配置 DeepSeek 模型和 `DEEPSEEK_API_KEY`。插件读取余额时使用当前配置的 API Key，不会读取或上传其他人的凭据。
+
+已安装旧版「会话花费」的用户请按[迁移说明](plugins/cost-overview/README.zh.md#从会话花费迁移)替换安装。
 
 也可以从 [GitHub Releases](https://github.com/dawn0608/dsh-plugins/releases) 下载本插件的 `.tgz`，在 DSH 插件页（如支持本地包入口）或 CLI 安装。
 
@@ -27,7 +29,7 @@ dsh plugin --profile <profile> add @dawn0608/dsh-session-cost
 ```bash
 npm install
 npm run build
-dsh plugin --profile <profile> add ./plugins/session-cost
+dsh plugin --profile <profile> add ./plugins/cost-overview
 ```
 
 ## 开发

@@ -80,6 +80,7 @@ function makeContext({ entries = [] } = {}) {
 
 test('client bundle registers the package name as its loader id', () => {
   const entry = loadClient();
+  assert.equal(entry.id, '@dawn0608/dsh-cost-overview');
   assert.equal(entry.id, pkg.name);
   assert.equal(typeof entry.factory, 'function');
 });
@@ -98,7 +99,7 @@ test('client registers one slot entry with the package registrant', () => {
   assert.equal(registrations.length, 1);
   const options = registrations[0].options;
   assert.equal(options.name, 'conversation.composer.dock');
-  assert.equal(options.id, 'session-cost');
+  assert.equal(options.id, 'cost-overview');
   assert.equal(options.order, 2);
   assert.equal(options.registrant, pkg.name);
 });
@@ -106,7 +107,7 @@ test('client registers one slot entry with the package registrant', () => {
 test('client skips a duplicate slot entry and explains why', () => {
   const warnings = [];
   const { ctx, registrations } = makeContext({
-    entries: [{ options: { id: 'session-cost' } }],
+    entries: [{ options: { id: 'cost-overview' } }],
   });
   const entry = loadClient({
     console: { ...console, warn: (...args) => warnings.push(args.join(' ')) },

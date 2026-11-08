@@ -20,13 +20,20 @@ test('client zh/en dictionaries expose identical key sets', () => {
   }
 });
 
-test('locale metadata carries a title and description in both languages', () => {
-  for (const language of ['en', 'zh']) {
-    const meta = readLocale(language).meta;
-    assert.equal(typeof meta?.title, 'string', `${language} meta.title`);
-    assert.equal(typeof meta?.description, 'string', `${language} meta.description`);
-    assert.notEqual(meta.title.trim(), '');
-    assert.notEqual(meta.description.trim(), '');
+test('the plugin manager opens the packaged detail in the selected language', () => {
+  const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+  for (const [language, title, detail] of [
+    ['zh', '费用概览', 'README.zh.md'],
+    ['en', 'Cost Overview', 'README.md'],
+  ]) {
+    const { meta } = readLocale(language);
+    assert.equal(meta.title, title);
+    assert.equal(DICTS[language].panelTitle, title);
+    assert.ok(meta.description.trim());
+    assert.equal(meta.detail, detail);
+    assert.ok(pkg.files.includes(detail));
+    const readme = readFileSync(new URL(`../${detail}`, import.meta.url), 'utf8');
+    assert.equal(readme.split('\n', 1)[0], `# ${title}`);
   }
 });
 

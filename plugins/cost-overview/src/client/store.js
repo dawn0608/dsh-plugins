@@ -1,7 +1,7 @@
-/** Browser-side reader for the Host's balance and Session-cost state. */
+/** Reads session costs and account balances from the Host. */
 
-const STATE_PATH = '/plugin/session-cost/state';
-const CHANNEL_URL = 'api/session-cost/state';
+const STATE_PATH = '/plugin/cost-overview/state';
+const CHANNEL_URL = 'api/cost-overview/state';
 
 /**
  * Candidate state URLs for this page. The Web carrier answers the plain

@@ -1,5 +1,5 @@
 /**
- * Host half of the session-cost bundle.
+ * Host half of the cost-overview bundle.
  *
  * Two facts shape this half:
  *
@@ -13,18 +13,19 @@
  * The result is served on two routes with one payload, so the Client can fall
  * back from one to the other:
  *
- * - `/plugin/session-cost/state` — a plain Web route; and
- * - `/api/session-cost/state` — an exact Fetch route on the connection's shared
+ * - `/plugin/cost-overview/state` — a plain Web route; and
+ * - `/api/cost-overview/state` — an exact Fetch route on the connection's shared
  *   channel, for a shell-owned carrier without a document origin.
  */
 import { DOCS_URL, MODEL_LABELS, TOOL_PRICE_FALLBACK, parsePricing, pricingTtl } from './pricing.js';
 import { foldCost } from './cost.js';
 import { normalizeBase, walletsOf } from './balance.js';
 
-const PLAIN_PATH = '/plugin/session-cost/state';
-const CHANNEL_PATH = '/api/session-cost/state';
+const PLAIN_PATH = '/plugin/cost-overview/state';
+const CHANNEL_PATH = '/api/cost-overview/state';
 const DEFAULT_BASE_URL = 'https://api.deepseek.com';
 const DEFAULT_API_KEY_ENV = 'DEEPSEEK_API_KEY';
+const USER_AGENT = 'dsh-cost-overview/1.0.0';
 const REQUEST_TIMEOUT_MS = 8000;
 /** Balance is account state, not a live feed: one upstream read per minute at most. */
 const SUCCESS_CACHE_MS = 60000;
@@ -86,7 +87,7 @@ export function apply(ctx) {
     if (cachedConfig !== undefined && Date.now() - cachedConfig.at < CONFIG_CACHE_MS) {
       return cachedConfig.value;
     }
-    let apiKeyEnv = process.env.SESSION_COST_API_KEY_ENV || DEFAULT_API_KEY_ENV;
+    let apiKeyEnv = process.env.COST_OVERVIEW_API_KEY_ENV || DEFAULT_API_KEY_ENV;
     let baseURL = process.env.DEEPSEEK_BASE_URL || DEFAULT_BASE_URL;
     try {
       const settings = ctx.get('settings');
@@ -137,7 +138,7 @@ export function apply(ctx) {
         headers: {
           authorization: `Bearer ${apiKey}`,
           accept: 'application/json',
-          'user-agent': 'dsh-session-cost/1.2.2',
+          'user-agent': USER_AGENT,
         },
         redirect: 'error',
         signal: controller.signal,
@@ -288,7 +289,7 @@ export function apply(ctx) {
       }
       respond(response, 200, value, request.method === 'HEAD');
     },
-  }), 'session-cost: state route');
+  }), 'cost-overview: state route');
 
   ctx.effect(() => ctx.connection.fetch.register({
     path: CHANNEL_PATH,
@@ -306,7 +307,7 @@ export function apply(ctx) {
         },
       });
     },
-  }), 'session-cost: channel state route');
+  }), 'cost-overview: channel state route');
 }
 
 /** Fetch and parse the official pricing page; `undefined` when it is unusable. */
@@ -315,7 +316,7 @@ async function readPricingPage() {
   const timer = setTimeout(() => controller.abort(), 6000);
   try {
     const response = await fetch(DOCS_URL, {
-      headers: { accept: 'text/html,application/xhtml+xml', 'user-agent': 'dsh-session-cost/1.2.2' },
+      headers: { accept: 'text/html,application/xhtml+xml', 'user-agent': USER_AGENT },
       redirect: 'follow',
       signal: controller.signal,
     });
