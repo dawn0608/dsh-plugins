@@ -1,46 +1,19 @@
-# 项目开发规范
+# DSH Plugins 仓库规则
 
-本仓库是 DeepSeek Harness 插件集合，规则只覆盖插件结构、命名、构建、测试和发布。构建/检查/发布命令以根 `README.md` 为准；插件细节写各自 README，跨插件设计或阶段记录需要时再建 `docs/`，不建空目录。
+本仓库维护 DeepSeek Harness 插件。[根 README](README.md) 是安装、开发和发布流程的入口。单个插件的用法和限制写在其 README，跨插件的设计或迁移说明按需放入 `docs/`。
 
 ## 插件结构
 
-新插件放 `plugins/<name>/`，包名统一为 `@dawn0608/dsh-<name>`（`session-cost` ↔ `@dawn0608/dsh-session-cost`，`npm run check` 强制校验）；运行代码只写 `src/`，构建产物只写 `lib/`：
+- 新增插件按[新增插件流程](README.md#新增插件)从 [templates/plugin](templates/plugin/) 起步。目录为 `plugins/<name>/`，包名为 `@dawn0608/dsh-<name>`，`cordis.patch.yml` 的 insert ID 使用短名 `<name>`。
+- 运行源码放在 `src/`，构建产物放在 `lib/`。客户端加载外壳由 [build-plugin.mjs](scripts/build-plugin.mjs) 生成，加载标识等于包名。入口、导出和打包清单以模板及 `npm run check` 为准。
+- 默认使用 Node.js 和 JavaScript。按实际需求引入依赖或持久化设施。配置示例使用占位符，真实凭据不得进入 Git、日志、公开配置或构建产物，服务端密钥留在宿主。
 
-```text
-plugins/<name>/
-  src/index.js              # Host 入口：export inject / apply(ctx)
-  src/*.js                  # Host 模块
-  src/client/index.js       # Web 干净模块：只 export apply / inject
-  src/client/*.js           # 客户端模块（i18n、store、format、组件）
-  src/client/style.css      # 客户端样式（构建期内联）
-  test/*.test.mjs
-  cordis.patch.yml          # insert：id 用短名，name 用包名
-  locale/{en,zh}.json       # 插件页 meta.title / meta.description
-  icon.svg                  # ≤256 KiB
-  README.md / README.zh.md
-  LICENSE
-  lib/                      # 构建产物（gitignore，npm files 包含）
-```
+## 双语文案
 
-- `package.json`：`main`/`exports["."]` → `./lib/index.js`，`exports["./client"]` → `./lib/client.js`，另导出 `./cordis.patch.yml`、`./locale/*.json`、`./icon`；`files` 只列 `lib`、patch、locale、icon、双 README、LICENSE；`scripts` 含 `build`、`pretest`、`test`、`prepack`。
-- Client 源码不写 `window.__ModuleLoader__.load`，外壳由 `scripts/build-plugin.mjs` 注入且 id 等于包名；文案经 `ctx.locale`。
-- `npm run build` 后用 `npm run check` 校验；`npm test` 会先构建，含 locale 对齐与 client 契约测试。
-- `npm run check:profile -- <profile-dir>` 检查已安装 profile 是否有多个包插入同一个 row id；发布/安装后按需运行。
-- 发布前 `npm pack --dry-run` 核对 tarball；发布物不含 `src/`、`test/`。
+- 客户端文案通过 `ctx.locale` 提供，中英文词典键保持一致。
+- `locale/{en,zh}.json` 分别提供对应语言的 `meta.title` 和 `meta.description`。中文 `meta.detail` 指向已打包的 `README.zh.md`，英文使用 `README.md`。维护两份 README 的内容对应，测试覆盖中文详情误回退到英文的情况。
 
-## 新增插件
+## 验证与发布
 
-1. `cp -R templates/plugin plugins/<name>`，替换包名、目录名、patch `id`、client 注册 id、locale 文案、CSS 前缀、README 与图标。
-2. 在根 `README.md` 插件表增加一行。
-3. `npm install`（首次）→ `npm run verify`；发布按根 README 的发布清单。
-
-## 工程边界
-
-- 插件默认 Node/JS，不预设后端、数据库、Docker；确需外部服务或持久数据时，在 `docs/<plugin>/` 补设计、运行与迁移规则。
-- 从最小可运行工程起步，按需维护依赖、锁文件和检查入口；不建空目录/空文档，不为模板引入无关设施。
-- 凭据不得进入 Git、日志、公开配置或构建产物；环境示例只含占位符；服务端密钥不下发客户端。
-- 验收以需求/契约为准；失败、截断、数据不足或部分结果注明原因与范围；从现有 lint、类型检查、测试、构建和 CI 中选用相关检查；隔离测试不访问生产。
-
-## 发布
-
-按根 README 的发布清单执行：版本 bump → `npm run verify` → `npm pack --dry-run` → `npm publish` → tag 与 GitHub Release → profile 安装后运行 `npm run check:profile -- <profile-dir>`；发布后核对 tarball 与插件表。
+- 按改动范围验证，插件改动使用 `npm run verify` 做完整检查。测试使用隔离配置和数据。安装或迁移后用 `npm run check:profile -- <profile-dir>` 检查跨包重复的 insert ID。
+- 明确要求发布且目标包可发布时，按[发布清单](README.md#发布)执行。私有包走[本地安装流程](README.md#安装)。
