@@ -1,10 +1,8 @@
 # Skills
 
-Open **Skills** below **Plugins** in the DeepSeek Harness sidebar. Search by name or description, choose a workspace to include its skills, and open a row to preview the instructions. The page uses the catalog Harness discovers with its default Agent preset for the selected workspace.
+Open **Skills** below **Plugins** in the DeepSeek Harness sidebar. Search the global catalog by name or description. Select a skill to see its full description, source, and `SKILL.md` preview.
 
-Use **Add skill** to select a directory containing `SKILL.md` or a standalone `SKILL.md` file. Review the name and source, then confirm to import and enable it. A directory import includes its resources. Each import supports up to 256 files and 8 MiB of file data.
-
-Imported skills can be switched on or off from the list and uninstalled from their details. The plugin stores its copies in `$DSH_HOME/skill-manager/bundles` and activates them in `$DSH_HOME/skills` for Harness profiles using that home. A workspace can take precedence with its own skill of the same name. Existing project, shared, local, and built-in skills are available for preview.
+Custom and built-in skills are available for preview. Previously imported skills can be switched on or off from the list and uninstalled from their details. The plugin stores its copies in `$DSH_HOME/skill-manager/bundles` and activates them in `$DSH_HOME/skills` for Harness profiles using that home.
 
 ## Install
 

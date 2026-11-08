@@ -58,18 +58,14 @@ html[data-platform='darwin'] .dshskill_page {
   max-width: 100%;
 }
 
-.dshskill_intro {
+.dshskill_detailDescription {
   margin-top: 4px;
   color: var(--dsw-alias-label-secondary);
   overflow-wrap: anywhere;
 }
 
-.dshskill_toolbar {
-  display: flex;
+.dshskill_catalog .dshskill_header {
   align-items: center;
-  justify-content: flex-end;
-  flex-wrap: wrap;
-  gap: 8px 16px;
 }
 
 .dshskill_control,
@@ -129,24 +125,10 @@ html[data-platform='darwin'] .dshskill_page {
   outline: none;
 }
 
-.dshskill_page :where(button, select, pre, h1):focus-visible,
+.dshskill_page :where(button, pre, h1):focus-visible,
 .dshskill_search:has(input:focus-visible) {
   outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: 2px;
-}
-
-.dshskill_workspace {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-self: flex-start;
-  color: var(--dsw-alias-label-secondary);
-}
-
-.dshskill_workspace select {
-  max-width: 100%;
-  color: var(--dsw-alias-label-primary);
 }
 
 .dshskill_groups,
@@ -212,6 +194,7 @@ html[data-platform='darwin'] .dshskill_page {
 
 .dshskill_rowText {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 4px;
   min-width: 0;
@@ -227,6 +210,12 @@ html[data-platform='darwin'] .dshskill_page {
 .dshskill_description,
 .dshskill_muted {
   color: var(--dsw-alias-label-secondary);
+}
+
+.dshskill_description {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dshskill_badge {
@@ -338,37 +327,15 @@ html[data-platform='darwin'] .dshskill_page {
   background: rgb(0 0 0 / 26%);
 }
 
-.dshskill_picker,
 .dshskill_dialogActions {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-}
-
-.dshskill_dialogActions {
   justify-content: flex-end;
 }
 
 .dshskill_feedback:empty {
   display: none;
-}
-
-.dshskill_choice {
-  display: grid;
-  gap: 8px;
-  overflow-wrap: anywhere;
-}
-
-.dshskill_primary {
-  padding-inline: 12px;
-  border-color: transparent;
-  border-radius: var(--dsw-radius-md, 8px);
-  background: var(--dsw-alias-button-primary-fill);
-  color: var(--dsw-alias-label-primary-foreground);
-}
-
-.dshskill_primary:not([aria-disabled='true']):hover {
-  background: var(--dsw-alias-button-primary-hover);
 }
 
 @media (max-width: 767px) {

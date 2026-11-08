@@ -1,7 +1,7 @@
 import { createElement as h, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { request } from './api.js';
 import { createCatalog } from './catalog.js';
-import { ImportDialog, RemoveDialog } from './dialog.js';
+import { RemoveDialog } from './dialog.js';
 import { SkillIcon } from './icon.js';
 import { createTranslator } from './i18n.js';
 
@@ -40,16 +40,16 @@ function CatalogRows({ skills, query, translate: t, busy, store, openDetail }) {
   }));
 }
 
-function SkillDetail({ skill, workspaceId, titleRef, translate: t, busy, back, openRemove }) {
+function SkillDetail({ skill, titleRef, translate: t, busy, back, openRemove }) {
   const [preview, setPreview] = useState(null);
   useEffect(() => {
     const pending = new AbortController();
-    request({ action: 'detail', workspaceId, id: skill.id },
+    request({ action: 'detail', workspaceId: null, id: skill.id },
       AbortSignal.any([pending.signal, AbortSignal.timeout(8000)]))
       .then(({ body }) => { if (!pending.signal.aborted) setPreview({ body }); })
       .catch(error => { if (!pending.signal.aborted) setPreview({ error: error.code ?? 'unavailable' }); });
     return () => pending.abort();
-  }, [skill.id, workspaceId]);
+  }, [skill.id]);
 
   return h('div', { className: 'dshskill_detail' },
     h('button', { type: 'button', className: 'dshskill_control dshskill_back', onClick: back },
@@ -57,7 +57,7 @@ function SkillDetail({ skill, workspaceId, titleRef, translate: t, busy, back, o
     h('header', { className: 'dshskill_header' },
       h('div', null,
         h('h1', { ref: titleRef, tabIndex: -1 }, skill.name),
-        skill.description && h('p', { className: 'dshskill_intro' }, skill.description)),
+        skill.description && h('p', { className: 'dshskill_detailDescription' }, skill.description)),
       skill.group === 'imported' && h('button', {
         type: 'button', className: 'dshskill_control dshskill_danger', 'aria-disabled': busy || undefined,
         onClick: () => { if (!busy) openRemove(); },
@@ -83,7 +83,7 @@ export function createPage(locale, createStore = createCatalog) {
     const state = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
     const [query, setQuery] = useState('');
     const [detail, setDetail] = useState(null);
-    const [dialog, setDialog] = useState(null);
+    const [confirmRemoval, setConfirmRemoval] = useState(false);
     const pageRef = useRef(null);
     const titleRef = useRef(null);
     const returnTo = useRef(null);
@@ -118,7 +118,7 @@ export function createPage(locale, createStore = createCatalog) {
     }
 
     function closeDialog() {
-      setDialog(null);
+      setConfirmRemoval(false);
       store.clearMutationError();
     }
 
@@ -127,47 +127,30 @@ export function createPage(locale, createStore = createCatalog) {
       setDetail(null);
     }
 
-    const { skills, workspaces, workspaceId, busy, listError, mutationError } = state;
+    const { skills, busy, listError, mutationError } = state;
     const currentSkill = detail && (skills?.find(skill => skill.id === detail.id) ?? detail);
     return h('div', { className: 'dshskill_page', ref: pageRef },
       h('div', { className: 'dshskill_content' },
         currentSkill
           ? h(SkillDetail, {
-              skill: currentSkill, workspaceId, titleRef, translate: t, busy,
-              back: () => setDetail(null), openRemove: () => { store.clearMutationError(); setDialog('remove'); },
+              skill: currentSkill, titleRef, translate: t, busy,
+              back: () => setDetail(null), openRemove: () => { store.clearMutationError(); setConfirmRemoval(true); },
             })
           : h('div', { className: 'dshskill_catalog' },
             h('header', { className: 'dshskill_header' },
-              h('div', null,
-                h('h1', { ref: titleRef, tabIndex: -1 }, t('title')),
-                h('p', { className: 'dshskill_intro' }, t('intro'))),
-              h('div', { className: 'dshskill_toolbar' },
-                h('label', { className: 'dshskill_search' },
-                  h(SkillIcon, { kind: 'search', size: 16 }),
-                  h('input', {
-                    type: 'search', 'aria-label': t('search'), placeholder: t('search'), value: query,
-                    onChange: event => setQuery(event.currentTarget.value),
-                  })),
-                h('button', {
-                  type: 'button', className: 'dshskill_control dshskill_primary', 'aria-disabled': busy || undefined,
-                  onClick: () => { if (!busy) { store.clearMutationError(); setDialog('import'); } },
-                }, h(SkillIcon, { kind: 'plus', size: 16 }), t('add')))),
-            h('label', { className: 'dshskill_workspace' },
-              h('span', null, t('workspaceSelector')),
-              h('select', {
-                className: 'dshskill_control', 'aria-label': t('workspaceSelector'),
-                value: workspaceId ?? '', disabled: busy,
-                onChange: event => { void store.setWorkspace(event.currentTarget.value || null); },
-              },
-              h('option', { value: '' }, t('globalScope')),
-              workspaces.map(workspace => h('option', { key: workspace.id, value: workspace.id }, workspace.title)))),
+              h('h1', { ref: titleRef, tabIndex: -1 }, t('title')),
+              h('label', { className: 'dshskill_search' },
+                h(SkillIcon, { kind: 'search', size: 16 }),
+                h('input', {
+                  type: 'search', 'aria-label': t('search'), placeholder: t('search'), value: query,
+                  onChange: event => setQuery(event.currentTarget.value),
+                }))),
             listError && h('p', { role: 'alert', className: 'dshskill_error' }, t(listError)),
             skills === null
               ? !listError && h('p', { role: 'status', className: 'dshskill_muted' }, t('loading'))
               : h(CatalogRows, { skills, query, translate: t, busy, store, openDetail })),
-        !dialog && busy && h('p', { role: 'status', className: 'dshskill_muted' }, t('saving')),
-        !dialog && mutationError && h('p', { role: 'alert', className: 'dshskill_error' }, t(mutationError)),
-        dialog === 'import' && h(ImportDialog, { translate: t, workspaceId, store, busy, error: mutationError, close: closeDialog }),
-        dialog === 'remove' && h(RemoveDialog, { skill: currentSkill, translate: t, store, busy, error: mutationError, close: closeDialog, removed })));
+        !confirmRemoval && busy && h('p', { role: 'status', className: 'dshskill_muted' }, t('saving')),
+        !confirmRemoval && mutationError && h('p', { role: 'alert', className: 'dshskill_error' }, t(mutationError)),
+        confirmRemoval && h(RemoveDialog, { skill: currentSkill, translate: t, store, busy, error: mutationError, close: closeDialog, removed })));
   };
 }

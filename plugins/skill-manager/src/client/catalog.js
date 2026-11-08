@@ -3,7 +3,7 @@ import { request, SkillError } from './api.js';
 export function createCatalog(send = request) {
   const listeners = new Set();
   let snapshot = {
-    skills: null, workspaces: [], workspaceId: null, listError: null, mutationError: null, busy: false,
+    skills: null, listError: null, mutationError: null, busy: false,
   };
   let reading;
   let timer;
@@ -26,17 +26,17 @@ export function createCatalog(send = request) {
     const pending = new AbortController();
     reading = pending;
     try {
-      const result = await send({ action: 'list', workspaceId: snapshot.workspaceId },
+      const result = await send({ action: 'list', workspaceId: null },
         AbortSignal.any([pending.signal, AbortSignal.timeout(8000)]));
       if (reading !== pending) return;
-      if (!Array.isArray(result?.skills) || !Array.isArray(result.workspaces) || typeof result.complete !== 'boolean') {
+      if (!Array.isArray(result?.skills) || typeof result.complete !== 'boolean') {
         throw new SkillError('unavailable');
       }
       if (result.complete) {
         hasCompleteCatalog = true;
-        publish({ skills: result.skills, workspaces: result.workspaces, listError: null });
+        publish({ skills: result.skills, listError: null });
       } else if (!hasCompleteCatalog) {
-        publish({ skills: result.skills, workspaces: result.workspaces, listError: 'incomplete' });
+        publish({ skills: result.skills, listError: 'incomplete' });
       } else {
         publish({ listError: 'incomplete' });
       }
@@ -47,19 +47,12 @@ export function createCatalog(send = request) {
     }
   }
 
-  function setWorkspace(workspaceId) {
-    if (snapshot.busy || workspaceId === snapshot.workspaceId) return;
-    hasCompleteCatalog = false;
-    publish({ workspaceId, skills: null, listError: null, mutationError: null });
-    return refresh();
-  }
-
   async function mutate(action) {
     if (snapshot.busy || stopped) return false;
     cancelRefresh();
     publish({ busy: true, mutationError: null });
     try {
-      await send({ ...action, workspaceId: snapshot.workspaceId }, AbortSignal.timeout(30000));
+      await send({ ...action, workspaceId: null }, AbortSignal.timeout(30000));
       let { skills } = snapshot;
       if (skills && action.action === 'setEnabled') {
         skills = skills.map(skill => skill.id === action.id ? { ...skill, enabled: action.enabled } : skill);
@@ -83,7 +76,6 @@ export function createCatalog(send = request) {
       return () => { listeners.delete(listener); };
     },
     refresh,
-    setWorkspace,
     mutate,
     clearMutationError() {
       if (snapshot.mutationError) publish({ mutationError: null });

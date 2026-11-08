@@ -8,13 +8,12 @@ import { createPage } from '../src/client/page.js';
 
 const skills = [
   { id: 'managed', name: 'managed-skill', description: 'Imported description', group: 'imported', source: 'profile', enabled: true, shadowed: false },
-  { id: 'workspace', name: 'workspace-skill', description: 'Workspace description', group: 'workspace', source: 'workspace', enabled: null, shadowed: false },
   { id: 'local', name: 'local-skill', description: 'Local description', group: 'local', source: 'user', enabled: null, shadowed: true },
   { id: 'builtin', name: 'builtin-skill', description: 'Built-in description', group: 'builtin', source: 'builtin', enabled: null, shadowed: false },
 ];
 
 function render(language, patch = {}) {
-  const snapshot = { skills, workspaces: [{ id: 'one', title: 'Workspace One' }], workspaceId: null, busy: false, listError: null, ...patch };
+  const snapshot = { skills, busy: false, listError: null, ...patch };
   const store = {
     subscribe: () => () => {}, getSnapshot: () => snapshot,
     start() {}, stop() {},
@@ -32,11 +31,9 @@ test('Skills shows localized controls and one independent switch for imported ro
     const html = render(lang);
     assert.match(html, new RegExp(`<h1[^>]*>${DICTS[lang].title}</h1>`));
     assert.ok(html.includes(`aria-label="${DICTS[lang].search}"`));
-    assert.ok(html.includes(`aria-label="${DICTS[lang].workspaceSelector}"`));
-    assert.ok(html.includes('Workspace One'));
     assert.equal((html.match(/role="switch"/g) || []).length, 1);
     assert.match(html, /<button[^>]*data-skill-id="managed"[^>]*>(?:(?!<\/button>).)*managed-skill(?:(?!<\/button>).)*Imported description(?:(?!<\/button>).)*<\/button><button[^>]*role="switch"[^>]*aria-checked="true"/);
-    assert.match(html, /workspace-skill.*local-skill.*builtin-skill/);
+    assert.match(html, /managed-skill.*local-skill.*builtin-skill/);
     assert.ok(html.includes(DICTS[lang].shadowed));
   }
 });
@@ -47,14 +44,13 @@ test('an incomplete refresh shows its warning alongside the existing catalog', (
   assert.ok(html.includes('managed-skill'));
 });
 
-test('the add action is primary and the catalog labels shared skills and its global scope', () => {
+test('the catalog has a minimal header and labels custom skills in both languages', () => {
   const english = render('en');
   const chinese = render('zh');
-  assert.match(english, /<button[^>]*class="dshskill_control dshskill_primary"[^>]*>[^]*?Add skill<\/button>/);
-  assert.match(english, /<option value="" selected="">Global<\/option>/);
-  assert.match(english, /<h2[^>]*>Shared &amp; local<\/h2>/);
-  assert.match(chinese, /<option value="" selected="">全局<\/option>/);
-  assert.match(chinese, /<h2[^>]*>共享与本地<\/h2>/);
+  assert.match(english, /<h2[^>]*>Custom skills<\/h2>/);
+  assert.match(chinese, /<h2[^>]*>自定义技能<\/h2>/);
+  assert.doesNotMatch(english, /<select\b|Add skill|Browse and manage skills in Harness/);
+  assert.doesNotMatch(chinese, /<select\b|添加技能|浏览和管理 Harness 中的技能/);
 });
 
 test('uninstall confirmation describes removing the imported copy from Harness', () => {
