@@ -5,6 +5,7 @@
 
 import * as React from 'react';
 import { Switch, Tag } from '@deepseek-ai/dsh-client-ui-primitives';
+import mcpEmblem from '../../icon.svg';
 import { createTranslator, registerLocale } from './i18n.js';
 import { createPage } from './page.js';
 import css from './style.css';
@@ -12,27 +13,12 @@ import css from './style.css';
 const h = React.createElement;
 
 function McpIcon({ size = 18, active = false } = {}) {
-  return h('svg', {
+  return h('span', {
     className: 'dshmcp_navIcon',
-    width: size,
-    height: size,
-    viewBox: '0 0 24 24',
-    fill: 'none',
     'aria-hidden': true,
-    focusable: false,
     'data-active': active ? 'true' : undefined,
-  },
-  h('path', {
-    d: 'M7.8 9.2 11 15.2M16.2 9.2 13 15.2M9.4 7h5.2',
-    stroke: 'currentColor',
-    strokeWidth: 1.5,
-    strokeLinecap: 'round',
-    strokeLinejoin: 'round',
-  }),
-  h('circle', { cx: 6.4, cy: 6.8, r: 2.2, stroke: 'currentColor', strokeWidth: 1.5 }),
-  h('circle', { cx: 17.6, cy: 6.8, r: 2.2, stroke: 'currentColor', strokeWidth: 1.5 }),
-  h('circle', { cx: 12, cy: 17.4, r: 2.2, stroke: 'currentColor', strokeWidth: 1.5 }),
-  );
+    style: { width: size, height: size, maskImage: `url(${JSON.stringify(mcpEmblem)})` },
+  });
 }
 
 export const inject = ['slots', 'locale'];
