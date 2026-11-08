@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { realpathSync } from 'node:fs';
 import { chmod, lstat, mkdir, readlink, realpath, rename, symlink, unlink, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
@@ -431,7 +432,13 @@ export async function serve(options) {
   return server;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+let directEntry = false;
+try {
+  directEntry = Boolean(process.argv[1]) && import.meta.url === pathToFileURL(realpathSync(resolve(process.argv[1]))).href;
+} catch {
+  // stdin and other non-file hosts may import the daemon without a resolvable entry.
+}
+if (directEntry) {
   const options = {
     ...resolveSyncHomes(),
     codexBinary: process.env.DSH_SKILL_SYNC_CODEX ?? 'codex',

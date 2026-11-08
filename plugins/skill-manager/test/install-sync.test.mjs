@@ -94,13 +94,17 @@ test('first installation failure removes new hooks, plist and runtime without to
   assert.equal(f.active(), false);
 });
 
-test('built installer and daemon work without the package checkout and defer sync until readiness commits', async t => {
+test('built daemon starts through a symlinked DSH_HOME and defers sync until readiness commits', async t => {
   const { spawn } = await import('node:child_process');
   const { copyFile } = await import('node:fs/promises');
   const { pathToFileURL } = await import('node:url');
   const { once } = await import('node:events');
   const { requestSync } = await import('../src/shared-sync.js');
   const f = await fixture(t);
+  const homeAlias = join(f.root, 'dsh-link');
+  await mkdir(join(f.root, 'dsh custom'));
+  await symlink(join(f.root, 'dsh custom'), homeAlias, 'dir');
+  f.options.env.DSH_HOME = homeAlias;
   const isolated = join(f.root, 'standalone');
   await mkdir(isolated);
   for (const name of ['install-sync.js', 'sync-daemon.js']) {
@@ -123,21 +127,23 @@ test('built installer and daemon work without the package checkout and defer syn
     if (command !== 'bootstrap') throw Error('Unexpected launch operation');
     const text = await readFile(plist, 'utf8');
     const id = text.match(/<key>DSH_SKILL_SYNC_INSTALL_ID<\/key><string>([^<]+)<\/string>/)[1];
-    child = spawn(process.execPath, [join(f.root, 'dsh custom', 'skill-manager', 'shared-sync', 'runtime', 'sync-daemon.js')], {
-      cwd: isolated, env: { ...process.env, HOME: f.root, DSH_HOME: join(f.root, 'dsh custom'),
+    child = spawn(process.execPath, [join(homeAlias, 'skill-manager', 'shared-sync', 'runtime', 'sync-daemon.js')], {
+      cwd: isolated, env: { ...process.env, HOME: f.root, DSH_HOME: homeAlias,
         DSH_AGENTS_HOME: join(f.root, 'agents custom'), CODEX_HOME: join(f.root, 'codex custom'),
-        CLAUDE_CONFIG_DIR: join(f.root, 'claude custom'), DSH_SKILL_SYNC_INSTALL_ID: id }, stdio: 'ignore',
+        CLAUDE_CONFIG_DIR: join(f.root, 'claude custom'), DSH_SKILL_SYNC_CODEX: f.options.codexBinary,
+        DSH_SKILL_SYNC_INSTALL_ID: id }, stdio: 'ignore',
     });
     exited = once(child, 'exit');
   };
   const ready = async ({ home, installId }) => {
     const deadline = Date.now() + 5000;
     let reply;
-    while (Date.now() < deadline) {
+    while (Date.now() < deadline && child.exitCode === null && child.signalCode === null) {
       reply = await requestSync(home, { type: 'ping' }).catch(() => null);
       if (reply?.installId === installId) break;
       await new Promise(resolve => setTimeout(resolve, 20));
     }
+    assert.equal(child.exitCode, null, 'daemon exited before answering readiness ping through symlinked DSH_HOME');
     assert.equal(reply?.installId, installId);
     await new Promise(resolve => setTimeout(resolve, 100));
     assert.equal(JSON.parse(await readFile(f.settings, 'utf8')).skillOverrides, undefined,
@@ -174,10 +180,14 @@ test('built CLI help and module import never write user state or start installat
   const imported = spawnSync(process.execPath, ['--input-type=module', '-e', 'await import(' + JSON.stringify(entry.href) + ')'], { env, encoding: 'utf8' });
   assert.equal(imported.status, 0, imported.stderr);
   assert.equal(imported.stdout, '');
-  const stdinImport = spawnSync(process.execPath, ['--input-type=module', '-'], {
-    env, encoding: 'utf8', input: 'await import(' + JSON.stringify(entry.href) + '); console.log("import-ok");',
-  });
-  assert.equal(stdinImport.status, 0, stdinImport.stderr);
-  assert.equal(stdinImport.stdout, 'import-ok\n');
+  for (const module of [entry, new URL('../lib/sync-daemon.js', import.meta.url)]) {
+    const stdinImport = spawnSync(process.execPath, ['--input-type=module', '-'], {
+      env, cwd: isolatedHome, timeout: 5000, encoding: 'utf8',
+      input: 'await import(' + JSON.stringify(module.href) + '); console.log("import-ok");',
+    });
+    assert.ifError(stdinImport.error);
+    assert.equal(stdinImport.status, 0, stdinImport.stderr);
+    assert.equal(stdinImport.stdout, 'import-ok\n');
+  }
   assert.deepEqual(await readdir(isolatedHome), []);
 });
