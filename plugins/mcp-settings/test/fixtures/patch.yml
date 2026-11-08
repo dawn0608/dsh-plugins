@@ -1,0 +1,44 @@
+# Synthetic profile patch used by the tests.
+# It mirrors the real file's shape: comments, top-level overrides, two insert
+# lists, folded long values, and a !!js credential reference.
+- id: agent-default-model
+  name: "@deepseek-ai/dsh-agent-default-model"
+  config:
+    provider: deepseek-official
+    model: deepseek-flash
+- insert:
+  - id: mcp-sync-docs
+    name: '@deepseek-ai/dsh-mcp-client'
+    config:
+      serverName: docs
+      url: https://docs.example.com/mcp
+      headers:
+        Authorization: !!js '`Bearer ${process.env.DOCS_TOKEN}`'
+        X-Trace: !!js 'process.env.TRACE_TOKEN'
+      transport: streamable-http
+  - id: mcp-sync-local
+    name: '@deepseek-ai/dsh-mcp-client'
+    config:
+      serverName: local
+      command: /usr/bin/env
+      args:
+      - node
+      env:
+        JAVA_HOME: 
+          /opt/java/a/very/long/path/that/ruamel/would/wrap/across/two/lines
+      transport: stdio
+  - id: mcp-sync-off
+    name: '@deepseek-ai/dsh-mcp-client'
+    config:
+      serverName: off
+      command: /bin/echo
+      transport: stdio
+    disabled: true
+- insert:
+  - id: ui-extra
+    name: '@deepseek-ai/dsh-extra'
+- id: web
+  name: "@deepseek-ai/dsh-web"
+  config:
+    searchProvider: deepseek-search-api
+

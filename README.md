@@ -7,6 +7,7 @@
 | 插件 | 说明 | 适用 DSH | 安装包 |
 | --- | --- | --- | --- |
 | [session-cost](plugins/session-cost/README.md) | 在输入框下方显示当前会话花费与 DeepSeek 账户余额 | `>=0.2.2-rc.1 <0.3.0` | `@dawn0608/dsh-session-cost` |
+| [mcp-settings](plugins/mcp-settings/README.md) | 在原生设置中管理 MCP 服务，并写入桌面 profile 补丁 | `>=0.2.2-rc.1 <0.3.0` | `@dawn0608/dsh-mcp-settings` |
 
 ## 安装
 

@@ -1,0 +1,250 @@
+import assert from 'node:assert/strict';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import test from 'node:test';
+import { withProfileLock } from '../src/atomic.js';
+import { PatchError } from '../src/errors.js';
+import { createStore, resolveProfile, stateFromText } from '../src/store.js';
+
+const FIXTURE = readFileSync(new URL('./fixtures/patch.yml', import.meta.url), 'utf8');
+
+function profile() {
+  const dir = mkdtempSync(join(tmpdir(), 'mcp-settings-store-'));
+  const patchPath = join(dir, 'cordis.patch.yml');
+  writeFileSync(patchPath, FIXTURE, { mode: 0o600 });
+  const create = () => ({ dir, patchPath, profile: 'desktop' });
+  const store = createStore({
+    profile: create,
+    countTools: name => (name === 'docs' ? 2 : name === 'local' ? 1 : 0),
+    lockTimeoutMs: 50,
+    log: () => {},
+  });
+  return {
+    dir,
+    patchPath,
+    store,
+    text: () => readFileSync(patchPath, 'utf8'),
+    cleanup: () => rmSync(dir, { recursive: true, force: true }),
+  };
+}
+
+function conflict(error) {
+  return error instanceof PatchError && error.code === 'conflict';
+}
+
+test('resolves the profile patch from the environment and explicit config', () => {
+  assert.deepEqual(resolveProfile({ env: { DSH_PROFILE_DIR: '/tmp/profile', DSH_PROFILE: 'desktop' } }), {
+    dir: '/tmp/profile',
+    patchPath: '/tmp/profile/cordis.patch.yml',
+    profile: 'desktop',
+  });
+  assert.equal(
+    resolveProfile({ env: { DSH_HOME: '/tmp/home', DSH_PROFILE: 'web' } }).patchPath,
+    '/tmp/home/profiles/web/cordis.patch.yml',
+  );
+  assert.throws(() => resolveProfile({ env: {} }), error => error.code === 'profile-unavailable');
+  assert.throws(() => resolveProfile({ env: {}, patchPath: 'relative.yml' }), error => error.code === 'profile-unavailable');
+});
+
+test('finds the profile directory the desktop launcher passes as an argument', () => {
+  const space = profile();
+  const original = process.argv;
+  try {
+    writeFileSync(join(space.dir, 'package.json'), JSON.stringify({ name: 'dsh-profile-desktop', dsh: { profile: { bundles: [] } } }));
+    process.argv = ['node', '/Applications/DeepSeek Harness.app/Contents/Resources/app.asar/dsh', space.dir];
+    assert.deepEqual(resolveProfile({ env: {} }), {
+      dir: space.dir,
+      patchPath: join(space.dir, 'cordis.patch.yml'),
+      profile: space.dir.split('/').at(-1),
+    });
+  } finally {
+    process.argv = original;
+    space.cleanup();
+  }
+});
+
+test('reads the patch as a redacted, actionable state', async () => {
+  const space = profile();
+  try {
+    const state = await space.store.readState();
+    assert.equal(state.ok, true);
+    assert.equal(state.profile, 'desktop');
+    assert.equal(state.patchPath, space.patchPath);
+    assert.match(state.revision, /^[a-f0-9]{64}$/);
+    assert.deepEqual(state.servers.map(server => server.name), ['docs', 'local', 'off']);
+    assert.equal(state.servers[0].tools, 2);
+    assert.equal(state.servers[2].enabled, false);
+    assert.equal(state.servers[0].deletable, true);
+    assert.equal(state.servers[0].config.headers[0].mode, 'ref');
+    assert.equal(typeof state.servers[0].rowHash, 'string');
+    assert.deepEqual(state.warnings, []);
+  } finally {
+    space.cleanup();
+  }
+});
+
+test('masks a literal secret in the state and keeps it on an unrelated edit', async () => {
+  const space = profile();
+  try {
+    writeFileSync(space.patchPath, FIXTURE.replace("        X-Trace: !!js 'process.env.TRACE_TOKEN'", '        X-Api-Key: "plain-text-secret"'), { mode: 0o600 });
+    const state = await space.store.readState();
+    const docs = state.servers.find(server => server.name === 'docs');
+    const secret = docs.config.headers.find(pair => pair.key === 'X-Api-Key');
+    assert.equal(secret.mode, 'literal');
+    assert.equal(secret.secret, true);
+    assert.equal(secret.value, undefined);
+    assert.ok(!JSON.stringify(state).includes('plain-text-secret'));
+
+    const saved = await space.store.save({
+      action: 'save',
+      mode: 'edit',
+      id: docs.id,
+      name: docs.name,
+      rowHash: docs.rowHash,
+      draft: {
+        name: 'docs',
+        transport: 'streamable-http',
+        enabled: true,
+        url: 'https://docs2.example.com/mcp',
+        headers: docs.config.headers.map(pair => (pair.secret ? { key: pair.key, mode: 'keep' } : pair)),
+      },
+    });
+    assert.ok(saved.servers.some(server => server.config && server.config.url === 'https://docs2.example.com/mcp'));
+    assert.ok(space.text().includes('plain-text-secret'));
+  } finally {
+    space.cleanup();
+  }
+});
+
+test('adds, edits, disables and deletes through the lock-protected store', async () => {
+  const space = profile();
+  try {
+    const added = await space.store.save({
+      action: 'save',
+      mode: 'add',
+      draft: {
+        name: 'panel-test',
+        transport: 'stdio',
+        enabled: true,
+        command: '/opt/homebrew/opt/node@24/bin/node',
+        args: ['/tmp/echo.mjs'],
+        env: [{ key: 'PANEL_TOKEN', mode: 'ref', variable: 'PANEL_TEST_TOKEN' }],
+      },
+    });
+    const created = added.servers.find(server => server.name === 'panel-test');
+    assert.ok(created);
+    assert.equal(created.tools, 0);
+    assert.match(space.text(), /PANEL_TOKEN: !!js 'process\.env\.PANEL_TEST_TOKEN'/);
+
+    const edited = await space.store.save({
+      action: 'save',
+      mode: 'edit',
+      id: created.id,
+      name: created.name,
+      rowHash: created.rowHash,
+      draft: {
+        name: 'panel-test',
+        transport: 'stdio',
+        enabled: true,
+        command: '/opt/homebrew/opt/node@24/bin/node',
+        args: ['/tmp/echo.mjs', '--edited'],
+        env: [{ key: 'PANEL_TOKEN', mode: 'ref', variable: 'PANEL_TEST_TOKEN' }],
+      },
+    });
+    assert.deepEqual(
+      edited.servers.find(server => server.name === 'panel-test').config.args,
+      ['/tmp/echo.mjs', '--edited'],
+    );
+
+    const current = edited.servers.find(server => server.name === 'panel-test');
+    const disabled = await space.store.setEnabled({
+      action: 'setEnabled',
+      id: current.id,
+      name: current.name,
+      rowHash: current.rowHash,
+      enabled: false,
+    });
+    assert.equal(disabled.servers.find(server => server.name === 'panel-test').enabled, false);
+
+    const off = disabled.servers.find(server => server.name === 'panel-test');
+    const deleted = await space.store.remove({
+      action: 'delete',
+      id: off.id,
+      name: off.name,
+      rowHash: off.rowHash,
+    });
+    assert.ok(!deleted.servers.some(server => server.name === 'panel-test'));
+    assert.equal(space.text(), FIXTURE);
+  } finally {
+    space.cleanup();
+  }
+});
+
+test('rejects a stale row fingerprint without touching the file', async () => {
+  const space = profile();
+  try {
+    const state = await space.store.readState();
+    const docs = state.servers.find(server => server.name === 'docs');
+    writeFileSync(space.patchPath, space.text().replace('serverName: docs', 'serverName: docs'), { mode: 0o600 });
+    await assert.rejects(space.store.save({
+      action: 'save',
+      mode: 'edit',
+      id: docs.id,
+      name: docs.name,
+      rowHash: 'stale',
+      draft: { name: 'docs', transport: 'streamable-http', enabled: true, url: 'https://x.example.com/mcp', headers: [] },
+    }), conflict);
+    assert.equal(space.text(), FIXTURE);
+  } finally {
+    space.cleanup();
+  }
+});
+
+test('rejects a duplicate add and reports field errors', async () => {
+  const space = profile();
+  try {
+    await assert.rejects(space.store.save({
+      action: 'save',
+      mode: 'add',
+      draft: { name: 'docs', transport: 'stdio', enabled: true, command: '/bin/echo' },
+    }), error => error.name === 'DraftError' && error.errors.some(item => item.code === 'duplicate'));
+    assert.equal(space.text(), FIXTURE);
+  } finally {
+    space.cleanup();
+  }
+});
+
+test('reports a busy profile and a broken YAML document', async () => {
+  const space = profile();
+  try {
+    let release;
+    const gate = new Promise(resolve => {
+      release = resolve;
+    });
+    const held = withProfileLock(space.dir, () => gate);
+    await new Promise(resolve => setTimeout(resolve, 20));
+    await assert.rejects(space.store.save({
+      action: 'save',
+      mode: 'add',
+      draft: { name: 'blocked', transport: 'stdio', enabled: true, command: '/bin/echo' },
+    }), error => error.code === 'locked');
+    release();
+    await held;
+
+    writeFileSync(space.patchPath, '- id: [unclosed\n', { mode: 0o600 });
+    await assert.rejects(space.store.readState(), error => error.code === 'parse-failed');
+  } finally {
+    space.cleanup();
+  }
+});
+
+test('stateFromText counts tools through the supplied reader', () => {
+  const state = stateFromText(FIXTURE, {
+    profile: 'desktop',
+    patchPath: '/tmp/cordis.patch.yml',
+    countTools: name => (name === 'docs' ? 7 : null),
+  });
+  assert.equal(state.servers[0].tools, 7);
+  assert.equal(state.servers[1].tools, null);
+});

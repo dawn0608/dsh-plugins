@@ -42,6 +42,14 @@ const libDir = join(dir, 'lib');
 rmSync(libDir, { recursive: true, force: true });
 mkdirSync(libDir, { recursive: true });
 
+// Bundled CommonJS dependencies call require() for Node builtins (for example
+// yaml's `require('process')`). In an ES module esbuild's shim throws for those
+// calls, so give the bundle a real createRequire-based require.
+const hostRequireShim = [
+  "import { createRequire as __dshCreateRequire } from 'node:module';",
+  'const require = __dshCreateRequire(import.meta.url);',
+].join('\n');
+
 await build({
   entryPoints: [hostEntry],
   outfile: join(libDir, 'index.js'),
@@ -50,6 +58,7 @@ await build({
   platform: 'node',
   target: 'node24',
   sourcemap: true,
+  banner: { js: hostRequireShim },
   logLevel: 'warning',
 });
 
