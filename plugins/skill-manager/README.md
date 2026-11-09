@@ -19,7 +19,7 @@ Upgrade through the Harness plugin manager and restart if prompted. To switch fr
 Install or upgrade the service directly from npm.
 
 ```bash
-npx --yes --package @dawn0608/dsh-skill-manager@0.1.3 dsh-skill-sync-install
+npx --yes --package @dawn0608/dsh-skill-manager@0.1.4 dsh-skill-sync-install
 ```
 
 ## Usage and configuration

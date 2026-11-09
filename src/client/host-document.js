@@ -7,8 +7,9 @@ import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
-import { highlightTokens, subscribeGrammarLoaded, grammarLoadCount } from './host-highlight.js';
-import { Button, StateDot } from './host-controls.js';
+import { highlightTokens, subscribeGrammarLoaded, grammarLoadCount, supportsHighlighting } from './host-highlight.js';
+import { Button, StateDot, IconCopyOutlineRegular, IconCheckOutlineRegular, IconWrapFillRegular, IconNowrapFillRegular } from './host-controls.js';
+import { Tooltip } from './host-tooltip.js';
 
 export function detailDocumentState(read) {
   if (read?.status === 'ready') return read.markdown === undefined ? { status: 'none' } : { status: 'found', markdown: read.markdown };
@@ -48,16 +49,23 @@ function CodeBlock({ children, labels }) {
       if (!alive.current) return;
       setCopied(true);
       clearTimeout(timer.current);
-      timer.current = setTimeout(() => setCopied(false), 1500);
+      timer.current = setTimeout(() => setCopied(false), 1000);
     } catch { /* Keep the copy action available when the host denies clipboard access. */ }
   };
-  return h('div', { className: 'dshdoc_code_block' },
-    h('div', { className: 'dshdoc_code_bannerWrap' }, h('div', { className: 'dshdoc_code_banner' },
-      h('span', { className: 'dshdoc_code_infostring' }, language || labels.toolbarLabels.codeLabel),
-      h('div', { className: 'dshdoc_code_action' },
-        h(Button, { size: 'sm', 'aria-pressed': wrap, onClick: () => setWrap(value => !value) }, wrap ? labels.toolbarLabels.unwrapLabel : labels.toolbarLabels.wrapLabel),
-        h(Button, { size: 'sm', onClick: copy }, copied ? labels.copiedLabel : labels.copyLabel)))),
-    h('pre', { style: { whiteSpace: wrap ? 'pre-wrap' : 'pre', wordBreak: wrap ? 'break-all' : 'normal' } }, h('code', { className: code?.className }, highlighted ?? text)));
+  const copyLabel = copied ? labels.copiedLabel : labels.copyLabel;
+  return h('div', { className: 'dshdoc_code_block dshdoc_code_card md-code-block', 'data-code-wrap': wrap },
+    h('div', { className: 'dshdoc_code_bannerWrap' }, h('div', { className: 'dshdoc_code_header', 'data-code-block-banner': '' },
+      h('div', { className: 'dshdoc_code_heading' },
+        h('span', { className: 'dshdoc_code_language' }, supportsHighlighting(language) ? language : labels.toolbarLabels.codeLabel)),
+      h('div', { className: 'dshdoc_code_actions' },
+        h(Tooltip, { label: wrap ? labels.toolbarLabels.unwrapLabel : labels.toolbarLabels.wrapLabel },
+          h('button', { type: 'button', className: 'dshdoc_code_action', 'aria-label': labels.toolbarLabels.wrapLabel, 'aria-pressed': wrap, onClick: () => setWrap(value => !value) },
+            h(wrap ? IconNowrapFillRegular : IconWrapFillRegular, { size: 14 }))),
+        h(Tooltip, { label: copyLabel },
+          h('button', { type: 'button', className: 'dshdoc_code_action', 'aria-label': copyLabel, onClick: copy },
+            h(copied ? IconCheckOutlineRegular : IconCopyOutlineRegular, { size: 14 })))))),
+    h('div', { className: 'dshdoc_code_content', 'data-code-block-content': '' },
+      h('pre', { style: { whiteSpace: wrap ? 'pre-wrap' : 'pre' } }, h('code', { className: code?.className }, highlighted ?? text))));
 }
 
 function safeUrl(url) {

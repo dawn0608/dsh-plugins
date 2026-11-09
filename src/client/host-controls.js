@@ -53,3 +53,8 @@ const productIcon = glyph => ({ size = 16, className }) => h('svg', {
 export const IconChevronDownOutlineRegular = productIcon('chevron-down-outline');
 export const IconSearchOutlineRegular = productIcon('search-outline');
 export const IconTrashOutlineRegular = productIcon('trash-outline');
+export const IconCopyOutlineRegular = productIcon('copy-outline');
+export const IconCheckOutlineRegular = productIcon('check-outline');
+export const IconWrapFillRegular = productIcon('wrap-fill');
+export const IconNowrapFillRegular = productIcon('nowrap-fill');
+export const IconCloseOutlineRegular = productIcon('close-outline');

@@ -202,6 +202,9 @@ const LANG_ALIASES = new Map([
 function grammarForHint(lang) {
 	return lang === void 0 ? void 0 : LANG_ALIASES.get(lang.toLowerCase());
 }
+export function supportsHighlighting(lang) {
+  return grammarForHint(lang) !== undefined;
+}
 const cssVariablesTheme = createCssVariablesTheme({
 	name: "css-variables",
 	variablePrefix: "--shiki-",

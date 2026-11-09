@@ -560,148 +560,98 @@
   line-height: 18px;
 }
 
-/* Visual baseline: deepsuite `@deepseek/md` code-block.dshdoc_code_css. Highlight colors
-   stay on the existing shiki `--shiki-*` sheet (not Prism highlight.dshdoc_code_css). */
-
+/* CodeCard/CodeBlock and Tooltip adapted from Harness 0.2.2-rc.1 (MIT).
+   Keep only the document toolbar and portal tooltip used by this plugin. */
 .dshdoc_code_block {
-  --dsl-code-block-banner-background-color: var(--dsw-alias-markdown-code-block-banner);
-  --dsl-code-block-border-radius: var(--dsw-radius-lg);
-  /* Local 11/18 instead of the shared --dsw-font-xs-13: the banner scales
-     with the markdown 0.875 ladder without shrinking every other xs-13 use. */
-  --dsl-code-block-banner-font: 11px/18px var(--dsw-font-family);
-  --dsl-code-block-content-font: var(--dsw-font-markdown-code-block);
   --dsl-code-block-background: var(--dsw-alias-markdown-code-block);
-
   position: relative;
   margin: 16px 0;
   color: var(--dsw-alias-label-primary);
   background: var(--dsl-code-block-background);
-  border-radius: var(--dsl-code-block-border-radius);
+  border-radius: var(--dsw-radius-lg);
+  font: var(--dsw-font-markdown-code-block);
 }
-
-.dshdoc_code_block:not(:last-child) {
-  margin-bottom: 11px;
-}
-
+.dshdoc_code_block:not(:last-child) { margin-bottom: 11px; }
 .dshdoc_code_bannerWrap {
   position: sticky;
   top: 0;
   z-index: 6;
   background-color: var(--dsw-alias-bg-base);
-  border-top-left-radius: var(--dsl-code-block-border-radius);
-  border-top-right-radius: var(--dsl-code-block-border-radius);
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
 }
-
-.dshdoc_code_banner {
-  background: var(--dsl-code-block-banner-background-color);
-  padding: 9px 14px;
+.dshdoc_code_header {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
   gap: 12px;
-  font: var(--dsl-code-block-banner-font);
-  border-top-left-radius: var(--dsl-code-block-border-radius);
-  border-top-right-radius: var(--dsl-code-block-border-radius);
+  padding: 10px 18px 8px 22px;
+  background: var(--dsl-code-block-background, var(--dsw-alias-markdown-code-block));
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
+  color: var(--dsw-alias-label-secondary);
+  font: 11px/18px var(--dsw-font-family);
 }
-
-.dshdoc_code_infostring {
-  color: var(--dsw-alias-label-primary);
-  font-family: var(--ds-font-family-code);
-  font-size: 11px;
-  line-height: 18px;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
+.dshdoc_code_heading { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.dshdoc_code_language { color: var(--dsw-alias-label-tertiary); flex: none; font-family: var(--ds-font-family-code); }
+.dshdoc_code_actions { display: flex; align-items: center; gap: 4px; flex: none; }
 .dshdoc_code_action {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  flex-shrink: 0;
-}
-
-.dshdoc_code_copyButton {
-  background-color: rgb(255 255 255 / 0);
-  border: none;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
   padding: 0;
-  margin: 0;
-  color: inherit;
+  border: 0;
+  border-radius: var(--dsw-radius-sm);
+  color: var(--dsw-alias-label-secondary);
+  background: transparent;
   cursor: pointer;
-  font: inherit;
 }
-
-/* Consumers may turn the stable content node into a viewport without changing
-   the default CodeBlock layout. */
-.dshdoc_code_content {
-  display: contents;
+@media (hover: hover) {
+  .dshdoc_code_action:hover { background: var(--dsw-alias-interactive-bg-hover); }
 }
-
+.dshdoc_code_action:focus-visible {
+  outline: 1px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
+}
+.dshdoc_code_content { display: contents; }
 .dshdoc_code_block :where(pre) {
-  font: var(--dsl-code-block-content-font);
-  padding: 16px;
+  font: var(--dsw-font-markdown-code-block);
+  padding: 6px 22px 20px;
   margin: 0 !important;
   overflow-x: auto;
   white-space: pre-wrap;
-  word-break: break-all;
-  background: var(--dsl-code-block-background);
-  /* Bottom radii live on <pre>: overflow:hidden on .dshdoc_code_block would kill the
-     sticky banner, and this opaque fill otherwise squares off the wrapper. */
-  border-bottom-left-radius: var(--dsl-code-block-border-radius);
-  border-bottom-right-radius: var(--dsl-code-block-border-radius);
-}
-
-/* Shiki inlines its theme background var; route it to the repo token. */
-.dshdoc_code_block :where(pre.dshdoc_code_shiki) {
-  background: var(--dsl-code-block-background) !important;
-}
-
-.dshdoc_code_block :where(pre) code {
-  font: inherit;
-  background: none;
-  padding: 0;
-}
-
-.dshdoc_code_plain {
-  color: var(--dsw-alias-label-primary);
-}
-
-.dshdoc_code_card :where(pre) {
-  padding: 6px 22px 20px;
   word-break: normal;
   overflow-wrap: anywhere;
+  background: var(--dsl-code-block-background);
+  border-bottom-left-radius: var(--dsw-radius-lg);
+  border-bottom-right-radius: var(--dsw-radius-lg);
 }
-
-.dshdoc_code_card[data-code-wrap='false'] {
-  --dsl-code-block-line-white-space: pre;
+.dshdoc_code_block :where(pre) code { font: inherit; background: none; padding: 0; }
+.dshdoc_code_card[data-code-wrap='false'] :where(pre) { white-space: pre; overflow-wrap: normal; }
+.dshui_tooltip_bubble {
+  display: inline-flex;
+  align-items: safe center;
+  gap: 8px;
+  position: fixed;
+  z-index: 1100;
+  width: max-content;
+  box-sizing: border-box;
+  max-width: min(50vw, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+  padding: 3px 7px;
+  border-radius: var(--dsw-radius-sm);
+  background: var(--dsw-alias-tooltip-bg);
+  color: var(--dsw-static-neutral-bluish-00);
+  font-size: 13px;
+  line-height: 20px;
+  white-space: pre-line;
+  overflow-wrap: break-word;
+  pointer-events: none;
+  animation: dshui-tooltip-in 150ms var(--ds-ease-in-out);
 }
-
-.dshdoc_code_card[data-code-wrap='false'] :where(pre) {
-  white-space: pre;
-  overflow-wrap: normal;
-}
-
-.dshdoc_code_numbered :where(pre) code {
-  display: block;
-  counter-reset: source-line;
-  white-space: normal;
-}
-
-.dshdoc_code_numbered :where(pre) code > .line {
-  position: relative;
-  display: block;
-  min-height: 1lh;
-  padding-inline-start: calc(var(--dsl-code-block-line-number-width) + 12px);
-  counter-increment: source-line;
-  white-space: var(--dsl-code-block-line-white-space, pre-wrap);
-}
-
-.dshdoc_code_numbered :where(pre) code > .line::before {
-  position: absolute;
-  inset-inline-start: 0;
-  width: var(--dsl-code-block-line-number-width);
-  color: var(--dsw-alias-label-tertiary);
-  text-align: end;
-  content: counter(source-line);
-  user-select: none;
-}
+.dshui_tooltip_label { min-width: 0; }
+@keyframes dshui-tooltip-in { from { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .dshui_tooltip_bubble { animation: none; } }

@@ -19,7 +19,7 @@ dsh plugin --profile <profile> add @dawn0608/dsh-skill-manager
 通过 npm 直接安装或升级服务。
 
 ```bash
-npx --yes --package @dawn0608/dsh-skill-manager@0.1.3 dsh-skill-sync-install
+npx --yes --package @dawn0608/dsh-skill-manager@0.1.4 dsh-skill-sync-install
 ```
 
 ## 使用与配置

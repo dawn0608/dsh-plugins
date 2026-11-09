@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 import * as React from 'react';
+import * as ReactDOM from 'react-dom';
 import * as jsxRuntime from 'react/jsx-runtime';
 import { JSDOM } from 'jsdom';
 import { DICTS, NS, translateFrom } from '../src/client/i18n.js';
@@ -24,6 +25,7 @@ test('the built client contributes a matching sidebar and main entry owned by th
   assert.equal(entry.id, '@dawn0608/dsh-skill-manager');
   const client = entry.factory(id => {
     if (id === 'react/jsx-runtime') return jsxRuntime;
+    if (id === 'react-dom') return ReactDOM;
     assert.equal(id, 'react');
     return React;
   });

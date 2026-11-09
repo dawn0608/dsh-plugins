@@ -46,8 +46,7 @@ html[data-platform='darwin'] .dshskill_page {
   overflow-wrap: anywhere;
 }
 
-.dshskill_group h2,
-.dshskill_dialog h2 {
+.dshskill_group h2 {
   font-size: 14px;
   line-height: 22px;
   font-weight: 500;
@@ -72,34 +71,8 @@ html[data-platform='darwin'] .dshskill_page {
   max-width: 100%;
 }
 
-.dshskill_control {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  min-height: 32px;
-  min-width: 0;
-  box-sizing: border-box;
-  padding: 4px 10px;
-  border: 0.5px solid var(--dsw-alias-border-l3);
-  border-radius: var(--dsw-radius-lg, 8px);
-  background: var(--dsw-alias-bg-base);
-  color: inherit;
-  font: inherit;
-}
-
-.dshskill_control {
-  cursor: pointer;
-}
-
-.dshskill_control:not([aria-disabled='true']):hover,
-.dshskill_row:hover {
-  background: var(--skill-hover);
-}
-
-.dshskill_control[aria-disabled='true'] {
-  opacity: 0.55;
-  cursor: default;
+@media (hover: hover) {
+  .dshskill_row:hover { background: var(--skill-hover); }
 }
 
 .dshskill_search {
@@ -113,7 +86,7 @@ html[data-platform='darwin'] .dshskill_page {
   color: var(--dsw-alias-label-secondary);
 }
 
-.dshskill_page :where(.dshskill_control, .dshskill_back, .dshskill_header h1, .dshskill_detailMain h1, .dshskill_repository):focus-visible {
+.dshskill_page :where(.dshskill_back, .dshskill_header h1, .dshskill_detailMain h1, .dshskill_repository):focus-visible {
   outline: var(--dsw-focus-ring-width, 2px) solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
   outline-offset: 2px;
 }
@@ -269,8 +242,7 @@ html[data-platform='darwin'] .dshskill_page {
   white-space: nowrap;
 }
 
-.dshskill_error,
-.dshskill_danger {
+.dshskill_error {
   color: var(--dsw-alias-state-error-primary);
 }
 
@@ -361,9 +333,20 @@ html[data-platform='darwin'] .dshskill_page {
   color: var(--dsw-alias-label-secondary);
   font-size: 12px;
   line-height: 18px;
-  text-decoration: underline;
-  text-underline-offset: 0.15em;
+  position: relative;
+  text-decoration: none;
 }
+
+.dshskill_repository::after {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: 1px;
+  background: currentColor;
+  content: '';
+}
+
+.dshskill_repository > [aria-hidden] { flex: none; }
 
 .dshskill_detailDescription {
   color: var(--dsw-alias-label-secondary);
@@ -377,41 +360,70 @@ html[data-platform='darwin'] .dshskill_page {
   margin-top: 32px;
 }
 
+/* Native Modal geometry, with the existing browser dialog top layer. */
 .dshskill_dialog {
   position: fixed;
-  width: min(440px, calc(100vw - 32px));
+  width: min(380px, calc(100vw - 48px));
   max-width: none;
-  max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 2 * max(24px, var(--dsh-frame-overlay-top, 24px)));
   margin: auto;
-  padding: 20px;
+  padding: 0 0 24px;
+  overflow: auto;
   box-sizing: border-box;
   border: 0;
   border-radius: var(--dsw-radius-panel);
   background: var(--dsw-alias-bg-layer-2);
   color: var(--dsw-alias-label-primary);
   box-shadow: var(--dsw-elevation-prominent);
+  animation: dshskill-modal-enter var(--ds-transition-duration) var(--ds-ease-in-out);
 }
-
-.dshskill_dialog[open] {
-  display: grid;
-  gap: 12px;
-}
-
+.dshskill_dialog[open] { display: flex; flex-direction: column; gap: 20px; }
+.dshskill_dialog:focus { outline: none; }
 .dshskill_dialog::backdrop {
+  inset: var(--dsh-frame-chrome-top, 0px) 0 0;
   background: var(--dsw-alias-bg-mask-1);
   backdrop-filter: var(--dsw-mask-blur);
+  animation: dshskill-modal-enter var(--ds-transition-duration) var(--ds-ease-in-out);
 }
-
-.dshskill_dialogActions {
+.dshskill_dialogContent { display: flex; flex-direction: column; width: 100%; }
+.dshskill_dialogHeader {
   display: flex;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
-  justify-content: flex-end;
+  padding: 22px 14px 12px 24px;
 }
-
-.dshskill_feedback:empty {
-  display: none;
+.dshskill_dialogHeader h2 { margin: 0; font-size: 16px; line-height: 24px; font-weight: 500; }
+.dshskill_dialogClose {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: var(--dsw-radius-sm);
+  background: transparent;
+  cursor: pointer;
+  color: var(--dsw-alias-label-secondary);
 }
+.dshskill_dialogClose:disabled { cursor: not-allowed; opacity: 0.4; }
+.dshskill_dialogClose:focus-visible {
+  outline: 1px solid var(--dsw-focus-ring-color, var(--dsw-alias-state-business-primary));
+  outline-offset: 2px;
+}
+@media (hover: hover) {
+  .dshskill_dialogClose:hover:not(:disabled) { background: var(--dsw-alias-interactive-bg-hover); }
+}
+.dshskill_dialogDescription { margin: 0; padding: 0 24px; font-size: 14px; line-height: 22px; overflow-wrap: anywhere; }
+.dshskill_dialogBody { display: flex; flex-direction: column; min-width: 0; margin-top: 20px; padding: 0 24px; }
+.dshskill_dialogActions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 0 24px; }
+.dshskill_dangerButton {
+  --dsw-alias-button-primary-fill: var(--dsw-alias-state-error-primary);
+  --dsw-alias-button-primary-hover: var(--dsw-alias-state-error-primary);
+}
+@keyframes dshskill-modal-enter { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .dshskill_dialog, .dshskill_dialog::backdrop { animation: none; } }
 
 @media (max-width: 767px) {
   .dshskill_page:not([data-detail]) {
