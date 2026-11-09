@@ -1,7 +1,5 @@
 # MCP Management
 
-[简体中文](README.zh.md)
-
 ## Features
 
 - Shows the MCP servers in the current profile under **Settings → MCP Management**, with their names, transport, and enablement switches.

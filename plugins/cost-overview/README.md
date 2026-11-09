@@ -1,7 +1,5 @@
 # Cost Overview
 
-[简体中文](README.zh.md)
-
 ## Features
 
 - Adds a cost and balance pill beside the built-in composer statistics after the current session records tokens.

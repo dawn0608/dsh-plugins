@@ -1,7 +1,5 @@
 # 技能管理
 
-[English](README.md) | 中文
-
 ## 功能
 
 从 DeepSeek Harness 侧边栏 **插件** 下方打开 **技能**，搜索全局技能目录、阅读渲染后的 `SKILL.md`，查看来源标记或原仓库。内置、自建、第三方分组复用 Harness 现有控件，不另加管理页面。
@@ -21,7 +19,7 @@ dsh plugin --profile <profile> add @dawn0608/dsh-skill-manager
 通过 npm 直接安装或升级服务。
 
 ```bash
-npx --yes --package @dawn0608/dsh-skill-manager@0.1.2 dsh-skill-sync-install
+npx --yes --package @dawn0608/dsh-skill-manager@0.1.3 dsh-skill-sync-install
 ```
 
 ## 使用与配置

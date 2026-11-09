@@ -1,7 +1,5 @@
 # MCP 管理
 
-[English](README.md)
-
 ## 功能
 
 - 在「设置 → MCP 管理」中查看当前 profile 的 MCP 服务名称、传输方式和启停开关。
