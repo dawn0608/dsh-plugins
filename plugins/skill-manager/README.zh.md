@@ -19,7 +19,7 @@ dsh plugin --profile <profile> add @dawn0608/dsh-skill-manager
 通过 npm 直接安装或升级服务。
 
 ```bash
-npx --yes --package @dawn0608/dsh-skill-manager@0.1.5 dsh-skill-sync-install
+npx --yes --package @dawn0608/dsh-skill-manager@0.1.6 dsh-skill-sync-install
 ```
 
 ## 使用与配置
@@ -32,7 +32,7 @@ npx --yes --package @dawn0608/dsh-skill-manager@0.1.5 dsh-skill-sync-install
 
 安装器支持 `DSH_HOME`、`DSH_AGENTS_HOME`、`CODEX_HOME`、`CLAUDE_CONFIG_DIR` 以及 `~/` 展开，默认分别为 `~/.dsh`、`~/.agents`、`~/.codex`、`~/.claude`。Harness 与安装器应使用同一组变量。可通过 `DSH_SKILL_SYNC_CODEX` 指定 Codex 可执行文件。安装器将已打包且自包含的 daemon 复制到 `$DSH_HOME/skill-manager/shared-sync/runtime`，配置用户 LaunchAgent `local.dsh-skill-sync` 和 Claude Code 的 `SessionStart` / `CwdChanged` hooks，并在新服务身份验证成功后报告完成。仅维护可确认属于本服务的 hooks，保留其他 hooks。重启 Harness 并重新打开 Claude Code 会话，以登记工作目录。
 
-服务随登录启动，Harness 关闭后仍会同步。可在 Harness **技能**、Codex **Skills** 或 Claude Code `/skills` 切换共享技能。Claude Code 同步涵盖完全开启或停用状态。各端确认成功后分别保存状态，失败重试前核对基线；保留外部新作出的反向选择并报告冲突，直到在 Harness 中显式选择解决。同名冲突保持可见。同步失败不会解除原有 Harness 停用策略。技能页提示服务异常或过期状态以及上次同步成功时间。已打开的 Codex 窗口可能需要重启才会重新读取设置。
+服务随登录启动，Harness 关闭后仍会同步。可在 Harness **技能**、Codex **Skills** 或 Claude Code `/skills` 切换共享技能。Claude Code 同步涵盖完全开启或停用状态。各端确认成功后分别保存状态，失败重试前核对基线；保留外部新作出的反向选择并报告冲突，直到在 Harness 中显式选择解决。同名冲突保持可见。同步失败不会解除原有 Harness 停用策略。技能页提示服务异常或过期状态。已打开的 Codex 窗口可能需要重启才会重新读取设置。
 
 ### 停止与恢复共享同步
 

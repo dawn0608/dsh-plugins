@@ -19,7 +19,7 @@ Upgrade through the Harness plugin manager and restart if prompted. Plugin insta
 Install or upgrade the service directly from npm.
 
 ```bash
-npx --yes --package @dawn0608/dsh-skill-manager@0.1.5 dsh-skill-sync-install
+npx --yes --package @dawn0608/dsh-skill-manager@0.1.6 dsh-skill-sync-install
 ```
 
 ## Usage and configuration
@@ -32,7 +32,7 @@ npx --yes --package @dawn0608/dsh-skill-manager@0.1.5 dsh-skill-sync-install
 
 The installer honors `DSH_HOME`, `DSH_AGENTS_HOME`, `CODEX_HOME`, and `CLAUDE_CONFIG_DIR`, including `~/`. Defaults are `~/.dsh`, `~/.agents`, `~/.codex`, and `~/.claude`. Set the same variables for Harness and the installer. `DSH_SKILL_SYNC_CODEX` can select the Codex executable. The installer copies a bundled, self-contained daemon into `$DSH_HOME/skill-manager/shared-sync/runtime`, installs `local.dsh-skill-sync` as a user LaunchAgent, and adds Claude Code `SessionStart` / `CwdChanged` hooks. It checks the new service identity before reporting success; it maintains only hooks confirmed to belong to this service and preserves unrelated hooks. Restart Harness and reopen Claude Code sessions to register workspaces.
 
-The service runs at login and synchronizes even while Harness is closed. Harness **Skills**, Codex **Skills**, and Claude Code `/skills` can toggle shared skills. Claude Code synchronization covers fully on/off states. Each destination's confirmed state is saved separately; failed writes retry against that baseline. A newer opposite external choice is preserved and reported as a conflict, which remains until an explicit Harness choice resolves it. Name collisions remain conflicts. Failures retain the last disabled Harness policy. The Skills page shows service failure/staleness and the last successful synchronization time. An already open Codex window may need restarting to reload its settings.
+The service runs at login and synchronizes even while Harness is closed. Harness **Skills**, Codex **Skills**, and Claude Code `/skills` can toggle shared skills. Claude Code synchronization covers fully on/off states. Each destination's confirmed state is saved separately; failed writes retry against that baseline. A newer opposite external choice is preserved and reported as a conflict, which remains until an explicit Harness choice resolves it. Name collisions remain conflicts. Failures retain the last disabled Harness policy. The Skills page shows service failure or staleness. An already open Codex window may need restarting to reload its settings.
 
 ### Stop and recover shared sync
 

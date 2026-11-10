@@ -3,7 +3,7 @@ import { request, SkillError } from './api.js';
 export function createCatalog(send = request) {
   const listeners = new Set();
   let snapshot = {
-    skills: null, syncHealth: null, listError: null, mutationError: null, busy: false, savingId: null,
+    skills: null, listError: null, mutationError: null, busy: false, savingId: null,
   };
   let reading;
   let writing;
@@ -35,7 +35,7 @@ export function createCatalog(send = request) {
       }
       if (result.complete) {
         hasCompleteCatalog = true;
-        publish({ skills: result.skills, syncHealth: result.syncHealth ?? null, listError: result.syncError ?? null });
+        publish({ skills: result.skills, listError: result.syncError ?? null });
       } else if (!hasCompleteCatalog) {
         publish({ skills: result.skills, listError: 'incomplete' });
       } else {
