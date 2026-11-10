@@ -26,7 +26,7 @@ npx --yes --package @dawn0608/dsh-skill-manager@0.1.5 dsh-skill-sync-install
 
 - Manage imported copies: use the switch to enable or disable a copy and the detail action to uninstall it. Bundles are stored under `$DSH_HOME/skill-manager/bundles`, activated in `$DSH_HOME/skills`.
 - Shared skill provenance lives in `$DSH_AGENTS_HOME/skills/.provenance.json` (default `~/.agents/skills/.provenance.json`). Keys are relative paths such as `my-skill/SKILL.md`; `origin` is `self` or `third-party`. An optional credential-free HTTPS `repository` is shown for third-party skills. Unconfirmed origins appear under Third-party.
-- Shared skills use `$DSH_AGENTS_HOME/skills/<name>/SKILL.md`, with matching folder and skill names. The optional service manages Claude Code links, and only removes links confirmed to have been created by this service whose filesystem identity and target still match. Links with unconfirmed ownership are preserved.
+- Shared skills use `$DSH_AGENTS_HOME/skills/<name>/SKILL.md`, with matching folder and skill names. The optional service restores missing Claude Code links from valid sources and preserves local skills with the same name. When the shared source or client configuration is temporarily unavailable, the service preserves existing links and the last synchronized state. After intentionally deleting or renaming a shared skill, clean up its old link manually.
 
 ### Configure shared sync
 

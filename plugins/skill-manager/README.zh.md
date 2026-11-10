@@ -26,7 +26,7 @@ npx --yes --package @dawn0608/dsh-skill-manager@0.1.5 dsh-skill-sync-install
 
 - 管理导入副本：用开关启停，在详情中卸载。副本存放在 `$DSH_HOME/skill-manager/bundles`，通过 `$DSH_HOME/skills` 激活。
 - 共享技能来源记录在 `$DSH_AGENTS_HOME/skills/.provenance.json`，默认 `~/.agents/skills/.provenance.json`。键为 `my-skill/SKILL.md` 等相对路径，`origin` 为 `self` 或 `third-party`。第三方可填写不含凭据的 HTTPS `repository`，用于展示原仓库链接。来源未确认的技能归入第三方。
-- 共享技能放在 `$DSH_AGENTS_HOME/skills/<name>/SKILL.md`，文件夹名与技能名一致。可选服务维护 Claude Code 链接，仅清理可确认由本服务创建、文件系统身份与目标均匹配的链接；无法确认归属的链接不清理。
+- 共享技能放在 `$DSH_AGENTS_HOME/skills/<name>/SKILL.md`，文件夹名与技能名一致。可选服务从有效源码补齐缺失的 Claude Code 链接，保留同名的本地技能。共享源码或客户端配置暂时不可用时，服务保留已有链接和上次同步状态。主动删除或重命名共享技能后，请手动清理对应的旧链接。
 
 ### 配置共享同步
 

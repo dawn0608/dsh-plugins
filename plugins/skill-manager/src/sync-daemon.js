@@ -1,13 +1,13 @@
 import { spawn } from 'node:child_process';
 import { realpathSync } from 'node:fs';
-import { chmod, lstat, mkdir, readlink, realpath, rename, symlink, unlink, writeFile } from 'node:fs/promises';
+import { chmod, lstat, mkdir, readlink, realpath, rename, stat, symlink, unlink, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:net';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { createInterface } from 'node:readline';
 import { parse as parseToml } from 'smol-toml';
-import { isManagedName, isRecord, ManagerError } from './host-bundle.js';
+import { isRecord, ManagerError } from './host-bundle.js';
 import { readSyncState, regularFile, requestSync, resolveSyncHomes, sharedPolicyEnabled, sharedSkills, syncDirectory, syncSocket, syncStateFile } from './shared-sync.js';
 
 const LIMIT = 2 * 1024 * 1024;
@@ -22,6 +22,12 @@ async function readDocument(path, parse = JSON.parse) {
   const value = bytes ? parse(bytes.toString('utf8')) : {};
   if (!isRecord(value)) throw new ManagerError('invalid');
   return { path, bytes, value };
+}
+
+async function readNativeDocument(path, parse, required = true) {
+  const document = await readDocument(path, parse);
+  if (required && !document.bytes?.length) throw new ManagerError('unavailable');
+  return document;
 }
 
 async function writeDocument({ path, bytes }, value) {
@@ -109,38 +115,18 @@ export async function writeCodex(binary, codexHome, path, enabled) {
   }
 }
 
-function linkIdentity(stat) {
-  return { dev: stat.dev, ino: stat.ino, birthtimeMs: stat.birthtimeMs };
-}
-
-function sameLink(stat, identity) {
-  return identity && stat.dev === identity.dev && stat.ino === identity.ino && stat.birthtimeMs === identity.birthtimeMs;
-}
-
-async function reconcileLink(claudeRoot, skill, old) {
+async function reconcileLink(claudeRoot, skill) {
   const link = join(claudeRoot, skill.name);
   const target = dirname(skill.path);
   const existing = await lstat(link).catch(missing);
-  if (existing) {
-    const valid = existing.isSymbolicLink() && await realpath(link).catch(missing) === target;
-    return { valid, owned: Boolean(valid && old?.linkOwned && sameLink(existing, old.linkIdentity)),
-      ...(valid && old?.linkOwned && sameLink(existing, old.linkIdentity) && { identity: old.linkIdentity }) };
-  }
+  if (existing) return existing.isSymbolicLink() && await realpath(link).catch(missing) === target;
   try {
     await symlink(target, link, 'dir');
-    return { valid: true, owned: true, identity: linkIdentity(await lstat(link)) };
+    return true;
   } catch (error) {
-    if (error.code === 'EEXIST') return { valid: false, owned: false };
+    if (error.code === 'EEXIST') return false;
     throw error;
   }
-}
-
-async function dropLink(root, entry, skillPath) {
-  if (!entry.linkOwned || !entry.linkIdentity || !isManagedName(entry.name)) return;
-  const link = join(root, entry.name);
-  const existing = await lstat(link).catch(missing);
-  if (!existing?.isSymbolicLink() || !sameLink(existing, entry.linkIdentity)) return;
-  if (resolve(root, await readlink(link)) === dirname(skillPath)) await unlink(link).catch(missing);
 }
 
 async function localDocument(workspace) {
@@ -200,11 +186,18 @@ export async function createCoordinator({ home, agentsHome, claudeHome, codexHom
       ? await readSyncState(home)
       : { version: 1, entries: {}, projects: {} };
     if (!previous || !isRecord(previous.projects)) throw new ManagerError('invalid');
+    const sharedRoot = await stat(join(agentsHome, 'skills')).catch(missing);
+    if (!sharedRoot?.isDirectory()) throw new ManagerError('unavailable');
     const skills = await sharedSkills(agentsHome);
     const codexPath = join(codexHome, 'config.toml');
     const claudePath = join(claudeHome, 'settings.json');
-    const native = await codexRules(await readDocument(codexPath, parseToml));
-    const initialClaude = overrides(await readDocument(claudePath));
+    const hasBaseline = Object.keys(previous.entries).length > 0;
+    const knownNative = previous.nativePresent ?? { codex: hasBaseline, claude: hasBaseline };
+    const codexDocument = await readNativeDocument(codexPath, parseToml, knownNative.codex);
+    const claudeDocument = await readNativeDocument(claudePath, JSON.parse, knownNative.claude);
+    const native = await codexRules(codexDocument);
+    const initialClaude = overrides(claudeDocument);
+    const nativePresent = { codex: Boolean(codexDocument.bytes?.length), claude: Boolean(claudeDocument.bytes?.length) };
     const projects = [];
     const enrollment = { ...previous.projects };
     if (action.type === 'enroll') {
@@ -229,14 +222,23 @@ export async function createCoordinator({ home, agentsHome, claudeHome, codexHom
     }
 
     const entries = {};
+    for (const [path, old] of Object.entries(previous.entries)) {
+      // A scan can miss a skill while its source is being replaced or repaired.
+      if (skills.has(path)) continue;
+      entries[path] = { ...old, error: 'unavailable' };
+      for (const project of projects) {
+        const baseline = enrollment[project.directory];
+        if (Object.hasOwn(project.previous, old.name)) baseline[old.name] = project.previous[old.name];
+        else delete baseline[old.name];
+      }
+    }
     const cleanup = new Map();
     for (const skill of skills.values()) {
       const { name, path } = skill;
       const old = previous.entries[path];
       const codex = readCodex(native, skill);
       const claude = initialClaude[name] ?? null;
-      const link = await reconcileLink(claudeRoot, skill, old).catch(() => ({ valid: false, owned: false }));
-      const linkOk = link.valid;
+      const linkOk = await reconcileLink(claudeRoot, skill).catch(() => false);
       const rawIntents = localIntents(projects, name);
       const local = [];
       let projectCollision = false;
@@ -270,7 +272,6 @@ export async function createCoordinator({ home, agentsHome, claudeHome, codexHom
         name, enabled: conflict ? old?.enabled ?? enabled : enabled,
         codex: old?.pending && !explicit ? old.codex : codex.enabled,
         claude: old?.pending && !explicit ? old.claude : claude,
-        linkOwned: link.owned, ...(link.identity && { linkIdentity: link.identity }),
         ...(contested && { contested: true }),
         ...(conflict && { error: 'conflict' }),
       };
@@ -285,7 +286,7 @@ export async function createCoordinator({ home, agentsHome, claudeHome, codexHom
       }
       entries[path] = entry;
     }
-    const state = { version: 1, entries, projects: enrollment, health: { ...previous.health,
+    const state = { version: 1, entries, projects: enrollment, nativePresent, health: { ...previous.health,
       status: 'syncing', lastAttemptAt: new Date().toISOString() } };
     const checkpoint = () => writeDocumentSafe(statePath, state);
     // Persist the desired state before fan-out so a crash can retry without treating echoes as input.
@@ -297,22 +298,24 @@ export async function createCoordinator({ home, agentsHome, claudeHome, codexHom
       try {
         const skill = skills.get(path);
         if (entry.pending) {
-          const current = readCodex(await codexRules(await readDocument(codexPath, parseToml)), skill);
+          const current = readCodex(await codexRules(await readNativeDocument(codexPath, parseToml, nativePresent.codex)), skill);
           if (current.enabled !== enabled) {
             if (current.byName || current.enabled !== entry.codex) throw new ManagerError('conflict');
             await writeSkill(codexBinary, codexHome, current.path, enabled);
-            const confirmed = readCodex(await codexRules(await readDocument(codexPath, parseToml)), skill);
+            const confirmed = readCodex(await codexRules(await readNativeDocument(codexPath, parseToml)), skill);
             if (confirmed.enabled !== enabled) throw new ManagerError('conflict');
+            nativePresent.codex = true;
           }
           entry.codex = enabled;
           await checkpoint();
-          const settings = await readDocument(claudePath);
+          const settings = await readNativeDocument(claudePath, JSON.parse, nativePresent.claude);
           const currentClaude = overrides(settings)[name] ?? null;
           if ((currentClaude !== 'off') !== enabled) {
             if (currentClaude !== entry.claude) throw new ManagerError('conflict');
             await writeClaude(settings, name, enabled ? undefined : 'off');
+            nativePresent.claude = true;
           }
-          entry.claude = overrides(await readDocument(claudePath))[name] ?? null;
+          entry.claude = overrides(await readNativeDocument(claudePath, JSON.parse, nativePresent.claude))[name] ?? null;
           if ((entry.claude !== 'off') !== enabled) throw new ManagerError('conflict');
           await checkpoint();
           delete entry.pending;
@@ -330,9 +333,6 @@ export async function createCoordinator({ home, agentsHome, claudeHome, codexHom
         if (entry.error === 'conflict') entry.contested = true;
         await checkpoint();
       }
-    }
-    for (const [path, old] of Object.entries(previous.entries)) {
-      if (!skills.has(path)) await dropLink(claudeRoot, old, path);
     }
     state.health.status = Object.values(entries).some(entry => entry.error) ? 'degraded' : 'ok';
     if (state.health.status === 'ok') state.health.lastSuccessAt = new Date().toISOString();
