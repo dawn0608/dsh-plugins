@@ -5,6 +5,7 @@
 - 在「设置 → MCP 管理」中查看当前 profile 的 MCP 服务名称、传输方式和启停开关。
 - 支持本地 STDIO 和远程 Streamable HTTP。面板打开时会自动刷新列表。
 - 启停服务只修改条目级的 `disabled` 字段。插件通过 profile 写锁原子替换补丁文件，保留其他配置、引用和注释。
+- 为 Desktop profile 配置共享 MCP 同步后，可通过「从三端移除」确认将服务从 Harness、Codex 和 Claude Code 移除。
 
 ## 安装
 
@@ -31,6 +32,18 @@ dsh plugin --profile <profile> add @dawn0608/dsh-mcp-manager
     patchPath: /absolute/path/to/cordis.patch.yml
 ```
 
+要启用三端移除，请先在宿主安装 MCP 同步程序，然后在 Desktop profile 补丁中加入以下覆盖配置，填写 Python 环境和脚本的绝对路径。三端移除使用当前 profile 的补丁，配置了 `patchPath` 覆盖路径时不可用。
+
+```yaml
+- id: mcp-manager
+  config:
+    sharedSync:
+      python: /absolute/path/to/venv/bin/python
+      script: /absolute/path/to/mcp_sync.py
+```
+
+在符合条件的条目旁点击「从三端移除」并确认。如果打开确认框后补丁发生变化，关闭确认框并查看当前列表，再决定是否重试。显示等待同步时，表示移除请求已记录，三端同步仍未完成。
+
 将敏感环境变量和请求头的值留在 Harness 进程环境中，使用 Loader `!!js` 引用：
 
 ```yaml
@@ -43,7 +56,8 @@ headers:
 ## 环境要求与限制
 
 - 适用 DSH `>=0.2.2-rc.1 <0.3.0`。本地开发需要 Node.js 24 或更高版本。
-- 面板只管理当前 profile 的用户补丁文件。bundle 自带条目、其他 profile 以及 Codex 或 Claude 配置不在范围内。
+- 启停开关管理当前 profile 的用户补丁文件。三端移除仅在显式启用的 Desktop profile 中提供，适用于服务名受支持且唯一的可编辑条目，由同步程序处理共享 MCP 配置中的服务。
+- bundle 自带条目及其他 profile 不在面板的管理范围内。
 - 可启停的条目必须位于顶层 `insert` 列表，ID 唯一，且 `disabled` 字段省略或为布尔值。无法安全启停的条目显示为只读。重名服务会单独标记。
 - 设置页通过 Harness 的认证连接读取数据。列表响应只包含服务摘要，不含 URL、命令参数、环境变量或请求头等配置字段。
 

@@ -1,7 +1,7 @@
 /**
  * State assembly and the lock-protected write path.
  *
- * Every mutation re-reads the patch under the profile writer lock, finds the
+ * Every local mutation re-reads the patch under the profile writer lock, finds the
  * target row by its stable Cordis id, verifies the row fingerprint the browser
  * read, builds the next text, and only then replaces the file atomically.
  */
@@ -13,6 +13,7 @@ import { readProfilePatch, withProfileLock, writeProfilePatch } from './atomic.j
 import { PatchError } from './errors.js';
 import { logEvent } from './log.js';
 import { buildDelete, buildSave, buildSetEnabled, readPatch } from './patch.js';
+import { SERVER_NAME } from './shared/references.js';
 
 const PATCH_NAME = 'cordis.patch.yml';
 
@@ -74,7 +75,11 @@ function revisionOf(text) {
   return createHash('sha256').update(text).digest('hex');
 }
 
-function toServer(entry, duplicateNames, countTools) {
+function canRemoveShared(entry, duplicateNames) {
+  return entry.editable && Boolean(entry.name) && SERVER_NAME.test(entry.name) && !duplicateNames.has(entry.name);
+}
+
+function toServer(entry, duplicateNames, countTools, sharedRemoval) {
   return {
     id: entry.id ?? null,
     name: entry.name ?? null,
@@ -86,11 +91,12 @@ function toServer(entry, duplicateNames, countTools) {
     deletable: entry.rowIndex !== null,
     tools: entry.name ? countTools(entry.name) : null,
     duplicate: entry.name ? duplicateNames.has(entry.name) : false,
+    sharedRemovable: sharedRemoval && canRemoveShared(entry, duplicateNames),
   };
 }
 
 /** Build the complete read model from one patch text. */
-export function stateFromText(text, { profile, patchPath, countTools }) {
+export function stateFromText(text, { profile, patchPath, countTools, revision = revisionOf(text), sharedRemoval = false }) {
   const parsed = readPatch(text);
   const warnings = [...parsed.warnings];
   for (const name of parsed.duplicateNames) warnings.push({ code: 'duplicate-name', name });
@@ -98,8 +104,8 @@ export function stateFromText(text, { profile, patchPath, countTools }) {
     ok: true,
     profile,
     patchPath,
-    revision: revisionOf(text),
-    servers: parsed.entries.map(entry => toServer(entry, parsed.duplicateNames, countTools)),
+    revision,
+    servers: parsed.entries.map(entry => toServer(entry, parsed.duplicateNames, countTools, sharedRemoval)),
     warnings,
   };
 }
@@ -131,17 +137,17 @@ function requireTarget(parsed, request) {
 }
 
 /**
- * @param {{profile: () => {dir: string, patchPath: string, profile: string}, countTools?: (name: string) => number | null, log?: typeof logEvent}} options
+ * @param {{profile: () => {dir: string, patchPath: string, profile: string}, countTools?: (name: string) => number | null, log?: typeof logEvent, removeShared?: (name: string, patchPath: string, revision: string) => Promise<'removed' | 'pending'>}} options
  */
 export function createStore(options) {
   const countTools = typeof options.countTools === 'function' ? options.countTools : () => null;
   const log = typeof options.log === 'function' ? options.log : logEvent;
   const lockOptions = Number.isFinite(options.lockTimeoutMs) ? { timeoutMs: options.lockTimeoutMs } : {};
+  const sharedRemoval = resolved => Boolean(options.removeShared && resolved.profile === 'desktop' && isAbsolute(resolved.patchPath));
 
-  const readState = async () => {
-    const resolved = options.profile();
-    const { text } = readProfilePatch(resolved.patchPath);
-    return stateFromText(text, { ...resolved, countTools });
+  const readState = async (resolved = options.profile()) => {
+    const { text, bytes } = readProfilePatch(resolved.patchPath);
+    return stateFromText(text, { ...resolved, countTools, revision: revisionOf(bytes), sharedRemoval: sharedRemoval(resolved) });
   };
 
   const mutate = async (request, operation, event) => {
@@ -197,6 +203,33 @@ export function createStore(options) {
         }
         return buildDelete(fresh.text, target);
       }, 'deleted');
+    },
+
+    async deleteShared(request) {
+      const resolved = options.profile();
+      if (!sharedRemoval(resolved)) throw new PatchError('shared-unavailable');
+      if (typeof request.id !== 'string' || request.id === '' || typeof request.name !== 'string'
+        || typeof request.rowHash !== 'string' || typeof request.revision !== 'string') {
+        throw new PatchError('invalid');
+      }
+      const { text, bytes } = readProfilePatch(resolved.patchPath);
+      const revision = revisionOf(bytes);
+      if (request.revision !== revision) throw new PatchError('conflict', { reason: 'profile-changed' });
+      const parsed = readPatch(text);
+      const target = requireTarget(parsed, request);
+      if (target.name !== request.name || parsed.duplicateNames.has(target.name)) throw new PatchError('conflict');
+      if (!canRemoveShared(target, parsed.duplicateNames)) throw new PatchError('read-only');
+
+      // The bridge takes its own profile lock and checks the same revision before writing.
+      const removal = await options.removeShared(target.name, resolved.patchPath, revision);
+      let state;
+      try {
+        state = await readState(resolved);
+      } catch {
+        throw new PatchError('shared-unknown');
+      }
+      log('shared-deletion', { code: removal });
+      return { ...state, removal };
     },
 
     async setEnabled(request) {

@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "MCP Management",
-    "description": "View STDIO and Streamable HTTP servers for the current profile and toggle editable entries from Settings.",
+    "description": "View and toggle MCP servers from Settings, with optional shared removal on Desktop.",
     "detail": "README.md"
   }
 }

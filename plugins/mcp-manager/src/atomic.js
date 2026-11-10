@@ -38,7 +38,7 @@ function described(error) {
 
 /**
  * Read the patch with the checks every writer relies on.
- * @returns {{text: string, mode: number}}
+ * @returns {{text: string, bytes: Buffer, mode: number}}
  */
 export function readProfilePatch(path) {
   let stats;
@@ -50,7 +50,8 @@ export function readProfilePatch(path) {
   if (!stats.isFile()) throw new PatchError('profile-unavailable', { reason: 'not-regular' });
   if (stats.size > MAX_PATCH_BYTES) throw new PatchError('profile-unavailable', { reason: 'too-large' });
   try {
-    return { text: readFileSync(path, 'utf8'), mode: stats.mode & 0o777 };
+    const bytes = readFileSync(path);
+    return { text: bytes.toString('utf8'), bytes, mode: stats.mode & 0o777 };
   } catch (error) {
     throw new PatchError('profile-unavailable', { reason: described(error) || 'unreadable' });
   }

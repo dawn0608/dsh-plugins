@@ -163,3 +163,24 @@ test('scopes pending and failed toggle feedback to the selected service row', ()
   assert.match(removed, /role="alert">target.*locked/);
   assert.doesNotMatch(removed.match(/<li\b[^>]*>.*?<\/li>/)[0], /locked/);
 });
+
+test('renders shared removal only on eligible rows and distinguishes its outcomes', () => {
+  const target = { id: 'one', name: 'target', transport: 'stdio', enabled: true, editable: true, sharedRemovable: true };
+  const snapshot = {
+    status: 'ready', error: null, busy: false,
+    state: { ...BASE_STATE, servers: [target, { ...target, id: 'two', name: 'duplicate', duplicate: true, sharedRemovable: false }] },
+  };
+  const rows = render(snapshot).match(/<li\b[^>]*>.*?<\/li>/g);
+  assert.match(rows[0], /removeShared/);
+  assert.doesNotMatch(rows[1], /removeShared/);
+  assert.ok(rows.every(row => row.includes('role="switch"')));
+
+  for (const [removal, key] of [['pending', 'sharedPending'], ['removed', 'sharedRemoved']]) {
+    const updated = render({
+      ...snapshot,
+      state: { ...BASE_STATE, servers: [] },
+      action: { kind: 'deleteShared', id: target.id, name: target.name, removal },
+    });
+    assert.match(updated, new RegExp(`role="status">${key}<`));
+  }
+});

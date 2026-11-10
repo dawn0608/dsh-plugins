@@ -5,6 +5,7 @@
 - Shows the MCP servers in the current profile under **Settings → MCP Management**, with their names, transport, and enablement switches.
 - Supports local STDIO and remote Streamable HTTP. The list refreshes while the panel is open.
 - Toggles a server by changing only its row-level `disabled` field. The plugin locks the profile and replaces the patch atomically, preserving the other configuration, references, and comments.
+- With shared MCP synchronization configured for the Desktop profile, **Remove from all three** opens a confirmation to remove a service from Harness, Codex, and Claude Code.
 
 ## Installation
 
@@ -31,6 +32,18 @@ The plugin normally uses the active profile's name, directory, and patch path fr
     patchPath: /absolute/path/to/cordis.patch.yml
 ```
 
+To enable shared removal, install the MCP synchronization bridge on the host and add this override to the Desktop profile patch. Use absolute paths to its Python environment and script. Shared removal uses the active profile patch and is unavailable with a `patchPath` override.
+
+```yaml
+- id: mcp-manager
+  config:
+    sharedSync:
+      python: /absolute/path/to/venv/bin/python
+      script: /absolute/path/to/mcp_sync.py
+```
+
+Click **Remove from all three** beside an eligible service and confirm. If the patch changed while the dialog was open, close it and check the current list before trying again. A pending result means the removal request was recorded and synchronization is still outstanding.
+
 Keep sensitive env and header values in the Harness process environment and reference them with Loader `!!js`:
 
 ```yaml
@@ -43,7 +56,8 @@ headers:
 ## Requirements and limitations
 
 - DSH `>=0.2.2-rc.1 <0.3.0` and Node.js 24 or later for local development.
-- The panel manages the current profile's user patch. It does not manage bundle-provided rows, other profiles, or Codex or Claude configuration.
+- The enablement switch manages the current profile's user patch. Shared removal is available on opted-in Desktop profiles for editable entries with a unique, supported server name, and the synchronization bridge handles entries in the shared MCP configuration.
+- Bundle-provided rows and other profiles are outside the panel's scope.
 - To toggle a row, it must be in a top-level `insert` list with a unique ID and either no `disabled` field or a boolean value. Rows the panel cannot safely toggle are read-only. Duplicate server names are flagged separately.
 - The settings page uses the authenticated Harness connection. The list response includes server summaries and omits configuration fields such as URLs, command arguments, environment variables, and headers.
 

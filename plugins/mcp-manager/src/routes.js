@@ -13,6 +13,9 @@ const MESSAGES = {
   'profile-unavailable': 'The desktop profile patch cannot be read or written.',
   'write-failed': 'The profile patch could not be written.',
   'verify-failed': 'The edited patch did not preserve the other configuration; nothing was written.',
+  'shared-unavailable': 'Shared MCP removal is unavailable for this profile.',
+  'shared-unmanaged': 'This server is outside the shared MCP configuration.',
+  'shared-unknown': 'The shared MCP removal result could not be confirmed.',
   invalid: 'The request is invalid.',
   forbidden: 'The request is not allowed from this origin.',
   method: 'Method not allowed.',
@@ -28,11 +31,14 @@ function statusOf(error) {
   switch (error.code) {
     case 'not-found': return 404;
     case 'conflict':
-    case 'read-only': return 409;
+    case 'read-only':
+    case 'shared-unmanaged': return 409;
     case 'locked': return 423;
     case 'parse-failed':
     case 'verify-failed': return 422;
-    case 'profile-unavailable': return 503;
+    case 'profile-unavailable':
+    case 'shared-unavailable': return 503;
+    case 'shared-unknown': return 502;
     case 'invalid': return 400;
     default: return 500;
   }
@@ -60,6 +66,8 @@ async function dispatch(payload, store) {
       return store.save(payload);
     case 'delete':
       return store.remove(payload);
+    case 'deleteShared':
+      return store.deleteShared(payload);
     case 'setEnabled':
       return store.setEnabled(payload);
     default:

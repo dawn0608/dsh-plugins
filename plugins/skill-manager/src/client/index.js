@@ -5,6 +5,7 @@ import {
 } from '../../../../src/client/host-controls.js';
 import { DetailDocument, detailDocumentState, useDetailDocumentLabels } from '../../../../src/client/host-document.js';
 import controlsCss from '../../../../src/client/host-controls.css';
+import modalCss from '../../../../src/client/host-modal.css';
 import documentCss from '../../../../src/client/host-document.css';
 import katexCss from 'katex/dist/katex.min.css';
 import skillEmblem from '../../icon.svg';
@@ -40,7 +41,7 @@ export function apply(ctx) {
   ctx.effect(() => {
     const style = document.createElement('style');
     style.dataset.plugin = '@dawn0608/dsh-skill-manager';
-    style.textContent = `${controlsCss}\n${documentCss}\n${katexCss}\n${css}`;
+    style.textContent = `${controlsCss}\n${modalCss}\n${documentCss}\n${katexCss}\n${css}`;
     document.head.appendChild(style);
     return () => style.remove();
   }, 'skill-manager: styles');
