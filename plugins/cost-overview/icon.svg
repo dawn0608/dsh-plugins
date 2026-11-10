@@ -1,6 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-7 -7 38 38" width="36" height="36" aria-hidden="true"
-     fill="none" stroke="#2C6BED" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M14.5 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8.5L14.5 3Z"/>
-  <path d="M14.5 3v4.5a1 1 0 0 0 1 1H20"/>
-  <path d="M8 17v-2M12 17v-3.5M16 17v-5"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" width="36" height="36" aria-hidden="true"
+     fill="none" stroke="#527ee8" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+  <g transform="translate(6 6)">
+    <circle cx="12" cy="12" r="8.5"/>
+    <path d="m8.8 7.7 3.2 3.6 3.2-3.6M12 11.3v5.2M8.7 12.1h6.6M8.7 14.6h6.6"/>
+  </g>
 </svg>

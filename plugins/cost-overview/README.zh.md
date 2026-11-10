@@ -14,17 +14,6 @@
 dsh plugin --profile <profile> add @dawn0608/dsh-cost-overview
 ```
 
-### 从「会话花费」迁移
-
-卸载 `@dawn0608/dsh-session-cost`，安装 `@dawn0608/dsh-cost-overview`，然后重启 DSH。可在 Desktop「插件」页操作，或执行以下命令。
-
-```bash
-dsh plugin --profile <profile> remove @dawn0608/dsh-session-cost
-dsh plugin --profile <profile> add @dawn0608/dsh-cost-overview
-```
-
-插件可以继续读取已有会话和 DeepSeek 凭据。如果为旧插件设置了 `SESSION_COST_API_KEY_ENV`，将其改为 `COST_OVERVIEW_API_KEY_ENV`。
-
 ## 使用与配置
 
 点击统计按钮打开明细。按 Escape、点击面板外部或再次点击按钮可关闭。一个会话使用多个模型时，每个模型单独显示一行。已有 token 的会话读取失败时，统计按钮仍可点击，金额显示为占位符，面板说明失败原因。
@@ -45,7 +34,7 @@ DeepSeek 提供单价和账户余额。插件根据宿主日志重建当前会�
 
 宿主从官方页面读取模型价格。成功读取后每隔 24 小时刷新，刷新失败时保留上一张表，并允许在一分钟后重试。首次读取失败时，面板会显示价格状态。可用的价格表缺少 Search 或 Fetch 单价时，最终兜底为每 1,000 次 ¥5。
 
-## 兼容与限制
+## 环境要求与限制
 
 - 适用 DSH `>=0.2.2-rc.1 <0.3.0`。本地开发需要 Node.js 24 或更高版本。
 - 事件时间与提供方请求时间可能落在不同价格时段。法定节假日遇工作日时，按平常工作日的时段计费。
@@ -55,6 +44,6 @@ DeepSeek 提供单价和账户余额。插件根据宿主日志重建当前会�
 
 ## 开发
 
-在仓库根目录运行 `npm test -w @dawn0608/dsh-cost-overview` 验证本插件，运行 `npm run verify` 执行全仓检查。构建将 `src/index.js` 与 `src/client/index.js` 打包成 `lib/index.js` 和 `lib/client.js`。本地重新构建后，重新加载宿主组合并刷新客户端。如果旧客户端模块仍占用插槽，重启 DSH。
+在仓库根目录运行 `npm test -w @dawn0608/dsh-cost-overview` 验证本插件，运行 `npm run verify` 执行全仓检查。构建将 `src/index.js` 与 `src/client/index.js` 打包成 `lib/index.js` 和 `lib/client.js`。本地重新构建后，重启 DSH 以加载构建产物。
 
 宿主在 DSH 连接上注册 `GET /api/cost-overview/state?session=<id>`，客户端使用相对地址 `api/cost-overview/state`。响应包含余额、费用和价格状态。弹层使用 DSH 主题变量，定位逻辑按随包 [MIT 许可证](LICENSE) 改编自 DSH 0.2.2-rc.1 原生统计弹层。

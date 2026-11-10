@@ -19,7 +19,7 @@ dsh plugin --profile <profile> add ./plugins/<name>
 
 Replace the package name and metadata, short insert ID in `cordis.patch.yml`, client loader ID, locale namespace, CSS prefix, icon, and both README files. Reuse the host's existing component styles and layouts for plugin pages.
 
-## Compatibility and limitations
+## Requirements and limitations
 
 Requires Node.js 24 and DeepSeek Harness `>=0.2.2-rc.1 <0.3.0`. The template is private; remove `"private": true` only when preparing a public release. Keep credentials on the server.
 

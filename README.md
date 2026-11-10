@@ -20,8 +20,6 @@ dsh plugin --profile <profile> add @dawn0608/dsh-cost-overview
 
 使用 CLI 修改 Desktop profile 前请完全退出应用。费用概览的模型/API Key 配置、MCP 的配置范围和技能管理的可选同步，分别见插件说明。技能同步需显式安装，不随 npm 安装自动修改其他应用配置。
 
-已安装旧版「会话花费」的用户请按[迁移说明](plugins/cost-overview/README.zh.md#从会话花费迁移)替换安装。
-
 也可以从 [GitHub Releases](https://github.com/dawn0608/dsh-plugins/releases) 下载本插件的 `.tgz`，在 DSH 插件页（如支持本地包入口）或 CLI 安装。
 
 从仓库源码安装先构建，再按目录安装：

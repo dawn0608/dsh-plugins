@@ -19,7 +19,7 @@ dsh plugin --profile <profile> add ./plugins/<name>
 
 替换包名与元数据、`cordis.patch.yml` 中的短 insert ID、客户端 loader ID、locale 命名空间、CSS 前缀、图标及双语 README。插件页面优先复用宿主已有组件的样式和布局。
 
-## 兼容与限制
+## 环境要求与限制
 
 要求 Node.js 24 和 DeepSeek Harness `>=0.2.2-rc.1 <0.3.0`。模板为私有包，仅在准备公开发布时移除 `"private": true`。凭据保留在服务端。
 

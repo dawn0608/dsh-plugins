@@ -1,6 +1,6 @@
 {
   "name": "@dawn0608/dsh-cost-overview",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "type": "module",
   "main": "./lib/index.js",
   "description": "Estimate the current session cost and view model costs and the DeepSeek API balance below the composer.",

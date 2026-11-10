@@ -14,17 +14,6 @@ Search for `@dawn0608/dsh-cost-overview` on the Desktop Plugins page, or run the
 dsh plugin --profile <profile> add @dawn0608/dsh-cost-overview
 ```
 
-### Migrating from Session Cost
-
-Remove `@dawn0608/dsh-session-cost`, install `@dawn0608/dsh-cost-overview`, and restart DSH. You can do this on the Desktop Plugins page or run these commands.
-
-```bash
-dsh plugin --profile <profile> remove @dawn0608/dsh-session-cost
-dsh plugin --profile <profile> add @dawn0608/dsh-cost-overview
-```
-
-The plugin can read existing sessions and DeepSeek credentials. If you set `SESSION_COST_API_KEY_ENV` for the old plugin, rename it to `COST_OVERVIEW_API_KEY_ENV`.
-
 ## Usage and configuration
 
 Click the pill to open the breakdown. Press Escape, click outside the panel, or click the pill again to close it. Each model gets a separate row when a session uses several models. If a read fails after the session has recorded tokens, the pill remains available with a placeholder and the panel explains the error.
@@ -45,7 +34,7 @@ DeepSeek provides unit prices and an account balance. The plugin reconstructs th
 
 The host reads model prices from the official page. It refreshes a successful table after 24 hours, retains it if a refresh fails, and allows a retry after one minute. If the first load fails, the panel shows the pricing status. If a usable table lacks a Search or Fetch price, the last fallback is ¥5 per 1,000 requests.
 
-## Compatibility and limitations
+## Requirements and limitations
 
 - DSH `>=0.2.2-rc.1 <0.3.0` and Node.js 24 or later for local development.
 - The event timestamp may land in a different price window from the provider's request time. Weekday statutory holidays use the normal weekday rates.
@@ -55,6 +44,6 @@ The host reads model prices from the official page. It refreshes a successful ta
 
 ## Development
 
-From the repository root, run `npm test -w @dawn0608/dsh-cost-overview` for the plugin tests and `npm run verify` for the full repository check. The build turns `src/index.js` and `src/client/index.js` into `lib/index.js` and `lib/client.js`. After a local rebuild, reload the host composition and refresh the client. Restart DSH if a previous client generation still occupies the slot.
+From the repository root, run `npm test -w @dawn0608/dsh-cost-overview` for the plugin tests and `npm run verify` for the full repository check. The build turns `src/index.js` and `src/client/index.js` into `lib/index.js` and `lib/client.js`. After a local rebuild, restart DSH to load the build output.
 
 The host registers `GET /api/cost-overview/state?session=<id>` on the DSH connection. The client uses the relative URL `api/cost-overview/state`. The response contains balance, cost, and pricing status. The panel uses DSH theme tokens and adapts the native statistics panel placement from DSH 0.2.2-rc.1 under the packaged [MIT license](LICENSE).

@@ -229,13 +229,12 @@ function Icon(props) {
     style: { display: 'block' },
     fill: 'none',
     stroke: 'currentColor',
-    strokeWidth: 2,
+    strokeWidth: 1.75,
     strokeLinecap: 'round',
     strokeLinejoin: 'round',
   }, [
-    h('path', { key: 'page', d: 'M14.5 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8.5L14.5 3Z' }),
-    h('path', { key: 'fold', d: 'M14.5 3v4.5a1 1 0 0 0 1 1H20' }),
-    h('path', { key: 'bars', d: 'M8 17v-2M12 17v-3.5M16 17v-5' }),
+    h('circle', { key: 'ring', cx: 12, cy: 12, r: 8.5 }),
+    h('path', { key: 'currency', d: 'm8.8 7.7 3.2 3.6 3.2-3.6M12 11.3v5.2M8.7 12.1h6.6M8.7 14.6h6.6' }),
   ]);
 }
 

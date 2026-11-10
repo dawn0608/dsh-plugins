@@ -16,7 +16,7 @@ dsh plugin --profile <profile> add @dawn0608/dsh-mcp-manager
 
 也可从 [GitHub Releases](https://github.com/dawn0608/dsh-plugins/releases?q=mcp-manager) 下载 `.tgz`，再运行 `dsh plugin --profile <profile> add /path/to/package.tgz` 安装。用 CLI 管理 Desktop profile 前请完全退出 Harness Desktop。
 
-从源码安装时，在仓库根目录运行 `npm ci` 和 `npm run build`，再通过本地插件入口选择 `plugins/mcp-manager`。切换安装来源时先移除已有安装。安装后打开「设置 → MCP 管理」，按提示重启 Harness。
+从源码安装时，在仓库根目录运行 `npm ci` 和 `npm run build`，再通过本地插件入口选择 `plugins/mcp-manager`。安装后打开「设置 → MCP 管理」，按提示重启 Harness。
 
 ## 使用与配置
 
@@ -40,7 +40,7 @@ headers:
   Authorization: !!js '`Bearer ${process.env.MCP_TOKEN}`'
 ```
 
-## 兼容与限制
+## 环境要求与限制
 
 - 适用 DSH `>=0.2.2-rc.1 <0.3.0`。本地开发需要 Node.js 24 或更高版本。
 - 面板只管理当前 profile 的用户补丁文件。bundle 自带条目、其他 profile 以及 Codex 或 Claude 配置不在范围内。

@@ -16,7 +16,7 @@ dsh plugin --profile <profile> add @dawn0608/dsh-mcp-manager
 
 You can also download the `.tgz` from [GitHub Releases](https://github.com/dawn0608/dsh-plugins/releases?q=mcp-manager) and install it with `dsh plugin --profile <profile> add /path/to/package.tgz`. Fully quit Harness Desktop before using the CLI to manage its profile.
 
-To install from source, run `npm ci` and `npm run build` from the repository root, then select `plugins/mcp-manager` in the local plugin picker. Remove the previous installation before switching sources. Open **Settings → MCP Management** after installation and restart Harness if prompted.
+To install from source, run `npm ci` and `npm run build` from the repository root, then select `plugins/mcp-manager` in the local plugin picker. Open **Settings → MCP Management** after installation and restart Harness if prompted.
 
 ## Usage and configuration
 
@@ -40,7 +40,7 @@ headers:
   Authorization: !!js '`Bearer ${process.env.MCP_TOKEN}`'
 ```
 
-## Compatibility and limitations
+## Requirements and limitations
 
 - DSH `>=0.2.2-rc.1 <0.3.0` and Node.js 24 or later for local development.
 - The panel manages the current profile's user patch. It does not manage bundle-provided rows, other profiles, or Codex or Claude configuration.
