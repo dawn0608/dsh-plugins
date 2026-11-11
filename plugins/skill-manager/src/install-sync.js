@@ -54,9 +54,12 @@ function configureHooks(original, command, legacy) {
       const remaining = rule.hooks.filter(hook => hook.type !== 'command' || (hook.command !== command && (!legacy || hook.command !== legacy)));
       return remaining.length ? [{ ...rule, hooks: remaining }] : [];
     });
-    hooks[event].push({ hooks: [{ type: 'command', command, timeout: 10 }] });
+    if (!hooks[event].length) delete hooks[event];
   }
-  return Buffer.from(JSON.stringify({ ...config, hooks }, null, 2) + '\n');
+  const next = { ...config };
+  if (Object.keys(hooks).length) next.hooks = hooks; else delete next.hooks;
+  if (JSON.stringify(next) === JSON.stringify(config)) return original;
+  return Buffer.from(JSON.stringify(next, null, 2) + '\n');
 }
 
 async function waitReady({ home, installId }) {
@@ -71,13 +74,12 @@ async function waitReady({ home, installId }) {
 
 // OS calls are injectable so verification never touches a real launchd domain.
 export async function installSync({ env = process.env, userHome = homedir(), platform = process.platform,
-  nodeBinary = process.execPath, codexBinary, daemonSource = fileURLToPath(new URL('./sync-daemon.js', import.meta.url)),
+  nodeBinary = process.execPath, daemonSource = fileURLToPath(new URL('./sync-daemon.js', import.meta.url)),
   launch = async (command, target, path) => execFileSync('/bin/launchctl', [command, target, ...(path ? [path] : [])], { stdio: 'ignore' }),
   ready = waitReady } = {}) {
   if (platform !== 'darwin') throw Error('This installer requires macOS launchd.');
-  codexBinary ??= env.DSH_SKILL_SYNC_CODEX ?? execFileSync('/usr/bin/which', ['codex'], { encoding: 'utf8' }).trim();
   const homes = resolveSyncHomes(env, userHome);
-  const { home, agentsHome, claudeHome, codexHome } = homes;
+  const { home, agentsHome, claudeHome } = homes;
   const state = syncDirectory(home);
   const runtime = join(state, 'runtime', 'sync-daemon.js');
   const activation = join(state, 'runtime', 'ready.json');
@@ -93,11 +95,10 @@ export async function installSync({ env = process.env, userHome = homedir(), pla
     const original = await read(settings);
     const oldPlist = await read(plist);
     const oldRuntime = await read(runtime);
-    const oldActivation = await read(activation);
     const updated = configureHooks(original, hookCommand(home, nodeBinary, runtime), oldHook(oldPlist));
     const installId = randomUUID();
     const environment = { DSH_HOME: home, DSH_AGENTS_HOME: agentsHome, CLAUDE_CONFIG_DIR: claudeHome,
-      CODEX_HOME: codexHome, DSH_SKILL_SYNC_CODEX: codexBinary, DSH_SKILL_SYNC_INSTALL_ID: installId };
+      DSH_SKILL_SYNC_INSTALL_ID: installId };
     const spec = Buffer.from('<?xml version="1.0" encoding="UTF-8"?>\n' +
       '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n' +
       '<plist version="1.0"><dict>\n<key>Label</key>' + xml(label) +
@@ -106,13 +107,6 @@ export async function installSync({ env = process.env, userHome = homedir(), pla
         .map(([key, value]) => '<key>' + key + '</key>' + xml(value)).join('\n') + '</dict>' +
       '\n<key>RunAtLoad</key><true/><key>KeepAlive</key><true/><key>ThrottleInterval</key><integer>5</integer>' +
       '\n<key>StandardErrorPath</key>' + xml(join(state, 'error.log')) + '\n</dict></plist>\n');
-    const backup = join(state, 'backup-' + new Date().toISOString().replaceAll(':', '') + '-' + installId.slice(0, 8));
-    await mkdir(backup, { mode: 0o700 });
-    const snapshots = [[settings, 'claude-settings.json', original], [plist, 'launch-agent.plist', oldPlist],
-      [runtime, 'sync-daemon.js', oldRuntime], [activation, 'ready.json', oldActivation], [join(codexHome, 'config.toml'), 'codex-config.toml', await read(join(codexHome, 'config.toml'))],
-      [join(state, 'state.json'), 'state.json', await read(join(state, 'state.json'))]];
-    for (const [, name, bytes] of snapshots) if (bytes) await writeFile(join(backup, name), bytes, { flag: 'wx', mode: 0o600 });
-    await writeFile(join(backup, 'manifest.json'), JSON.stringify(snapshots.map(([path, name, bytes]) => ({ path, name, existed: bytes !== null })), null, 2), { mode: 0o600 });
     const same = (a, b) => a === null ? b === null : b !== null && a.equals(b);
     if (!same(original, await read(settings))) throw Error('Claude Code settings changed during setup.');
     const wasLoaded = await launch('print', target + '/' + label).then(() => true, () => false);
@@ -121,6 +115,7 @@ export async function installSync({ env = process.env, userHome = homedir(), pla
     try {
       if (!same(original, await read(settings))) throw Error('Claude Code settings changed while stopping the previous service.');
       for (const [path, bytes, before] of [[runtime, source, oldRuntime], [plist, spec, oldPlist], [settings, updated, original]]) {
+        if (same(bytes, before)) continue;
         await atomicReplace(path, bytes);
         changes.push({ path, bytes, before });
       }
@@ -141,20 +136,20 @@ export async function installSync({ env = process.env, userHome = homedir(), pla
       if (wasLoaded && oldPlist) {
         try { await launch('bootstrap', target, plist); } catch (failure) { recoveryErrors.push(failure.message); }
       }
-      throw Error(error.message + ' Backups: ' + backup + (recoveryErrors.length ? ' Recovery requires attention: ' + recoveryErrors.join('; ') : ''), { cause: error });
+      throw Error(error.message + (recoveryErrors.length ? ' Recovery requires attention: ' + recoveryErrors.join('; ') : ''), { cause: error });
     }
-    return { runtime, plist, backup };
+    return { runtime, plist };
   } finally { await rm(lock, { recursive: true }); }
 }
 
 export async function main(args = process.argv.slice(2)) {
   if (args.length === 1 && ['--help', '-h'].includes(args[0])) {
-    console.log('Usage: dsh-skill-sync-install\nInstall or upgrade optional macOS skill sync. Requires Node.js >=24 and codex.\nHomes: DSH_HOME, DSH_AGENTS_HOME, CODEX_HOME, CLAUDE_CONFIG_DIR (~/ supported).');
+    console.log('Usage: dsh-skill-sync-install\nInstall or upgrade optional macOS skill sync. Requires Node.js >=24.\nHomes: DSH_HOME, DSH_AGENTS_HOME, CLAUDE_CONFIG_DIR (~/ supported).');
     return;
   }
   if (args.length) throw Error('Unknown arguments. Use --help.');
   const result = await installSync();
-  console.log('Installed ' + label + '. Backups: ' + result.backup);
+  console.log('Installed ' + label + ' at ' + result.runtime);
 }
 
 let directEntry = false;

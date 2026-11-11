@@ -19,20 +19,20 @@ Upgrade through the Harness plugin manager and restart if prompted. Plugin insta
 Install or upgrade the service directly from npm.
 
 ```bash
-npx --yes --package @dawn0608/dsh-skill-manager@0.1.6 dsh-skill-sync-install
+npx --yes --package @dawn0608/dsh-skill-manager@0.1.7 dsh-skill-sync-install
 ```
 
 ## Usage and configuration
 
 - Manage imported copies: use the switch to enable or disable a copy and the detail action to uninstall it. Bundles are stored under `$DSH_HOME/skill-manager/bundles`, activated in `$DSH_HOME/skills`.
 - Shared skill provenance lives in `$DSH_AGENTS_HOME/skills/.provenance.json` (default `~/.agents/skills/.provenance.json`). Keys are relative paths such as `my-skill/SKILL.md`; `origin` is `self` or `third-party`. An optional credential-free HTTPS `repository` is shown for third-party skills. Unconfirmed origins appear under Third-party.
-- Shared skills use `$DSH_AGENTS_HOME/skills/<name>/SKILL.md`, with matching folder and skill names. The optional service restores missing Claude Code links from valid sources and preserves local skills with the same name. When the shared source or client configuration is temporarily unavailable, the service preserves existing links and the last synchronized state. After intentionally deleting or renaming a shared skill, clean up its old link manually.
+- Shared skills have one source: `$DSH_AGENTS_HOME/skills/<name>/SKILL.md` (default `~/.agents/skills`), with matching folder and skill names. Harness and Codex read the shared directory; the optional service supplies Claude Code links, so content edits are immediately reflected. Source deletion or renaming removes only unchanged links confirmed to have been created by this service. Same-name local skills and links of unconfirmed ownership are preserved.
 
 ### Configure shared sync
 
-The installer honors `DSH_HOME`, `DSH_AGENTS_HOME`, `CODEX_HOME`, and `CLAUDE_CONFIG_DIR`, including `~/`. Defaults are `~/.dsh`, `~/.agents`, `~/.codex`, and `~/.claude`. Set the same variables for Harness and the installer. `DSH_SKILL_SYNC_CODEX` can select the Codex executable. The installer copies a bundled, self-contained daemon into `$DSH_HOME/skill-manager/shared-sync/runtime`, installs `local.dsh-skill-sync` as a user LaunchAgent, and adds Claude Code `SessionStart` / `CwdChanged` hooks. It checks the new service identity before reporting success; it maintains only hooks confirmed to belong to this service and preserves unrelated hooks. Restart Harness and reopen Claude Code sessions to register workspaces.
+The installer honors `DSH_HOME`, `DSH_AGENTS_HOME`, and `CLAUDE_CONFIG_DIR`, including `~/`; defaults are `~/.dsh`, `~/.agents`, and `~/.claude`. Use the same variables for Harness and the installer. It deploys the self-contained daemon to `$DSH_HOME/skill-manager/shared-sync/runtime`, configures the user LaunchAgent `local.dsh-skill-sync`, and activates synchronization after checking its identity. No Codex CLI or project hooks are required; projects are not scanned.
 
-The service runs at login and synchronizes even while Harness is closed. Harness **Skills**, Codex **Skills**, and Claude Code `/skills` can toggle shared skills. Claude Code synchronization covers fully on/off states. Each destination's confirmed state is saved separately; failed writes retry against that baseline. A newer opposite external choice is preserved and reported as a conflict, which remains until an explicit Harness choice resolves it. Name collisions remain conflicts. Failures retain the last disabled Harness policy. The Skills page shows service failure or staleness. An already open Codex window may need restarting to reload its settings.
+The service runs at login and while Harness is closed. Switches are independent: Harness stores shared-skill choices in `$DSH_HOME/skill-manager/shared-policy.json` without changing Codex or Claude settings. An unreadable shared root or temporarily invalid skill preserves existing state and links; one failing entry does not block other valid skills. The Skills page reports service failure or staleness. Clients may need refreshing or restarting to reload skills.
 
 ### Stop and recover shared sync
 
@@ -42,14 +42,14 @@ Uninstalling the plugin does **not** stop the independent daemon. Stop it explic
 launchctl bootout "gui/$(id -u)" "$HOME/Library/LaunchAgents/local.dsh-skill-sync.plist"
 ```
 
-Remove that plist to prevent login startup, and remove only this service's exact command from Claude Code `SessionStart` / `CwdChanged` hooks. Keep unrelated hooks. Stopping synchronization leaves current enablement settings in place; restarting the service is done by rerunning the npm installer.
+Remove that plist to prevent login startup. Stopping synchronization preserves files, links, and each client’s switches. Rerun the npm installer to start the service again.
 
-Every install prints a private backup directory under `$DSH_HOME/skill-manager/shared-sync/backup-*`, with a manifest of original paths/existence, Claude and Codex settings, state, the previous runtime and plist when present. If startup/readiness fails, the installer restores its changed files and reloads the previously loaded service. Concurrent edits are preserved and reported for manual recovery. For manual recovery, stop the service first, inspect that manifest, and restore only the intended backup files; do not blindly overwrite newer settings. Existing disabled state is retained on sync failures. The daemon log is `$DSH_HOME/skill-manager/shared-sync/error.log`.
+The installer creates no routine backups. If startup fails, it rolls back only its own changes and preserves and reports concurrent edits. The daemon log is `$DSH_HOME/skill-manager/shared-sync/error.log`.
 
 ## Requirements and limitations
 
 - Requires DeepSeek Harness `>=0.2.2-rc.1 <0.3.0` and Node.js 24 or later.
-- Optional shared sync requires macOS and an installed `codex` CLI on PATH. Validate integration with launchd and your Codex and Claude Code sessions in your environment.
+- The optional background service requires macOS. File synchronization does not guarantee that a running client reloads immediately.
 
 ## Development
 

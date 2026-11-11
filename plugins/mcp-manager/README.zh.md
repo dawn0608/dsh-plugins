@@ -21,7 +21,7 @@ dsh plugin --profile <profile> add @dawn0608/dsh-mcp-manager
 
 ## 使用与配置
 
-通过开关启停已有服务。新增服务或修改连接设置时，可把提供方的安装说明交给 AI，让它更新该 profile 的 `cordis.patch.yml`。
+开关仅启停当前 Harness profile 的服务，不同步到 Codex 或 Claude Code。新增服务或修改连接设置时，可把提供方的安装说明交给 AI，让它更新该 profile 的 `cordis.patch.yml`。
 
 插件通常使用 Harness 宿主提供的当前 profile 名称、目录和补丁路径。若宿主未提供这些信息，插件依次检查 `DSH_PROFILE_DIR`、在 `DSH_HOME` 和 `DSH_PROFILE` 均设置时使用的 `DSH_HOME/profiles/<DSH_PROFILE>`，以及启动参数中包含 profile 清单和补丁文件的绝对目录。无法定位或读取补丁时，面板会提示 profile 不可用。显式配置的绝对路径 `patchPath` 优先于这些来源。
 
@@ -32,7 +32,11 @@ dsh plugin --profile <profile> add @dawn0608/dsh-mcp-manager
     patchPath: /absolute/path/to/cordis.patch.yml
 ```
 
-要启用三端移除，请先在宿主安装 MCP 同步程序，然后在 Desktop profile 补丁中加入以下覆盖配置，填写 Python 环境和脚本的绝对路径。三端移除使用当前 profile 的补丁，配置了 `patchPath` 覆盖路径时不可用。
+共享 MCP 同步只同步可移植的服务新增和配置修改，以及明确的卸载操作；各端开关和超时保持独立。配置暂时缺失会从已知定义恢复，不当作全局删除。
+
+同步程序及锁定依赖清单随包提供于 `lib/sync/mcp_sync.py` 和 `lib/sync/requirements.txt`。将脚本部署到固定运行目录，使用 Python 3.12 或更高版本的虚拟环境安装依赖；现有后台和卸载命令桥接继续使用该固定路径。插件安装不会自动启动后台。
+
+要启用三端移除，请先配置宿主的同步后台，然后在 Desktop profile 补丁中加入以下覆盖配置，填写 Python 环境和脚本的绝对路径。三端移除使用当前 profile 的补丁，配置了 `patchPath` 覆盖路径时不可用。
 
 ```yaml
 - id: mcp-manager

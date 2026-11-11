@@ -3,6 +3,7 @@ import { lstat, open, readdir, realpath } from 'node:fs/promises';
 import { createConnection } from 'node:net';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
+import { policyFile, readSharedPolicy } from './shared-policy.js';
 import { isManagedName, isRecord, ManagerError, MAX_BUNDLE_BYTES, parseSkillFile } from './host-bundle.js';
 
 export function resolveSyncHomes(env = process.env, userHome = homedir()) {
@@ -37,6 +38,7 @@ export async function regularFile(path, limit) {
 }
 
 export async function sharedSkills(agentsHome) {
+  if (!agentsHome) return new Map();
   const root = await realpath(join(agentsHome, 'skills')).catch(error => {
     if (error.code !== 'ENOENT') throw error;
   });
@@ -50,7 +52,7 @@ export async function sharedSkills(agentsHome) {
       const parsed = parseSkillFile(await regularFile(path, MAX_BUNDLE_BYTES));
       if (parsed.name === entry.name) skills.set(path, { path, name: parsed.name, description: parsed.description });
     } catch (error) {
-      if (error.code !== 'ENOENT' && error.code !== 'invalid') throw error;
+      // An unreadable or invalid entry must not hide other valid skills.
     }
   }
   return skills;
@@ -59,7 +61,7 @@ export async function sharedSkills(agentsHome) {
 export async function readSyncState(home) {
   try {
     const value = JSON.parse(await regularFile(syncStateFile(home), MAX_STATE_BYTES));
-    if (value.version !== 1 || !isRecord(value.entries)) return null;
+    if (![1, 2].includes(value.version) || !isRecord(value.entries)) throw new ManagerError('unavailable');
     return value;
   } catch (error) {
     if (error.code === 'ENOENT') return null;
@@ -113,10 +115,10 @@ export function registerSharedPolicy(skills, home, agentsHome) {
     return {
       name: 'skill-manager-shared-policy',
       async list() {
-        const state = await readSyncState(home);
-        if (!state || !Object.values(state.entries).some(entry => sharedPolicyEnabled(entry) === false)) return [];
+        const state = await readSharedPolicy(home);
+        if (!Object.values(state.entries).some(enabled => enabled === false)) return [];
         return [...(await sharedSkills(agentsHome)).values()]
-          .filter(skill => sharedPolicyEnabled(state.entries[skill.path]) === false)
+          .filter(skill => state.entries[skill.path] === false)
           .map(skill => ({
             ...skill,
             provider: 'skill-manager-shared-policy',
@@ -140,7 +142,7 @@ export function registerSharedPolicy(skills, home, agentsHome) {
       },
     };
   });
-  const path = syncStateFile(home);
+  const path = policyFile(home);
   watchFile(path, { persistent: false, interval: 500 }, invalidate);
   return () => {
     unwatchFile(path, invalidate);

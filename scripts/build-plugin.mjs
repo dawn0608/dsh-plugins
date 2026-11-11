@@ -41,8 +41,17 @@ if (clientEntry === undefined && declaresClient) fail('dsh.client is declared bu
 
 const libDir = join(dir, 'lib');
 const extraEntries = [];
+const assets = [];
 while (args.length > 0) {
-  if (args.shift() !== '--entry' || !args[0]) fail('expected --entry src/<name>.js');
+  const flag = args.shift();
+  if (!['--entry', '--asset'].includes(flag) || !args[0]) fail('expected --entry or --asset with a src/ path');
+  if (flag === '--asset') {
+    const asset = resolve(dir, args.shift());
+    const within = relative(join(dir, 'src'), asset);
+    if (within.startsWith('..') || !/\.(?:py|txt)$/.test(asset) || !existsSync(asset)) fail('asset must be an existing source inside src/');
+    assets.push({ asset, within });
+    continue;
+  }
   const entry = resolve(dir, args.shift());
   const within = relative(join(dir, 'src'), entry);
   if (within.startsWith('..') || !/\.(?:js|ts)$/.test(entry) || !existsSync(entry)) fail('extra entry must be an existing source inside src/');
@@ -51,6 +60,11 @@ while (args.length > 0) {
 }
 rmSync(libDir, { recursive: true, force: true });
 mkdirSync(libDir, { recursive: true });
+for (const { asset, within } of assets) {
+  const output = join(libDir, within);
+  mkdirSync(dirname(output), { recursive: true });
+  copyFileSync(asset, output);
+}
 
 // This notice covers the native controls/styles copied into published bundles.
 const thirdPartyNotice = resolve(import.meta.dirname, '../THIRD_PARTY_NOTICES.md');

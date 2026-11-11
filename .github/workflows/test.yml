@@ -16,6 +16,11 @@ jobs:
         with:
           node-version: 24
           cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install synchronization test dependencies
+        run: python -m pip install -r plugins/mcp-manager/src/sync/requirements.txt
       - name: Install tooling
         run: npm ci
       - name: Verify plugins, tooling and template

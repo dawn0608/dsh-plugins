@@ -4,9 +4,10 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { createCoordinator } from '../src/sync-daemon.js';
+import { ensureSharedPolicy, policyFile, readSharedPolicy, setSharedEnabled } from '../src/shared-policy.js';
 import { readSyncState, registerSharedPolicy, syncDirectory } from '../src/shared-sync.js';
 
-async function fixture(t, options = {}) {
+async function fixture(t) {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'dsh-shared-sync-')));
   t.after(() => rm(root, { recursive: true, force: true }));
   const home = join(root, 'dsh');
@@ -26,300 +27,154 @@ async function fixture(t, options = {}) {
   const claude = join(claudeHome, 'settings.json');
   await setCodex(true);
   await writeFile(claude, '{"permissions":{"deny":["Bash(private)"]}}\n');
-  let fail = false;
   const sync = await createCoordinator({
-    home, agentsHome, claudeHome, codexHome, ...options,
-    writeSkill: async (binary, directory, target, enabled) => {
-      assert.equal(directory, codexHome);
-      assert.equal(target, path);
-      if (fail) throw Error('isolated writer unavailable');
-      await setCodex(enabled);
-    },
+    home, agentsHome, claudeHome, codexHome,
+    writeSkill: async () => assert.fail('no Codex writes allowed'),
+    writeClaude: async () => assert.fail('no Claude settings writes allowed'),
   });
   const readJson = async path => JSON.parse(await readFile(path, 'utf8'));
   const state = async () => (await readSyncState(home)).entries[path];
-  return { home, agentsHome, codexHome, path, body, claude, claudeHome, workspace, local, sync, setCodex, readJson, state,
-    fail: value => { fail = value; } };
+  return { home, agentsHome, codexHome, path, body, claude, claudeHome, workspace, local, sync, setCodex, readJson, state };
 }
 
-test('syncs all three inputs and absorbs only the Claude local shared-skill change', async t => {
+test('each app keeps its switches through content edits and daemon restarts', async t => {
   const f = await fixture(t);
-  await writeFile(f.local, '{"skillOverrides":{"private":"off"},"other":42}');
-  await f.sync({ type: 'enroll', cwd: f.workspace });
-  assert.equal(await readlink(join(f.claudeHome, 'skills', 'shared')), dirname(f.path));
-  assert.equal((await f.state()).enabled, true);
-
-  await f.setCodex(false);
-  await f.sync();
-  assert.equal((await f.state()).enabled, false);
-  assert.equal((await f.readJson(f.claude)).skillOverrides.shared, 'off');
-
-  await writeFile(f.local, '{"skillOverrides":{"private":"off","shared":"on"},"other":42}');
-  await f.sync();
-  assert.equal((await f.state()).enabled, true);
-  assert.deepEqual(await f.readJson(f.local), { skillOverrides: { private: 'off' }, other: 42 });
-
-  await f.sync({ type: 'set', path: f.path, enabled: false });
-  await f.sync();
-  assert.equal((await f.state()).enabled, false);
-  assert.deepEqual(await f.readJson(f.claude), {
-    permissions: { deny: ['Bash(private)'] }, skillOverrides: { shared: 'off' },
-  });
-  await f.sync({ type: 'set', path: f.path, enabled: true });
-  assert.equal((await f.state()).enabled, true);
-  assert.equal(await readFile(f.path, 'utf8'), f.body);
-});
-
-test('retries an incomplete write and preserves a private Claude same-name entry', async t => {
-  const f = await fixture(t);
-  await f.sync();
-  f.fail(true);
-  await assert.rejects(f.sync({ type: 'set', path: f.path, enabled: false }), { code: 'unavailable' });
-  assert.equal((await f.state()).error, 'unavailable');
-  f.fail(false);
-  await f.sync();
-  assert.equal((await f.state()).enabled, false);
-  assert.equal((await f.state()).error, undefined);
-  const link = join(f.claudeHome, 'skills', 'shared');
-  await rm(link);
-  await mkdir(link);
-  await writeFile(join(link, 'SKILL.md'), 'private contents');
-  await assert.rejects(f.sync({ type: 'set', path: f.path, enabled: true }), { code: 'conflict' });
-  assert.equal(await readFile(join(link, 'SKILL.md'), 'utf8'), 'private contents');
-  await rm(dirname(f.path), { recursive: true });
-  await f.sync();
-  assert.equal((await lstat(link)).isDirectory(), true);
-});
-
-test('Harness policy contributes only disabled shared files and keeps them previewable', async t => {
-  const f = await fixture(t);
-  await f.sync();
-  let provider;
-  const unregister = registerSharedPolicy({
-    registerProvider(make) { provider = make({ invalidate() {} }); return () => {}; },
-  }, f.home, f.agentsHome);
-  t.after(unregister);
-  assert.deepEqual(await provider.list(), []);
-  await f.setCodex(false);
-  await f.sync();
-  const [candidate] = await provider.list();
-  assert.deepEqual(candidate.invocation, { userInvocable: false, modelInvocable: false });
-  assert.equal(candidate.source, 'user-agents');
-  assert.equal((await provider.get(candidate)).content, 'Fixture body');
-  await f.setCodex(true);
-  await f.sync();
-  assert.deepEqual(await provider.list(), []);
-});
-
-
-test('records each successful destination before retry and preserves newer external Codex choice', async t => {
-  const f = await fixture(t, { writeClaude: async () => { throw Error('isolated Claude failure'); } });
-  await f.sync();
-  await assert.rejects(f.sync({ type: 'set', path: f.path, enabled: false }), { code: 'unavailable' });
-  assert.equal((await f.state()).codex, false);
-  assert.equal((await f.state()).pending, true);
-  await f.setCodex(true);
-  await f.sync();
-  assert.equal((await f.state()).error, 'conflict');
-  assert.equal((await f.state()).enabled, false);
-  assert.equal(await readFile(join(f.codexHome, 'config.toml'), 'utf8'), 'model = "fixture"\n');
-  await f.sync();
-  assert.equal((await f.state()).error, 'conflict');
-  await f.sync({ type: 'set', path: f.path, enabled: true });
-  assert.equal((await f.state()).error, undefined);
-  assert.equal((await f.state()).enabled, true);
-});
-
-test('pending retries preserve newer external Claude choice and disabled Harness policy', async t => {
-  const f = await fixture(t);
-  await f.sync();
-  f.fail(true);
-  await assert.rejects(f.sync({ type: 'set', path: f.path, enabled: false }), { code: 'unavailable' });
-  await writeFile(f.claude, '{"skillOverrides":{"shared":"on"}}');
-  f.fail(false);
-  await f.sync();
-  assert.equal((await f.state()).error, 'conflict');
-  assert.equal((await f.readJson(f.claude)).skillOverrides.shared, 'on');
-  assert.equal((await f.state()).enabled, false);
-});
-
-test('preserves a preexisting correct link when its source is missing', async t => {
-  const f = await fixture(t);
-  const link = join(f.claudeHome, 'skills', 'shared');
-  await symlink(dirname(f.path), link);
-  await f.sync();
-  await rm(dirname(f.path), { recursive: true });
-  await f.sync();
-  assert.equal((await lstat(link)).isSymbolicLink(), true);
-});
-
-test('preserves a replacement link to the same source', async t => {
-  const f = await fixture(t);
-  await f.sync();
-  const link = join(f.claudeHome, 'skills', 'shared');
-  await rm(link);
-  await symlink(dirname(f.path), link);
-  await rm(dirname(f.path), { recursive: true });
-  await f.sync();
-  assert.equal((await lstat(link)).isSymbolicLink(), true);
-});
-
-test('persists coordinator failures and success timestamps without clearing disabled entries', async t => {
-  const f = await fixture(t);
-  await f.sync({ type: 'set', path: f.path, enabled: false });
-  const before = await readSyncState(f.home);
-  assert.equal(before.health.status, 'ok');
-  assert.ok(Date.parse(before.health.lastSuccessAt));
-  await writeFile(join(f.codexHome, 'config.toml'), '[invalid');
-  await assert.rejects(f.sync());
-  const failed = await readSyncState(f.home);
-  assert.equal(failed.health.status, 'unavailable');
-  assert.equal(failed.health.lastSuccessAt, before.health.lastSuccessAt);
-  assert.equal(failed.entries[f.path].enabled, false);
-  await f.setCodex(false);
-  await f.sync();
-  assert.equal((await readSyncState(f.home)).health.status, 'ok');
-});
-
-test('retains a service-owned link and policy when a shared skill disappears or is invalid', async t => {
-  const f = await fixture(t);
-  await f.sync({ type: 'set', path: f.path, enabled: false });
-  const link = join(f.claudeHome, 'skills', 'shared');
-  await rm(f.path);
-  for (const invalid of [false, true]) {
-    if (invalid) await writeFile(f.path, 'incomplete skill');
-    await f.sync();
-    assert.equal(await readlink(link), dirname(f.path));
-    assert.equal((await f.state()).policyEnabled, false);
-    assert.equal((await f.state()).error, 'unavailable');
-    assert.equal((await readSyncState(f.home)).health.status, 'degraded');
-  }
-  await writeFile(f.path, f.body);
-  await f.sync();
-  assert.equal((await f.state()).policyEnabled, false);
-  assert.equal((await f.state()).error, undefined);
-  assert.equal((await readSyncState(f.home)).health.status, 'ok');
-});
-
-test('keeps the baseline when a client config or the shared root is temporarily absent', async t => {
-  const f = await fixture(t);
-  await f.sync({ type: 'set', path: f.path, enabled: false });
-  const codex = join(f.codexHome, 'config.toml');
-  const before = await readFile(codex);
-  await rm(codex);
-  await assert.rejects(f.sync(), { code: 'unavailable' });
-  assert.equal((await f.state()).policyEnabled, false);
-  assert.equal((await f.readJson(f.claude)).skillOverrides.shared, 'off');
-  await assert.rejects(lstat(codex), { code: 'ENOENT' });
-  await writeFile(codex, before);
-  await rm(join(f.agentsHome, 'skills'), { recursive: true });
-  await assert.rejects(f.sync(), { code: 'unavailable' });
-  assert.equal((await f.state()).policyEnabled, false);
-  assert.equal(await readlink(join(f.claudeHome, 'skills', 'shared')), dirname(f.path));
-  await mkdir(dirname(f.path), { recursive: true });
-  await writeFile(f.path, f.body);
-  await rm(join(f.claudeHome, 'skills', 'shared'));
-  await f.sync();
-  assert.equal(await readlink(join(f.claudeHome, 'skills', 'shared')), dirname(f.path));
-  assert.equal((await f.state()).policyEnabled, false);
-});
-
-test('keeps a Claude project toggle pending while the skill source is unavailable', async t => {
-  const f = await fixture(t);
-  await f.sync({ type: 'enroll', cwd: f.workspace });
-  await f.sync({ type: 'set', path: f.path, enabled: false });
-  await rm(f.path);
-  await writeFile(f.local, '{"skillOverrides":{"shared":"on"}}');
-  await f.sync();
-  assert.equal((await f.state()).policyEnabled, false);
-  await writeFile(f.path, f.body);
-  await f.sync();
-  assert.equal((await f.state()).policyEnabled, true);
-});
-
-test('accepts a configured shared root that resolves through a directory link', async t => {
-  const f = await fixture(t);
-  const root = join(f.agentsHome, 'skills');
-  const target = join(f.agentsHome, 'shared-source');
-  await rename(root, target);
-  await symlink(target, root, 'dir');
-  await f.sync();
-  assert.equal(await readlink(join(f.claudeHome, 'skills', 'shared')), join(target, 'shared'));
-  assert.equal((await readSyncState(f.home)).health.status, 'ok');
-});
-
-test('bootstraps shared links when Codex has not created its first config', async t => {
-  const f = await fixture(t);
-  await rm(join(f.codexHome, 'config.toml'));
-  await f.sync();
-  assert.equal(await readlink(join(f.claudeHome, 'skills', 'shared')), dirname(f.path));
-  await f.sync({ type: 'set', path: f.path, enabled: false });
-  assert.equal((await f.state()).policyEnabled, false);
-});
-
-
-test('restarts from the Codex checkpoint and completes the failed Claude destination', async t => {
-  const f = await fixture(t, { writeClaude: async () => { throw Error('isolated Claude failure'); } });
-  await f.sync();
-  await assert.rejects(f.sync({ type: 'set', path: f.path, enabled: false }), { code: 'unavailable' });
-  const restarted = await createCoordinator({ home: f.home, agentsHome: f.agentsHome, claudeHome: f.claudeHome,
-    codexHome: f.codexHome, writeSkill: async () => { assert.fail('confirmed Codex destination must not be rewritten'); } });
-  await restarted();
-  assert.equal((await f.readJson(f.claude)).skillOverrides.shared, 'off');
-  assert.equal((await f.state()).pending, undefined);
-  assert.equal((await f.state()).error, undefined);
-  assert.equal((await readSyncState(f.home)).health.status, 'ok');
-});
-
-test('pending enable accepts an explicit same-direction Claude on and finishes Codex retry', async t => {
-  const f = await fixture(t);
-  await f.sync({ type: 'set', path: f.path, enabled: false });
-  f.fail(true);
-  await assert.rejects(f.sync({ type: 'set', path: f.path, enabled: true }), { code: 'unavailable' });
-  await writeFile(f.claude, '{"skillOverrides":{"shared":"on"}}');
-  f.fail(false);
-  await f.sync();
-  assert.equal((await f.state()).error, undefined);
-  assert.equal((await f.state()).pending, undefined);
-  assert.equal((await f.state()).enabled, true);
-  assert.equal((await f.state()).codex, true);
-  assert.equal((await f.readJson(f.claude)).skillOverrides.shared, 'on');
-});
-
-test('failed enabling retains the known disabled policy until the retry succeeds', async t => {
-  const f = await fixture(t);
-  let provider;
-  t.after(registerSharedPolicy({
-    registerProvider(make) { provider = make({ invalidate() {} }); return () => {}; },
-  }, f.home, f.agentsHome));
-  await f.sync({ type: 'set', path: f.path, enabled: false });
-  assert.equal((await provider.list()).length, 1);
-  f.fail(true);
-  await assert.rejects(f.sync({ type: 'set', path: f.path, enabled: true }), { code: 'unavailable' });
-  assert.equal((await f.state()).enabled, true, 'target intent remains available for retry');
-  assert.equal((await provider.list()).length, 1, 'the known disabled policy must remain in force');
-  f.fail(false);
-  await f.sync();
-  assert.equal((await provider.list()).length, 0);
-  f.fail(true);
-  await assert.rejects(f.sync({ type: 'set', path: f.path, enabled: false }), { code: 'unavailable' });
-  assert.equal((await provider.list()).length, 1, 'a conservative disable takes effect immediately');
-});
-
-test('a successful Codex enable checkpoint cannot release disabled policy while Claude still fails', async t => {
-  const f = await fixture(t, { writeClaude: async () => { throw Error('isolated Claude failure'); } });
   await f.setCodex(false);
   await writeFile(f.claude, '{"skillOverrides":{"shared":"off"}}');
+  await writeFile(f.local, '{"skillOverrides":{"shared":"on"}}');
+  const paths = [join(f.codexHome, 'config.toml'), f.claude, f.local];
+  const before = await Promise.all(paths.map(path => readFile(path, 'utf8')));
   await f.sync();
+  assert.equal((await readSharedPolicy(f.home)).entries[f.path], undefined);
+  await setSharedEnabled(f.home, f.path, false);
+  await writeFile(f.path, f.body + 'updated');
+  const restart = await createCoordinator(f);
+  await restart();
+  assert.deepEqual(await Promise.all(paths.map(path => readFile(path, 'utf8'))), before);
+  assert.equal((await readSharedPolicy(f.home)).entries[f.path], false);
+  assert.equal(await readFile(join(f.claudeHome, 'skills', 'shared', 'SKILL.md'), 'utf8'), f.body + 'updated');
+  await setSharedEnabled(f.home, f.path, true);
+  await restart();
+  assert.deepEqual(await Promise.all(paths.map(path => readFile(path, 'utf8'))), before);
+});
+
+test('preserves effective Harness policy once without replaying old pending operations', async t => {
+  const f = await fixture(t);
+  await writeFile(join(syncDirectory(f.home), 'state.json'), JSON.stringify({ version: 1,
+    projects: { '/nonexistent-worktree': {} }, entries: { [f.path]: {
+      name: 'shared', enabled: true, codex: true, claude: 'off', pending: true, policyEnabled: false,
+    } } }));
+  const before = await readFile(f.claude);
+  await f.sync();
+  assert.equal((await readSharedPolicy(f.home)).entries[f.path], false);
+  assert.equal((await readSyncState(f.home)).version, 2);
+  assert.equal((await f.state()).pending, undefined);
+  assert.deepEqual(await readFile(f.claude), before);
+  await setSharedEnabled(f.home, f.path, true);
+  await f.sync();
+  assert.equal((await readSharedPolicy(f.home)).entries[f.path], true);
+});
+
+test('Harness local policy works without a running sync daemon and retains preview', async t => {
+  const f = await fixture(t);
   let provider;
-  t.after(registerSharedPolicy({
-    registerProvider(make) { provider = make({ invalidate() {} }); return () => {}; },
-  }, f.home, f.agentsHome));
-  await assert.rejects(f.sync({ type: 'set', path: f.path, enabled: true }), { code: 'unavailable' });
-  assert.equal((await f.state()).codex, true);
-  assert.equal((await provider.list()).length, 1);
-  const restarted = await createCoordinator({ home: f.home, agentsHome: f.agentsHome, claudeHome: f.claudeHome,
-    codexHome: f.codexHome, writeSkill: async () => { assert.fail('Codex was already confirmed'); } });
-  await restarted();
-  assert.equal((await provider.list()).length, 0);
+  t.after(registerSharedPolicy({ registerProvider(make) {
+    provider = make({ invalidate() {} }); return () => {};
+  } }, f.home, f.agentsHome));
+  await setSharedEnabled(f.home, f.path, false);
+  const [entry] = await provider.list();
+  assert.deepEqual(entry.invocation, { userInvocable: false, modelInvocable: false });
+  assert.equal((await provider.get(entry)).content, 'Fixture body');
+  await setSharedEnabled(f.home, f.path, true);
+  assert.deepEqual(await provider.list(), []);
+});
+
+test('source deletion and rename remove only unchanged service-owned links', async t => {
+  const f = await fixture(t);
+  await f.sync();
+  const link = join(f.claudeHome, 'skills', 'shared');
+  await rename(dirname(f.path), join(f.agentsHome, 'skills', 'renamed'));
+  await writeFile(join(f.agentsHome, 'skills', 'renamed', 'SKILL.md'), f.body.replace('name: shared', 'name: renamed'));
+  await f.sync();
+  await assert.rejects(lstat(link), { code: 'ENOENT' });
+  assert.equal(await readlink(join(f.claudeHome, 'skills', 'renamed')), join(f.agentsHome, 'skills', 'renamed'));
+  await rm(join(f.agentsHome, 'skills', 'renamed'), { recursive: true });
+  await f.sync();
+  await assert.rejects(lstat(join(f.claudeHome, 'skills', 'renamed')), { code: 'ENOENT' });
+  assert.deepEqual((await readSyncState(f.home)).entries, {});
+});
+
+for (const kind of ['preexisting', 'replaced']) test(`preserves ${kind} links on source deletion`, async t => {
+  const f = await fixture(t), link = join(f.claudeHome, 'skills', 'shared');
+  if (kind === 'preexisting') await symlink(dirname(f.path), link);
+  await f.sync();
+  if (kind === 'replaced') {
+    await rename(link, link + '.original');
+    await symlink(dirname(f.path), link);
+  }
+  await rm(dirname(f.path), { recursive: true });
+  await f.sync();
+  assert.ok((await lstat(link)).isSymbolicLink());
+});
+
+test('invalid source and unavailable root retain links and local policy and recover', async t => {
+  const f = await fixture(t);
+  await f.sync(); await setSharedEnabled(f.home, f.path, false);
+  await writeFile(f.path, 'incomplete skill'); await f.sync();
+  assert.equal((await f.state()).error, 'unavailable');
+  assert.equal((await readSyncState(f.home)).health.status, 'degraded');
+  const root = join(f.agentsHome, 'skills');
+  await rename(root, root + '.away');
+  await assert.rejects(f.sync(), { code: 'unavailable' });
+  assert.equal((await readSharedPolicy(f.home)).entries[f.path], false);
+  assert.equal(await readlink(join(f.claudeHome, 'skills', 'shared')), dirname(f.path));
+  await rename(root + '.away', root); await writeFile(f.path, f.body); await f.sync();
+  assert.equal((await readSyncState(f.home)).health.status, 'ok');
+});
+
+test('one local name collision does not block another valid shared skill', async t => {
+  const f = await fixture(t);
+  const collision = join(f.claudeHome, 'skills', 'shared');
+  await mkdir(collision); await writeFile(join(collision, 'SKILL.md'), 'private');
+  const second = join(f.agentsHome, 'skills', 'second'); await mkdir(second);
+  await writeFile(join(second, 'SKILL.md'), f.body.replace('name: shared', 'name: second'));
+  await f.sync();
+  assert.equal((await f.state()).error, 'conflict');
+  assert.equal(await readFile(join(collision, 'SKILL.md'), 'utf8'), 'private');
+  assert.equal(await readlink(join(f.claudeHome, 'skills', 'second')), second);
+});
+
+test('missing or invalid native configuration no longer gates shared links', async t => {
+  const f = await fixture(t);
+  await rm(join(f.codexHome, 'config.toml')); await writeFile(f.claude, '{invalid');
+  await f.sync(); assert.equal((await readSyncState(f.home)).health.status, 'ok');
+  assert.equal(await readFile(f.claude, 'utf8'), '{invalid');
+});
+
+test('configured source directory links resolve without losing ownership', async t => {
+  const f = await fixture(t), root = join(f.agentsHome, 'skills'), target = join(f.agentsHome, 'source');
+  await rename(root, target); await symlink(target, root, 'dir'); await f.sync();
+  assert.equal(await readlink(join(f.claudeHome, 'skills', 'shared')), join(target, 'shared'));
+});
+
+test('concurrent local changes are rejected without losing another skill choice', async t => {
+  const f = await fixture(t); await ensureSharedPolicy(f.home);
+  const results = await Promise.allSettled([setSharedEnabled(f.home, f.path, false), setSharedEnabled(f.home, f.path+'2', false)]);
+  for (let i=0;i<results.length;i++) if (results[i].status === 'rejected') {
+    assert.equal(results[i].reason.code, 'conflict'); await setSharedEnabled(f.home, f.path+(i?'2':''), false);
+  }
+  assert.deepEqual((await readSharedPolicy(f.home)).entries, { [f.path]:false, [f.path+'2']:false });
+  await writeFile(policyFile(f.home), '{invalid');
+  await assert.rejects(setSharedEnabled(f.home, f.path, true));
+  assert.equal(await readFile(policyFile(f.home), 'utf8'), '{invalid');
+});
+
+test('unknown state schema is not replaced with an empty policy or catalog', async t => {
+  const f = await fixture(t), statePath = join(syncDirectory(f.home), 'state.json');
+  const entries = { [f.path]: { name: 'shared', policyEnabled: false } };
+  await writeFile(statePath, JSON.stringify({ version: 99, entries }));
+  await assert.rejects(f.sync(), { code: 'unavailable' });
+  assert.equal((await f.readJson(statePath)).version, 99);
+  assert.deepEqual((await f.readJson(statePath)).entries, entries);
+  await assert.rejects(lstat(policyFile(f.home)), { code: 'ENOENT' });
 });

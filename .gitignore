@@ -18,3 +18,7 @@ templates/plugin/lib/
 
 # 本地日志
 *.log
+
+# Python synchronization tooling
+__pycache__/
+.venv-sync/

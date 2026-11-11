@@ -47,6 +47,14 @@ npm run verify     # 插件构建、规范、测试，以及公共工具和模�
 
 插件源码、适用版本、计费口径和已知限制详见各自的 README；目录约定见 [AGENTS.md](AGENTS.md#插件结构)。
 
+完整验证还需要 Python 3.12+ 及 MCP 同步依赖；可复用已有虚拟环境，或在仓库创建开发环境：
+
+```bash
+python3 -m venv .venv-sync
+.venv-sync/bin/python -m pip install -r plugins/mcp-manager/src/sync/requirements.txt
+DSH_SYNC_PYTHON=.venv-sync/bin/python npm run verify
+```
+
 ## 新增插件
 
 1. `cp -R templates/plugin plugins/<name>`，替换包名、目录名、`cordis.patch.yml` 的 `id`、client 注册 id、locale 文案、CSS 前缀、README 与图标。

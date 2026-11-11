@@ -544,3 +544,17 @@ test('the catalog exposes the effective disabled policy while a shared enable in
   await writeFile(join(directory, 'state.json'), JSON.stringify(state));
   assert.equal((await request({ action: 'list' })).skills[0].enabled, false, 'legacy states retain their effective value');
 });
+
+test('shared skill switches persist locally without a daemon and reject nonshared paths', async t => {
+  let skill;
+  const f = await host(t, { snapshot: async () => ({ complete: true, skills: [skill] }), get: async () => skill });
+  const directory = join(f.agentsHome, 'skills', 'sample');
+  await mkdir(directory, { recursive: true }); await writeFile(join(directory, 'SKILL.md'), skillText);
+  skill = { name: 'sample', description: 'Sample', source: 'user-agents', path: join(directory, 'SKILL.md'), content: '# Instructions' };
+  await f.request({ action: 'setEnabled', id: 'catalog:sample', enabled: false });
+  assert.equal((await f.create()({ action: 'list' })).skills[0].enabled, false);
+  assert.equal((await f.request({ action: 'detail', id: 'catalog:sample' })).body, '# Instructions');
+  await assert.rejects(lstat(join(f.home, 'skill-manager', 'shared-sync')), { code: 'ENOENT' });
+  skill = { ...skill, path: join(f.base, 'outside', 'SKILL.md') };
+  await assert.rejects(f.request({ action: 'setEnabled', id: 'catalog:sample', enabled: true }), { code: 'forbidden' });
+});

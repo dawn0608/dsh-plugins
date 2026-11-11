@@ -19,20 +19,20 @@ dsh plugin --profile <profile> add @dawn0608/dsh-skill-manager
 通过 npm 直接安装或升级服务。
 
 ```bash
-npx --yes --package @dawn0608/dsh-skill-manager@0.1.6 dsh-skill-sync-install
+npx --yes --package @dawn0608/dsh-skill-manager@0.1.7 dsh-skill-sync-install
 ```
 
 ## 使用与配置
 
 - 管理导入副本：用开关启停，在详情中卸载。副本存放在 `$DSH_HOME/skill-manager/bundles`，通过 `$DSH_HOME/skills` 激活。
 - 共享技能来源记录在 `$DSH_AGENTS_HOME/skills/.provenance.json`，默认 `~/.agents/skills/.provenance.json`。键为 `my-skill/SKILL.md` 等相对路径，`origin` 为 `self` 或 `third-party`。第三方可填写不含凭据的 HTTPS `repository`，用于展示原仓库链接。来源未确认的技能归入第三方。
-- 共享技能放在 `$DSH_AGENTS_HOME/skills/<name>/SKILL.md`，文件夹名与技能名一致。可选服务从有效源码补齐缺失的 Claude Code 链接，保留同名的本地技能。共享源码或客户端配置暂时不可用时，服务保留已有链接和上次同步状态。主动删除或重命名共享技能后，请手动清理对应的旧链接。
+- 共享技能以 `$DSH_AGENTS_HOME/skills/<name>/SKILL.md` 为唯一来源，默认 `~/.agents/skills`，文件夹名与技能名一致。Harness、Codex 读取共享目录；可选服务为 Claude Code 补齐链接，内容修改直接反映。删除或重命名源目录时，仅清理可确认由本服务创建且未被替换的链接。同名本地技能、无法确认归属的链接均保留。
 
 ### 配置共享同步
 
-安装器支持 `DSH_HOME`、`DSH_AGENTS_HOME`、`CODEX_HOME`、`CLAUDE_CONFIG_DIR` 以及 `~/` 展开，默认分别为 `~/.dsh`、`~/.agents`、`~/.codex`、`~/.claude`。Harness 与安装器应使用同一组变量。可通过 `DSH_SKILL_SYNC_CODEX` 指定 Codex 可执行文件。安装器将已打包且自包含的 daemon 复制到 `$DSH_HOME/skill-manager/shared-sync/runtime`，配置用户 LaunchAgent `local.dsh-skill-sync` 和 Claude Code 的 `SessionStart` / `CwdChanged` hooks，并在新服务身份验证成功后报告完成。仅维护可确认属于本服务的 hooks，保留其他 hooks。重启 Harness 并重新打开 Claude Code 会话，以登记工作目录。
+安装器支持 `DSH_HOME`、`DSH_AGENTS_HOME`、`CLAUDE_CONFIG_DIR` 及 `~/` 展开，默认分别为 `~/.dsh`、`~/.agents`、`~/.claude`。Harness 与安装器应使用同一组变量。安装器将自包含 daemon 部署到 `$DSH_HOME/skill-manager/shared-sync/runtime`，配置用户 LaunchAgent `local.dsh-skill-sync`，验证服务身份后启用同步。不需要 Codex CLI 或项目 hooks；服务不扫描项目目录。
 
-服务随登录启动，Harness 关闭后仍会同步。可在 Harness **技能**、Codex **Skills** 或 Claude Code `/skills` 切换共享技能。Claude Code 同步涵盖完全开启或停用状态。各端确认成功后分别保存状态，失败重试前核对基线；保留外部新作出的反向选择并报告冲突，直到在 Harness 中显式选择解决。同名冲突保持可见。同步失败不会解除原有 Harness 停用策略。技能页提示服务异常或过期状态。已打开的 Codex 窗口可能需要重启才会重新读取设置。
+服务随登录启动，Harness 关闭后仍会同步。各端开关独立：Harness 的共享技能选择保存在 `$DSH_HOME/skill-manager/shared-policy.json`，不修改 Codex 或 Claude 设置。共享根目录不可读或技能文件暂时无效时保留已有状态和链接；单个条目异常不阻塞其他有效技能。技能页提示服务异常或过期状态。客户端可能需要刷新或重启才能重新加载技能。
 
 ### 停止与恢复共享同步
 
@@ -42,14 +42,14 @@ npx --yes --package @dawn0608/dsh-skill-manager@0.1.6 dsh-skill-sync-install
 launchctl bootout "gui/$(id -u)" "$HOME/Library/LaunchAgents/local.dsh-skill-sync.plist"
 ```
 
-移除该 plist 可阻止下次登录启动；在 Claude Code 的 `SessionStart` / `CwdChanged` hooks 中仅移除本服务的准确命令，保留其他 hooks。停止同步会保留当前启停设置，重新运行 npm 安装器即可恢复服务。
+移除该 plist 可阻止下次登录启动。停止同步保留现有文件、链接和各端开关，重新运行 npm 安装器即可恢复服务。
 
-每次安装均输出 `$DSH_HOME/skill-manager/shared-sync/backup-*` 下的私有备份目录，包括原路径及是否存在的清单，以及原有 Claude/Codex 设置、同步状态、runtime 和 plist。启动或就绪检查失败时，安装器恢复本次改动的文件并重新加载原先正在运行的服务；并发修改会保留并提示人工恢复。手动恢复前先停服务、检查清单，仅恢复选定备份，不要直接覆盖更新的设置。同步失败时保留已有停用状态。daemon 日志位于 `$DSH_HOME/skill-manager/shared-sync/error.log`。
+安装器不创建常规备份；启动失败时仅回退本次实际改动，保留并报告并发修改。daemon 日志位于 `$DSH_HOME/skill-manager/shared-sync/error.log`。
 
 ## 环境要求与限制
 
 - 要求 DeepSeek Harness `>=0.2.2-rc.1 <0.3.0` 和 Node.js 24 或更高版本。
-- 可选共享同步要求 macOS，且 PATH 中有可用的 `codex` CLI。请在实际环境中验收 launchd 与 Codex 和 Claude Code 会话的联动。
+- 可选后台服务要求 macOS。文件同步不保证正在运行的客户端立即重新加载。
 
 ## 开发
 

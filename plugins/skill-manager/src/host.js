@@ -2,7 +2,8 @@ import { isAbsolute, join, normalize } from 'node:path';
 import { isManagedName, isRecord, isSkillName, ManagerError, MANAGED_ID, validateBundle } from './host-bundle.js';
 import { readProvenance } from './host-provenance.js';
 import { createSkillStore } from './host-store.js';
-import { readSyncState, requestSync, sharedPolicyEnabled } from './shared-sync.js';
+import { readSharedPolicy, setSharedEnabled } from './shared-policy.js';
+import { readSyncState, sharedSkills } from './shared-sync.js';
 
 export const ROUTE = '/api/skill-manager';
 const MAX_REQUEST_BYTES = 12 * 1024 * 1024;
@@ -48,7 +49,7 @@ function skillProvenance(skill, provenance) {
   return skill.source === 'bundled' ? { origin: 'builtin' } : provenance(skill);
 }
 
-function catalogRow(skill, provenance, shared) {
+function catalogRow(skill, provenance, shared, available) {
   const origin = skillProvenance(skill, provenance)?.origin;
   return {
     id: `catalog:${skill.name}`,
@@ -56,8 +57,8 @@ function catalogRow(skill, provenance, shared) {
     description: skill.description,
     group: SOURCES.get(skill.source) ?? 'local',
     source: SOURCES.has(skill.source) ? skill.source : 'other',
-    enabled: skill.source === 'user-agents' && typeof sharedPolicyEnabled(shared?.[skill.path]) === 'boolean'
-      ? sharedPolicyEnabled(shared[skill.path]) : null,
+    enabled: skill.source === 'user-agents' && shared?.[skill.path] !== undefined
+      ? shared[skill.path] : skill.source === 'user-agents' && available.has(skill.path) ? true : null,
     shadowed: false,
     ...(origin && { origin }),
   };
@@ -107,8 +108,8 @@ export function createSkillManager({ home, agentsHome, skills, workspaceRegistry
 
   async function list(options) {
     const workspaces = workspaceRegistry.list().map(({ id, title }) => ({ id, title }));
-    const [catalog, provenance, sync] = await Promise.all([
-      snapshot(options), readProvenance(agentsHome), readSyncState(home).catch(() => ({ error: 'unavailable' })),
+    const [catalog, provenance, sync, policy, available] = await Promise.all([
+      snapshot(options), readProvenance(agentsHome), readSyncState(home).catch(() => ({ error: 'unavailable' })), readSharedPolicy(home), sharedSkills(agentsHome),
     ]);
     const managed = store.list();
     const byName = new Map(catalog.skills.map(skill => [skill.name, skill]));
@@ -127,7 +128,7 @@ export function createSkillManager({ home, agentsHome, skills, workspaceRegistry
         shadowed: skill.enabled && Boolean(match) && !ownWinner,
       });
     }
-    rows.push(...[...byName.values()].map(skill => catalogRow(skill, provenance, sync?.entries)));
+    rows.push(...[...byName.values()].map(skill => catalogRow(skill, provenance, policy.entries, available)));
     rows.sort((left, right) => left.name.localeCompare(right.name) || Number(right.group === 'imported') - Number(left.group === 'imported'));
     const syncError = sync?.error ?? Object.values(sync?.entries ?? {}).find(entry => entry.error)?.error;
     const stopped = sync && !sync.error && (!Number.isFinite(Date.parse(sync.health?.lastAttemptAt)) || Date.now() - Date.parse(sync.health.lastAttemptAt) > 15000);
@@ -186,10 +187,10 @@ export function createSkillManager({ home, agentsHome, skills, workspaceRegistry
           if (typeof payload.enabled !== 'boolean') throw new ManagerError('invalid');
           return scoped(options, async scopedOptions => {
             const skill = await load(name, scopedOptions);
-            const sync = await readSyncState(home);
-            if (skill?.source !== 'user-agents' || !sync?.entries[skill.path]) throw new ManagerError('forbidden');
+            const shared = await sharedSkills(agentsHome);
+            if (skill?.source !== 'user-agents' || !shared.has(skill.path)) throw new ManagerError('forbidden');
             signal?.throwIfAborted();
-            await requestSync(home, { type: 'set', path: skill.path, enabled: payload.enabled });
+            await setSharedEnabled(home, skill.path, payload.enabled);
             return null;
           });
         }

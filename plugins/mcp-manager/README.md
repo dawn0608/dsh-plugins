@@ -21,7 +21,7 @@ To install from source, run `npm ci` and `npm run build` from the repository roo
 
 ## Usage and configuration
 
-Use the switch to enable or disable an existing server. To add or change server settings, give your AI assistant the provider's setup instructions and ask it to update the profile's `cordis.patch.yml`.
+Switches affect only the current Harness profile; they do not propagate to Codex or Claude Code. To add or change server settings, give your AI assistant the provider's setup instructions and ask it to update the profile's `cordis.patch.yml`.
 
 The plugin normally uses the active profile's name, directory, and patch path from the Harness host. When the host does not supply this information, the plugin checks `DSH_PROFILE_DIR`, then `DSH_HOME/profiles/<DSH_PROFILE>` when both variables are set, and finally an absolute launcher argument pointing to a directory with a profile manifest and patch file. The panel reports when it cannot locate or read the patch. An explicit absolute `patchPath` takes precedence over all these sources.
 
@@ -32,7 +32,11 @@ The plugin normally uses the active profile's name, directory, and patch path fr
     patchPath: /absolute/path/to/cordis.patch.yml
 ```
 
-To enable shared removal, install the MCP synchronization bridge on the host and add this override to the Desktop profile patch. Use absolute paths to its Python environment and script. Shared removal uses the active profile patch and is unavailable with a `patchPath` override.
+Shared MCP synchronization propagates portable service additions and configuration edits, plus explicit removals. Each client keeps its switches and timeouts. Missing configuration is restored from the known definition rather than treated as a global deletion.
+
+The package supplies `lib/sync/mcp_sync.py` and pinned `lib/sync/requirements.txt`. Deploy the script to a stable runtime directory and install dependencies in a Python 3.12 or later virtual environment. Background jobs and removal wrappers use this stable path. Installing the plugin does not start a background job.
+
+To enable shared removal, configure the synchronization bridge on the host and add this override to the Desktop profile patch. Use absolute paths to its Python environment and script. Shared removal uses the active profile patch and is unavailable with a `patchPath` override.
 
 ```yaml
 - id: mcp-manager

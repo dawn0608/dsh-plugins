@@ -1,6 +1,6 @@
 {
   "name": "@dawn0608/dsh-mcp-manager",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "type": "module",
   "main": "./lib/index.js",
   "description": "View STDIO and Streamable HTTP servers for the current profile and toggle editable entries from Settings.",
@@ -49,7 +49,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "node ../../scripts/build-plugin.mjs",
+    "build": "node ../../scripts/build-plugin.mjs --asset src/sync/mcp_sync.py --asset src/sync/requirements.txt",
     "pretest": "npm run build",
     "test": "node --test test/*.test.mjs",
     "prepack": "npm run build"

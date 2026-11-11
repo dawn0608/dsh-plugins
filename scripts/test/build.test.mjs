@@ -28,3 +28,20 @@ test('builds and marks declared CLI entries executable without a source checkout
     assert.match(await readFile(join(root, 'lib/install.js'), 'utf8'), /^#!\/usr\/bin\/env node/);
   } finally { await rm(root, { recursive: true, force: true }); }
 });
+
+test('ships explicit Python assets and rejects paths outside src', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dsh-build-assets-'));
+  try {
+    await mkdir(join(root, 'src/sync'), { recursive: true });
+    await writeFile(join(root, 'package.json'), JSON.stringify({ name: 'fixture', type: 'module' }));
+    await writeFile(join(root, 'src/index.js'), 'export function apply() {}');
+    await writeFile(join(root, 'src/sync/worker.py'), 'print("fixture")\n');
+    const command = [resolve(import.meta.dirname, '../build-plugin.mjs'), root, '--asset'];
+    let result = spawnSync(process.execPath, [...command, 'src/sync/worker.py'], { encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+    assert.equal(await readFile(join(root, 'lib/sync/worker.py'), 'utf8'), 'print("fixture")\n');
+    result = spawnSync(process.execPath, [...command, '../outside.py'], { encoding: 'utf8' });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /inside src/);
+  } finally { await rm(root, { recursive: true, force: true }); }
+});

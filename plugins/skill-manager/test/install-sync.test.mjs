@@ -29,7 +29,7 @@ async function fixture(t) {
   return { root, source, options, calls, settings, active: () => active };
 }
 
-test('deploys a standalone stable runtime with all custom homes and idempotent hooks', async t => {
+test('deploys a standalone stable runtime with custom homes without adding hooks or requiring Codex', async t => {
   const { installSync } = await import('../src/install-sync.js');
   const f = await fixture(t);
   const unrelated = { matcher: '*', hooks: [{ type: 'command', command: 'echo keep-sync-daemon.js' }] };
@@ -38,14 +38,14 @@ test('deploys a standalone stable runtime with all custom homes and idempotent h
   assert.equal(installed.runtime, join(f.root, 'dsh custom', 'skill-manager', 'shared-sync', 'runtime', 'sync-daemon.js'));
   assert.equal(await readFile(installed.runtime, 'utf8'), await readFile(f.source, 'utf8'));
   const plist = await readFile(installed.plist, 'utf8');
-  for (const value of ['dsh custom', 'agents custom', 'codex custom', 'claude custom']) assert.ok(plist.includes(join(f.root, value)));
+  for (const value of ['dsh custom', 'agents custom', 'claude custom']) assert.ok(plist.includes(join(f.root, value)));
   await installSync(f.options);
   const settings = JSON.parse(await readFile(f.settings, 'utf8'));
   assert.deepEqual(settings.permissions, { deny: ['Bash(secret)'] });
   assert.deepEqual(settings.hooks.SessionStart[0], unrelated);
-  assert.equal(settings.hooks.SessionStart.length, 2);
-  assert.equal(settings.hooks.CwdChanged.length, 1);
-  assert.ok(settings.hooks.CwdChanged[0].hooks[0].command.includes(installed.runtime));
+  assert.equal(settings.hooks.SessionStart.length, 1);
+  assert.equal(settings.hooks.CwdChanged, undefined);
+  assert.equal(plist.includes('DSH_SKILL_SYNC_CODEX'), false);
   await rm(dirname(f.source), { recursive: true });
   assert.ok(await readFile(installed.runtime, 'utf8'));
   assert.equal(f.active(), true);
@@ -54,13 +54,14 @@ test('deploys a standalone stable runtime with all custom homes and idempotent h
 test('readiness failure restores previous runtime, hooks, plist, and loaded service', async t => {
   const { installSync } = await import('../src/install-sync.js');
   const f = await fixture(t);
+  await writeFile(f.settings, '{"other":true}');
   const first = await installSync(f.options);
   const before = await Promise.all([f.settings, first.runtime, first.plist].map(path => readFile(path, 'utf8')));
   await writeFile(f.source, '/* replacement daemon */\n');
   await assert.rejects(installSync({ ...f.options, ready: async () => { throw Error('fixture readiness failed'); } }), /readiness failed/);
   assert.deepEqual(await Promise.all([f.settings, first.runtime, first.plist].map(path => readFile(path, 'utf8'))), before);
   assert.equal(f.active(), true);
-  assert.ok((await readdir(dirname(first.backup))).filter(name => name.startsWith('backup-')).length >= 2);
+  assert.equal((await readdir(dirname(dirname(first.runtime)))).some(name => name.startsWith('backup-')), false);
 });
 
 test('migrates only exact hooks proven by the previous owned launch agent', async t => {
@@ -79,7 +80,7 @@ test('migrates only exact hooks proven by the previous owned launch agent', asyn
   await installSync(f.options);
   const hooks = JSON.parse(await readFile(f.settings, 'utf8')).hooks.SessionStart;
   assert.deepEqual(hooks[0], { matcher: 'startup', hooks: [{ type: 'command', command: other }] });
-  assert.equal(hooks.length, 2);
+  assert.equal(hooks.length, 1);
 });
 
 test('first installation failure removes new hooks, plist and runtime without touching other settings', async t => {
@@ -152,10 +153,11 @@ test('built daemon starts through a symlinked DSH_HOME and defers sync until rea
   const result = await installSync({ ...f.options, daemonSource: join(isolated, 'sync-daemon.js'), nodeBinary: process.execPath, launch, ready });
   await rm(isolated, { recursive: true });
   const deadline = Date.now() + 5000;
-  while (Date.now() < deadline && JSON.parse(await readFile(f.settings, 'utf8')).skillOverrides?.shared !== 'off') {
+  while (Date.now() < deadline && !await readFile(join(f.root, 'claude custom', 'skills', 'shared', 'SKILL.md')).catch(() => null)) {
     await new Promise(resolve => setTimeout(resolve, 50));
   }
-  assert.equal(JSON.parse(await readFile(f.settings, 'utf8')).skillOverrides?.shared, 'off');
+  assert.equal(JSON.parse(await readFile(f.settings, 'utf8')).skillOverrides, undefined);
+  assert.ok(await readFile(join(f.root, 'claude custom', 'skills', 'shared', 'SKILL.md')));
   assert.ok(await readFile(result.runtime));
 });
 
@@ -190,4 +192,21 @@ test('built CLI help and module import never write user state or start installat
     assert.equal(stdinImport.stdout, 'import-ok\n');
   }
   assert.deepEqual(await readdir(isolatedHome), []);
+});
+
+test('failed upgrade preserves concurrent settings changes and creates no backup directories', async t => {
+  const { installSync } = await import('../src/install-sync.js');
+  const f = await fixture(t);
+  await writeFile(f.settings, '{}');
+  const first = await installSync(f.options);
+  const originalRuntime = await readFile(first.runtime);
+  const owned = `/usr/bin/env DSH_HOME='${join(f.root, 'dsh custom')}' '/fixture/node' '${first.runtime}' enroll`;
+  await writeFile(f.settings, JSON.stringify({ hooks: { SessionStart: [{ hooks: [{ type: 'command', command: owned }] }] } }));
+  await writeFile(f.source, '/* new */');
+  await assert.rejects(installSync({ ...f.options, ready: async () => {
+    await writeFile(f.settings, '{"userChange":true}'); throw Error('readiness failed');
+  } }), /readiness failed/);
+  assert.equal(await readFile(f.settings, 'utf8'), '{"userChange":true}');
+  assert.deepEqual(await readFile(first.runtime), originalRuntime);
+  assert.equal((await readdir(dirname(dirname(first.runtime)))).some(name => name.startsWith('backup-')), false);
 });
