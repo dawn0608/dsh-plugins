@@ -58,10 +58,10 @@ test('an incomplete refresh shows its warning alongside the existing catalog', (
   assert.ok(html.includes('managed-skill'));
 });
 
-test('a disabled shared skill remains visible and can be switched on', () => {
+test('native directory skills never expose a switch, including stale policy responses', () => {
   const html = render('zh', { skills: [{ ...skills[1], enabled: false }, skills[2]] });
-  assert.equal((html.match(/role="switch"/g) || []).length, 1);
-  assert.match(html, /local-skill.*role="switch"[^>]*aria-checked="false"/);
+  assert.match(html, /local-skill/);
+  assert.doesNotMatch(html, /role="switch"/);
 });
 
 test('the catalog has a minimal header and shows three ordered provenance groups in both languages', () => {

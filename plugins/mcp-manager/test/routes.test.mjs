@@ -107,7 +107,7 @@ test('registers only the authenticated connection route', () => {
 });
 
 test('the registered route reads the active host profile without profile environment or arguments', async t => {
-  t.mock.property(process, 'env', {});
+  t.mock.property(process, 'env', Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('DSH_'))));
   t.mock.property(process, 'argv', ['node', 'dsh', 'web']);
   const dir = mkdtempSync(join(tmpdir(), 'mcp-manager-host-profile-'));
   t.after(() => rmSync(dir, { force: true, recursive: true }));

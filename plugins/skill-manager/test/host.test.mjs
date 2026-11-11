@@ -523,3 +523,29 @@ test('native shared skills remain read-only and ignore unavailable sync state', 
   await assert.rejects(lstat(agentsHome), { code: 'ENOENT' });
   assert.equal(await readFile(join(home, 'skill-manager/shared-policy.json'), 'utf8'), 'not JSON');
 });
+
+test('a file-in-use failure preserves the owned bundle and removal can be retried', async t => {
+  const { home, request } = await host(t);
+  await importSkill(request);
+  const id = await managedId(request);
+  const result = spawnSync(process.execPath, ['--input-type=module', '--eval', `
+    import assert from 'node:assert/strict';
+    import fs from 'node:fs';
+    import { syncBuiltinESMExports } from 'node:module';
+    const rename = fs.renameSync;
+    fs.renameSync = (source, target, ...args) => {
+      if (target.includes('.trash-')) throw Object.assign(new Error('File in use'), { code: 'EBUSY' });
+      return rename(source, target, ...args);
+    };
+    syncBuiltinESMExports();
+    const { createSkillStore } = await import(${JSON.stringify(new URL('../src/host-store.js', import.meta.url).href)});
+    const store = createSkillStore(${JSON.stringify(home)});
+    assert.throws(() => store.remove('sample', ${JSON.stringify(id.split(':')[2])}), { code: 'conflict' });
+  `], { encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(await readFile(join(home, 'skill-manager/bundles/sample/SKILL.md'), 'utf8'), skillText);
+  await request({ action: 'remove', id });
+  await assert.rejects(lstat(join(home, 'skill-manager/bundles/sample')), { code: 'ENOENT' });
+  await importSkill(request);
+  assert.notEqual(await managedId(request), id);
+});
