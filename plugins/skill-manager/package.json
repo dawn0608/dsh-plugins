@@ -1,6 +1,6 @@
 {
   "name": "@dawn0608/dsh-skill-manager",
-  "version": "0.1.7",
+  "version": "0.2.0",
   "type": "module",
   "main": "./lib/index.js",
   "description": "Search global skills, preview Markdown, and toggle or uninstall managed copies from the Harness sidebar.",
@@ -23,7 +23,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "node ../../scripts/build-plugin.mjs --entry src/sync-daemon.js --entry src/install-sync.js",
+    "build": "node ../../scripts/build-plugin.mjs",
     "pretest": "npm run build",
     "test": "node --test test/*.test.mjs",
     "prepack": "npm run build"
@@ -70,8 +70,5 @@
     "skills",
     "skill-manager",
     "dsh-plugin"
-  ],
-  "bin": {
-    "dsh-skill-sync-install": "lib/install-sync.js"
-  }
+  ]
 }

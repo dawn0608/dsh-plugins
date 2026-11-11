@@ -11,8 +11,8 @@
  * Run from a plugin directory (`npm run build`) or pass the package directory.
  */
 import { build } from 'esbuild';
-import { chmodSync, copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { basename, dirname, extname, join, relative, resolve } from 'node:path';
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, extname, join, resolve } from 'node:path';
 
 const args = process.argv.slice(2);
 const dir = resolve(args[0] && !args[0].startsWith('--') ? args.shift() : process.cwd());
@@ -40,32 +40,9 @@ if (clientEntry !== undefined && !declaresClient) fail('src/client exists but pa
 if (clientEntry === undefined && declaresClient) fail('dsh.client is declared but src/client/index.js is missing');
 
 const libDir = join(dir, 'lib');
-const extraEntries = [];
-const assets = [];
-while (args.length > 0) {
-  const flag = args.shift();
-  if (!['--entry', '--asset'].includes(flag) || !args[0]) fail('expected --entry or --asset with a src/ path');
-  if (flag === '--asset') {
-    const asset = resolve(dir, args.shift());
-    const within = relative(join(dir, 'src'), asset);
-    if (within.startsWith('..') || !/\.(?:py|txt)$/.test(asset) || !existsSync(asset)) fail('asset must be an existing source inside src/');
-    assets.push({ asset, within });
-    continue;
-  }
-  const entry = resolve(dir, args.shift());
-  const within = relative(join(dir, 'src'), entry);
-  if (within.startsWith('..') || !/\.(?:js|ts)$/.test(entry) || !existsSync(entry)) fail('extra entry must be an existing source inside src/');
-  if ([hostEntry, ...extraEntries].some(existing => basename(existing, extname(existing)) === basename(entry, extname(entry)))) fail('duplicate host entry output');
-  extraEntries.push(entry);
-}
+if (args.length) fail('unexpected build arguments');
 rmSync(libDir, { recursive: true, force: true });
 mkdirSync(libDir, { recursive: true });
-for (const { asset, within } of assets) {
-  const output = join(libDir, within);
-  mkdirSync(dirname(output), { recursive: true });
-  copyFileSync(asset, output);
-}
-
 // This notice covers the native controls/styles copied into published bundles.
 const thirdPartyNotice = resolve(import.meta.dirname, '../THIRD_PARTY_NOTICES.md');
 if (existsSync(thirdPartyNotice)) copyFileSync(thirdPartyNotice, join(libDir, 'THIRD_PARTY_NOTICES.md'));
@@ -80,7 +57,7 @@ const hostRequireShim = [
 
 const hostBuild = await build({
   metafile: true,
-  entryPoints: Object.fromEntries([hostEntry, ...extraEntries].map(entry => [basename(entry, extname(entry)), entry])),
+  entryPoints: { index: hostEntry },
   outdir: libDir,
   bundle: true,
   format: 'esm',
@@ -90,11 +67,6 @@ const hostBuild = await build({
   banner: { js: hostRequireShim },
   logLevel: 'warning',
 });
-
-for (const entry of Object.values(typeof pkg.bin === 'object' ? pkg.bin : {})) {
-  const path = resolve(dir, entry);
-  if (!relative(libDir, path).startsWith('..') && existsSync(path)) chmodSync(path, 0o755);
-}
 
 let clientBuild;
 if (clientEntry !== undefined) {

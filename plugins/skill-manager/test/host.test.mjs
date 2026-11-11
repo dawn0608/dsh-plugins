@@ -252,7 +252,7 @@ test('an enabled imported skill deduplicates its Harness catalog entry and loads
 test('recognizes Harness real paths when the Host home has a system path alias', async t => {
   const { base, home } = await host(t);
   const alias = join(base, 'alias');
-  await symlink(base, alias, 'dir');
+  await symlink(base, alias, process.platform === 'win32' ? 'junction' : 'dir');
   const { createSkillManager } = await import('../src/host.js');
   const observation = { skills: [], complete: true };
   const request = createSkillManager({
@@ -322,18 +322,18 @@ test('refuses unmanaged roots, bundles and replacement links without deleting un
   const unrelated = join(base, 'unrelated');
   await mkdir(unrelated);
   await writeFile(join(unrelated, 'keep'), 'keep');
-  await symlink(unrelated, home, 'dir');
+  await symlink(unrelated, home, process.platform === 'win32' ? 'junction' : 'dir');
   await rejectsCode(importSkill(request), 'conflict');
   await unlink(home);
   await mkdir(home);
   const activeRoot = join(home, 'skills');
-  await symlink(unrelated, activeRoot, 'dir');
+  await symlink(unrelated, activeRoot, process.platform === 'win32' ? 'junction' : 'dir');
   await rejectsCode(importSkill(request), 'conflict');
   await assert.rejects(lstat(join(home, 'skill-manager')), { code: 'ENOENT' });
   await unlink(activeRoot);
   await mkdir(activeRoot);
   const storeRoot = join(home, 'skill-manager');
-  await symlink(unrelated, storeRoot, 'dir');
+  await symlink(unrelated, storeRoot, process.platform === 'win32' ? 'junction' : 'dir');
   await rejectsCode(importSkill(request), 'conflict');
   await unlink(storeRoot);
 
@@ -349,12 +349,12 @@ test('refuses unmanaged roots, bundles and replacement links without deleting un
   const bundle = await realpath(active);
   const originalTarget = await readlink(active);
   await unlink(active);
-  await symlink(unrelated, active, 'dir');
+  await symlink(unrelated, active, process.platform === 'win32' ? 'junction' : 'dir');
   await rejectsCode(request({ action: 'setEnabled', id: rowId, enabled: false }), 'conflict');
   await rejectsCode(request({ action: 'remove', id: rowId }), 'conflict');
   assert.equal(await realpath(active), unrelated);
   await unlink(active);
-  await symlink(originalTarget, active, 'dir');
+  await symlink(originalTarget, active, process.platform === 'win32' ? 'junction' : 'dir');
   await rejectsCode(request({ action: 'remove', id: rowId }), 'conflict');
   assert.equal(await realpath(active), bundle);
   assert.equal(await readFile(join(unrelated, 'keep'), 'utf8'), 'keep');
@@ -376,9 +376,9 @@ function killHostDuring(home, { method = 'symlinkSync', pathPart, before = false
     const operation = fs[${JSON.stringify(method)}];
     fs[${JSON.stringify(method)}] = (source, path, ...args) => {
       const kill = path.includes(${JSON.stringify(pathPart)});
-      if (kill && ${before}) process.kill(process.pid, 'SIGKILL');
+      if (kill && ${before}) process.exit(86);
       const result = operation(source, path, ...args);
-      if (kill) process.kill(process.pid, 'SIGKILL');
+      if (kill) process.exit(86);
       return result;
     };
     syncBuiltinESMExports();
@@ -392,20 +392,23 @@ function killHostDuring(home, { method = 'symlinkSync', pathPart, before = false
     await manager(${JSON.stringify(payload ?? { action: 'import', expectedName: 'sample', files: files() })});
   `;
   const result = spawnSync(process.execPath, ['--input-type=module', '--eval', script], { encoding: 'utf8' });
-  assert.equal(result.signal, 'SIGKILL', result.stderr);
+  assert.equal(result.status, 86, result.stderr);
 }
 
-test('a Host killed after taking the write lock does not block future mutations', { skip: process.platform === 'win32' }, async t => {
+test('a Host killed after taking the write lock does not block future mutations', async t => {
   const { home, request } = await host(t);
-  killHostDuring(home, { pathPart: '.write-lock-0' });
+  killHostDuring(home, { method: 'linkSync', pathPart: '.write-lock-0' });
+  const lock = join(home, 'skill-manager', '.write-lock-0');
+  assert.equal((await lstat(lock)).isFile(), true);
+  assert.ok(Number.isSafeInteger(JSON.parse(await readFile(lock, 'utf8')).pid));
   await importSkill(request);
   assert.equal((await request({ action: 'list' })).skills[0].enabled, true);
   await request({ action: 'remove', id: await managedId(request) });
 });
 
-test('a Host killed after publishing an activation leaves a usable owned bundle', { skip: process.platform === 'win32' }, async t => {
+test('a Host killed after publishing an activation leaves a usable owned bundle', async t => {
   const { home, request } = await host(t);
-  killHostDuring(home, { pathPart: 'skills/sample' });
+  killHostDuring(home, { pathPart: join('skills', 'sample') });
   const rowId = await managedId(request);
   assert.equal((await request({ action: 'list' })).skills[0].enabled, true);
   assert.deepEqual(await request({ action: 'detail', id: rowId }), { body: '# Instructions' });
@@ -418,7 +421,7 @@ test('an unsafe activation root leaves the native catalog readable and rejects m
   const native = { name: 'official', description: 'Native skill', source: 'bundled' };
   const { base, home, request } = await host(t, { async snapshot() { return { skills: [native], complete: true }; } });
   await mkdir(home);
-  await symlink(base, join(home, 'skills'), 'dir');
+  await symlink(base, join(home, 'skills'), process.platform === 'win32' ? 'junction' : 'dir');
   const state = await request({ action: 'list' });
   assert.equal(state.complete, false);
   assert.deepEqual(state.skills.map(skill => skill.id), ['catalog:official']);
@@ -438,15 +441,15 @@ test('an ID from a previous import cannot disable or remove a newly imported cop
   assert.equal(await readFile(join(home, 'skills', 'sample', 'SKILL.md'), 'utf8'), skillText);
 });
 
-test('an interrupted staged import can be retried without reserving the skill name', { skip: process.platform === 'win32' }, async t => {
+test('an interrupted staged import can be retried without reserving the skill name', async t => {
   const { home, request } = await host(t);
-  killHostDuring(home, { method: 'renameSync', pathPart: 'bundles/sample', before: true });
+  killHostDuring(home, { method: 'renameSync', pathPart: join('bundles', 'sample'), before: true });
   await assert.rejects(lstat(join(home, 'skill-manager', 'bundles', 'sample')), { code: 'ENOENT' });
   await importSkill(request);
   assert.equal(await readFile(join(home, 'skills', 'sample', 'SKILL.md'), 'utf8'), skillText);
 });
 
-test('an interrupted removal resumes from its owned tombstone and permits reimport', { skip: process.platform === 'win32' }, async t => {
+test('an interrupted removal resumes from its owned tombstone and permits reimport', async t => {
   const { home, request } = await host(t);
   await importSkill(request);
   const id = await managedId(request);
@@ -505,56 +508,18 @@ test('registers only the authenticated streaming route and bounds JSON requests'
   });
 });
 
-test('reports stopped and failed daemon health without removing disabled shared policy state', async t => {
-  const { home, request } = await host(t);
-  const directory = join(home, 'skill-manager', 'shared-sync');
-  await mkdir(directory, { recursive: true });
-  const state = { version: 1, projects: {}, entries: {}, health: {
-    status: 'ok', lastAttemptAt: '2000-01-01T00:00:00.000Z', lastSuccessAt: '2000-01-01T00:00:00.000Z',
-  } };
-  await writeFile(join(directory, 'state.json'), JSON.stringify(state));
-  let result = await request({ action: 'list' });
-  assert.equal(result.syncError, 'sharedStopped');
-  assert.equal(result.syncHealth.lastSuccessAt, state.health.lastSuccessAt);
-  state.health.status = 'unavailable';
-  state.health.lastAttemptAt = new Date().toISOString();
-  await writeFile(join(directory, 'state.json'), JSON.stringify(state));
-  result = await request({ action: 'list' });
-  assert.equal(result.syncError, 'sharedUnavailable');
-});
-
-test('the catalog exposes the effective disabled policy while a shared enable intent is pending', async t => {
-  const shared = { name: 'shared', description: 'Shared', source: 'user-agents', path: '/fixture/shared/SKILL.md' };
-  const { home, request } = await host(t, { async snapshot() { return { complete: true, skills: [shared] }; } });
-  const directory = join(home, 'skill-manager', 'shared-sync');
-  await mkdir(directory, { recursive: true });
-  const entry = { enabled: true, policyEnabled: false, pending: true, codex: false, claude: 'off' };
-  const state = { version: 1, entries: { [shared.path]: entry }, projects: {} };
-  await writeFile(join(directory, 'state.json'), JSON.stringify(state));
-  assert.equal((await request({ action: 'list' })).skills[0].enabled, false);
-  delete entry.policyEnabled;
-  await writeFile(join(directory, 'state.json'), JSON.stringify(state));
-  assert.equal((await request({ action: 'list' })).skills[0].enabled, false, 'legacy pending enable also retains known disabled baseline');
-  entry.policyEnabled = true;
-  delete entry.pending;
-  await writeFile(join(directory, 'state.json'), JSON.stringify(state));
-  assert.equal((await request({ action: 'list' })).skills[0].enabled, true);
-  delete entry.policyEnabled;
-  entry.enabled = false;
-  await writeFile(join(directory, 'state.json'), JSON.stringify(state));
-  assert.equal((await request({ action: 'list' })).skills[0].enabled, false, 'legacy states retain their effective value');
-});
-
-test('shared skill switches persist locally without a daemon and reject nonshared paths', async t => {
-  let skill;
-  const f = await host(t, { snapshot: async () => ({ complete: true, skills: [skill] }), get: async () => skill });
-  const directory = join(f.agentsHome, 'skills', 'sample');
-  await mkdir(directory, { recursive: true }); await writeFile(join(directory, 'SKILL.md'), skillText);
-  skill = { name: 'sample', description: 'Sample', source: 'user-agents', path: join(directory, 'SKILL.md'), content: '# Instructions' };
-  await f.request({ action: 'setEnabled', id: 'catalog:sample', enabled: false });
-  assert.equal((await f.create()({ action: 'list' })).skills[0].enabled, false);
-  assert.equal((await f.request({ action: 'detail', id: 'catalog:sample' })).body, '# Instructions');
-  await assert.rejects(lstat(join(f.home, 'skill-manager', 'shared-sync')), { code: 'ENOENT' });
-  skill = { ...skill, path: join(f.base, 'outside', 'SKILL.md') };
-  await assert.rejects(f.request({ action: 'setEnabled', id: 'catalog:sample', enabled: true }), { code: 'forbidden' });
+test('native shared skills remain read-only and ignore unavailable sync state', async t => {
+  const shared = { name: 'sample', description: 'Shared', source: 'user-agents', path: '/fixture/sample/SKILL.md', content: '# Native' };
+  const { home, agentsHome, request } = await host(t, { snapshot: async () => ({ complete: true, skills: [shared] }), get: async () => shared });
+  await mkdir(join(home, 'skill-manager/shared-sync'), { recursive: true });
+  await writeFile(join(home, 'skill-manager/shared-sync/state.json'), 'not JSON');
+  await writeFile(join(home, 'skill-manager/shared-policy.json'), 'not JSON');
+  const result = await request({ action: 'list' });
+  assert.equal(result.skills[0].enabled, null);
+  assert.equal('syncError' in result, false);
+  assert.equal('syncHealth' in result, false);
+  assert.equal((await request({ action: 'detail', id: 'catalog:sample' })).body, '# Native');
+  await rejectsCode(request({ action: 'setEnabled', id: 'catalog:sample', enabled: false }), 'forbidden');
+  await assert.rejects(lstat(agentsHome), { code: 'ENOENT' });
+  assert.equal(await readFile(join(home, 'skill-manager/shared-policy.json'), 'utf8'), 'not JSON');
 });

@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "MCP Management",
-    "description": "View and toggle MCP servers from Settings, with optional shared removal on Desktop.",
+    "description": "View and toggle MCP servers in the current Harness profile from Settings.",
     "detail": "README.md"
   }
 }

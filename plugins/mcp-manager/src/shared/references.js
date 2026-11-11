@@ -13,8 +13,6 @@ export const SERVER_NAME = /^[A-Za-z0-9_-]{1,32}$/;
 export const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 /** RFC 7230 token: the only header names MCP transports accept. */
 export const HEADER_NAME = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
-/** Names the three-end synchronizer reserves for its own local configuration. */
-export const RESERVED_NAMES = ['node_repl'];
 
 const SENSITIVE_KEY = /token|key|secret|password|passwd|authorization|auth|credential|cookie/i;
 

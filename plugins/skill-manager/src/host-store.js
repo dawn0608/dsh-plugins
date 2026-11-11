@@ -3,7 +3,7 @@ import {
   readFileSync, readlinkSync, readdirSync, realpathSync, renameSync, rmSync, symlinkSync,
   unlinkSync, writeFileSync,
 } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve, toNamespacedPath } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { foldPath, isManagedName, isRecord, ManagerError, MANAGED_ID, MAX_BUNDLE_BYTES, parseSkillFile } from './host-bundle.js';
 
@@ -18,6 +18,17 @@ function stat(path) {
 
 function identity(stats) {
   return `${stats.dev}:${stats.ino}:${stats.birthtimeNs}`;
+}
+
+function linkTargets(path, expected) {
+  const target = resolve(dirname(path), readlinkSync(path));
+  return process.platform === 'win32'
+    ? toNamespacedPath(target).toLowerCase() === toNamespacedPath(resolve(expected)).toLowerCase()
+    : target === resolve(expected);
+}
+
+function directoryLink(target, path) {
+  symlinkSync(resolve(target), path, process.platform === 'win32' ? 'junction' : 'dir');
 }
 
 function safeDirectory(path, create) {
@@ -116,24 +127,36 @@ export function createSkillStore(home) {
     return bundlesExist && recordsExist;
   }
 
-  // A PID-bearing link publishes ownership atomically. Dead generations stay
+  // A complete regular file publishes ownership atomically, including on
+  // Windows without symlink privileges. Dead generations stay
   // in place, so concurrent Hosts never race to unlink and replace a live lock.
   function takeLock() {
     for (let generation = 0; ; generation += 1) {
       const path = join(manager, `.write-lock-${generation}`);
+      const temp = join(manager, `.lock-${randomUUID()}`);
+      writeFileSync(temp, JSON.stringify({ pid: process.pid, nonce: randomUUID() }), { flag: 'wx', mode: 0o600 });
+      const token = identity(stat(temp));
       try {
-        symlinkSync(`dsh-skill-manager-pid-${process.pid}`, path, 'file');
-        const token = identity(stat(path));
+        linkSync(temp, path);
+        if (!sameEntry(path, token)) throw new ManagerError('conflict');
         return () => unlinkOwned(path, token);
       } catch (error) {
         if (error.code !== 'EEXIST') throw error;
+      } finally {
+        unlinkSync(temp);
       }
       const stats = stat(path);
-      if (!stats) throw new ManagerError('conflict');
-      if (!stats.isSymbolicLink()) throw new ManagerError('conflict');
-      const owner = /^dsh-skill-manager-pid-([1-9][0-9]*)$/.exec(readlinkSync(path));
-      const pid = Number(owner?.[1]);
-      if (!Number.isSafeInteger(pid) || pid > 0x7fffffff) throw new ManagerError('conflict');
+      if (!stats?.isFile()) throw new ManagerError('conflict');
+      let owner;
+      try {
+        owner = JSON.parse(readRegularFile(path, 1024, identity(stats)));
+      } catch {
+        throw new ManagerError('conflict');
+      }
+      const pid = owner?.pid;
+      if (!Number.isSafeInteger(pid) || pid < 1 || pid > 0x7fffffff || !MANAGED_ID.test(owner?.nonce ?? '')) {
+        throw new ManagerError('conflict');
+      }
       try {
         process.kill(pid, 0);
       } catch (error) {
@@ -150,6 +173,9 @@ export function createSkillStore(home) {
     try {
       if (!roots()) throw new ManagerError('conflict');
       return operation();
+    } catch (error) {
+      if (['EBUSY', 'EACCES', 'EPERM'].includes(error.code)) throw new ManagerError('conflict');
+      throw error;
     } finally {
       release();
     }
@@ -172,15 +198,15 @@ export function createSkillStore(home) {
     if (!activation) return false;
     if (!stats?.isSymbolicLink() || (activation.link !== null && identity(stats) !== activation.link)) return false;
     const anchor = anchorPath(activation);
-    return readlinkSync(paths.active) === anchor && stat(anchor)?.isSymbolicLink() === true &&
-      readlinkSync(anchor) === paths.bundle;
+    return linkTargets(paths.active, anchor) && stat(anchor)?.isSymbolicLink() === true &&
+      linkTargets(anchor, paths.bundle);
   }
 
   function discardAnchor(paths, activation) {
     if (!activation) return;
     const anchor = anchorPath(activation);
     const stats = stat(anchor);
-    if (stats?.isSymbolicLink() && readlinkSync(anchor) === paths.bundle) unlinkOwned(anchor, identity(stats));
+    if (stats?.isSymbolicLink() && linkTargets(anchor, paths.bundle)) unlinkOwned(anchor, identity(stats));
   }
 
   function lookup(name, id) {
@@ -253,7 +279,7 @@ export function createSkillStore(home) {
     // verify ownership, even before the final inode was recorded.
     const activation = { anchor: randomUUID(), link: null };
     const anchor = anchorPath(activation);
-    symlinkSync(paths.bundle, anchor, 'dir');
+    directoryLink(paths.bundle, anchor);
     let prepared;
     try {
       prepared = writeRecord(paths.record, { ...record.data, activation }, record.token);
@@ -263,7 +289,7 @@ export function createSkillStore(home) {
     }
     discardAnchor(paths, record.data.activation);
     try {
-      symlinkSync(anchor, paths.active, 'dir');
+      directoryLink(anchor, paths.active);
     } catch (error) {
       if (error.code === 'EEXIST') throw new ManagerError('conflict');
       throw error;

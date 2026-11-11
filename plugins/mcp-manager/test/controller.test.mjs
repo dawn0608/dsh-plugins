@@ -211,33 +211,3 @@ test('stopping the controller aborts a write without publishing its late respons
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(controller.getSnapshot().state.revision, 'authoritative');
 });
-
-test('shared removal sends the confirmation snapshot and publishes the pending result across polling', async t => {
-  const updated = { ...STATE, revision: 'updated', servers: [] };
-  let posted;
-  const fake = fakeFetch((url, init) => {
-    if (init.method === 'GET') return reply(200, { ...updated, revision: 'refreshed' });
-    posted = JSON.parse(init.body);
-    return reply(200, { ...updated, removal: 'pending' });
-  });
-  const controller = createController({ fetchImpl: fake.fetchImpl });
-  t.after(() => controller.dispose());
-  assert.deepEqual(await controller.deleteShared(STATE.servers[0], STATE.revision), { ok: true, removal: 'pending' });
-  assert.deepEqual(posted, { action: 'deleteShared', id: 'one', name: 'docs', rowHash: 'r1', revision: STATE.revision });
-  assert.deepEqual(controller.getSnapshot().state.servers, []);
-  await controller.load();
-  assert.equal(controller.getSnapshot().state.revision, 'refreshed');
-  assert.equal(controller.getSnapshot().action.removal, 'pending');
-});
-
-test('a lost shared-removal response stays uncertain even if the row has disappeared', async t => {
-  const fake = fakeFetch((url, init) => {
-    if (init.method === 'POST') throw new TypeError('lost response');
-    return reply(200, { ...STATE, servers: [] });
-  });
-  const controller = createController({ fetchImpl: fake.fetchImpl });
-  t.after(() => controller.dispose());
-  assert.deepEqual(await controller.deleteShared(STATE.servers[0], STATE.revision), { ok: false, code: 'shared-unknown' });
-  assert.deepEqual(controller.getSnapshot().state.servers, []);
-  assert.equal(fake.calls.filter(call => call.init.method === 'POST').length, 1);
-});

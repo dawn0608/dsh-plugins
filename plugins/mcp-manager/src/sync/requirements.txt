@@ -1,3 +1,0 @@
-ruamel.yaml==0.18.16
-tomlkit==0.13.3
-websockets==16.0

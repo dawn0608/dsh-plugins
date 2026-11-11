@@ -22,7 +22,7 @@ test('reads a regular patch with its mode', () => {
   try {
     const { text, mode } = readProfilePatch(space.patch);
     assert.match(text, /@example\/base/);
-    assert.equal(mode & 0o777, 0o600);
+    assert.equal(mode & 0o777, process.platform === 'win32' ? 0o666 : 0o600);
   } finally {
     space.cleanup();
   }
@@ -34,7 +34,7 @@ test('replaces the patch atomically and preserves the mode', () => {
     const { text, mode } = readProfilePatch(space.patch);
     writeProfilePatch(space.patch, `${text}- id: extra\n`, { expected: text, mode });
     assert.match(readFileSync(space.patch, 'utf8'), /id: extra/);
-    assert.equal(lstatSync(space.patch).mode & 0o777, 0o600);
+    assert.equal(lstatSync(space.patch).mode & 0o777, process.platform === 'win32' ? 0o666 : 0o600);
     assert.deepEqual(readdirSync(space.dir).filter(name => name.startsWith('.')), []);
   } finally {
     space.cleanup();
@@ -128,7 +128,7 @@ test('keeps permission bits when the patch was narrower', () => {
     chmodSync(space.patch, 0o600);
     const { text, mode } = readProfilePatch(space.patch);
     writeProfilePatch(space.patch, `${text}# tail\n`, { expected: text, mode: 0o600 });
-    assert.equal(lstatSync(space.patch).mode & 0o777, 0o600);
+    assert.equal(lstatSync(space.patch).mode & 0o777, process.platform === 'win32' ? 0o666 : 0o600);
   } finally {
     space.cleanup();
   }

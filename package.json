@@ -13,8 +13,7 @@
     "test": "npm test --workspaces --if-present",
     "test:tooling": "node --test scripts/test/*.test.mjs",
     "check:template": "npm --prefix templates/plugin run build && npm --prefix templates/plugin test",
-    "verify": "npm run build && npm run check && npm test && npm run test:tooling && npm run check:template && npm run test:sync",
-    "test:sync": "node scripts/test-mcp-sync.mjs"
+    "verify": "npm run build && npm run check && npm test && npm run test:tooling && npm run check:template"
   },
   "devDependencies": {
     "@shikijs/core": "4.5.0",

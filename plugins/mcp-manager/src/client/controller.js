@@ -5,7 +5,6 @@ import { ApiError, request } from './api.js';
 const POLL_DELAY_MS = 2000;
 const READ_TIMEOUT_MS = 8000;
 const WRITE_TIMEOUT_MS = 8000;
-const SHARED_REMOVAL_TIMEOUT_MS = 40_000;
 
 function requestDeadline(ms, lifecycleSignal) {
   const timeout = new AbortController();
@@ -103,13 +102,12 @@ export function createController(options = {}) {
     if (activeWrite) return { ok: false, code: 'locked' };
     const operation = new AbortController();
     activeWrite = operation;
-    const shared = body.action === 'deleteShared';
-    const action = { id: target.id, name: target.name, ...(shared ? { kind: 'deleteShared' } : {}) };
+    const action = { id: target.id, name: target.name };
     // A GET that began before this write must not restore the old state.
     generation += 1;
     publish({ busy: true, action });
 
-    const deadline = requestDeadline(shared ? SHARED_REMOVAL_TIMEOUT_MS : writeTimeoutMs, operation.signal);
+    const deadline = requestDeadline(writeTimeoutMs, operation.signal);
     let payload;
     let error;
     try {
@@ -120,10 +118,8 @@ export function createController(options = {}) {
         body: { id: target.id, name: target.name, rowHash: target.rowHash, ...body },
       }));
       if (!payload.ok) error = { code: payload.code || 'internal', params: payload.params };
-      else if (shared && payload.removal !== 'removed' && payload.removal !== 'pending') error = { code: 'shared-unknown' };
     } catch (cause) {
       error = failure(cause);
-      if (shared && (error.code === 'network' || error.code === 'timeout')) error = { code: 'shared-unknown' };
     } finally {
       deadline.clear();
     }
@@ -131,8 +127,8 @@ export function createController(options = {}) {
     if (activeWrite !== operation) return { ok: false, code: 'aborted' };
     if (!error) {
       activeWrite = undefined;
-      publish({ busy: false, action: shared ? { ...action, removal: payload.removal } : null, status: 'ready', state: payload, error: null });
-      return shared ? { ok: true, removal: payload.removal } : { ok: true };
+      publish({ busy: false, action: null, status: 'ready', state: payload, error: null });
+      return { ok: true };
     }
 
     // A lost response can follow a successful disk write; read the file again.
@@ -145,10 +141,6 @@ export function createController(options = {}) {
 
   function setEnabled(target, enabled) {
     return mutate(target, { action: 'setEnabled', enabled });
-  }
-
-  function deleteShared(target, revision) {
-    return mutate(target, { action: 'deleteShared', revision });
   }
 
   /** Stop background work without invalidating the controller (React StrictMode remounts). */
@@ -172,5 +164,5 @@ export function createController(options = {}) {
     listeners.clear();
   }
 
-  return { subscribe, getSnapshot, load, setEnabled, deleteShared, start, stop, dispose };
+  return { subscribe, getSnapshot, load, setEnabled, start, stop, dispose };
 }

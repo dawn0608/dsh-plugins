@@ -168,10 +168,9 @@ test('removes an insert block when its last row is deleted', () => {
   assert.ok(readPatch(removed.text).entries.every(item => item.name !== 'solo'));
 });
 
-test('rejects invalid names, duplicates, reserved names and missing fields', () => {
+test('rejects invalid names, duplicates and missing fields', () => {
   assert.deepEqual(draftError(() => buildSave(FIXTURE, null, { name: '', transport: 'stdio', command: '/bin/echo' })).map(item => item.code), ['required']);
   assert.deepEqual(draftError(() => buildSave(FIXTURE, null, { name: 'bad name', transport: 'stdio', command: '/bin/echo' })).map(item => item.code), ['name-format']);
-  assert.deepEqual(draftError(() => buildSave(FIXTURE, null, { name: 'node_repl', transport: 'stdio', command: '/bin/echo' })).map(item => item.code), ['name-reserved']);
   assert.deepEqual(draftError(() => buildSave(FIXTURE, null, { name: 'docs', transport: 'stdio', command: '/bin/echo' })).map(item => item.code), ['duplicate']);
   assert.deepEqual(draftError(() => buildSave(FIXTURE, null, { name: 'fresh', transport: 'stdio', command: '' })).map(item => item.code), ['required']);
   assert.deepEqual(draftError(() => buildSave(FIXTURE, null, { name: 'fresh', transport: 'streamable-http', url: '' })).map(item => item.code), ['required']);
@@ -325,4 +324,9 @@ test('refuses a toggle when another setting aliases the disabled value', () => {
     () => buildSetEnabled(source, entry(readPatch(source), 'one'), true),
     { code: 'verify-failed' },
   );
+});
+
+test('local service names do not inherit another application’s reserved names', () => {
+  const result = buildSave(FIXTURE, null, { name: 'node_repl', transport: 'stdio', command: 'node' });
+  assert.ok(readPatch(result.text).entries.some(item => item.name === 'node_repl'));
 });

@@ -29,10 +29,9 @@ test('accepts a valid streamable-http draft with a header reference', () => {
   assert.deepEqual(result.errors, []);
 });
 
-test('rejects illegal names, reserved names and live duplicates', () => {
+test('rejects illegal names and live duplicates', () => {
   assert.deepEqual(codes(validateDraft({ name: 'bad name', transport: 'stdio', command: '/bin/echo' })), ['name-format']);
   assert.deepEqual(codes(validateDraft({ name: 'x'.repeat(33), transport: 'stdio', command: '/bin/echo' })), ['name-format']);
-  assert.deepEqual(codes(validateDraft({ name: 'node_repl', transport: 'stdio', command: '/bin/echo' })), ['name-reserved']);
   assert.deepEqual(codes(validateDraft({ name: 'docs', transport: 'stdio', command: '/bin/echo' }, { names: ['docs'] })), ['duplicate']);
   assert.deepEqual(codes(validateDraft({ name: 'docs', transport: 'stdio', command: '/bin/echo' }, { names: ['docs'], selfName: 'docs' })), []);
 });

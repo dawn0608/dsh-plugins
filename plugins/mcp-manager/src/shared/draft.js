@@ -6,7 +6,7 @@
  * can localize them and the Host never has to return user values.
  */
 
-import { ENV_NAME, HEADER_NAME, RESERVED_NAMES, SERVER_NAME } from './references.js';
+import { ENV_NAME, HEADER_NAME, SERVER_NAME } from './references.js';
 
 const MAX_ENTRIES = 64;
 const MAX_ARGS = 128;
@@ -155,8 +155,6 @@ export function validateDraft(input, context = {}) {
     errors.push(error('name', 'required'));
   } else if (!SERVER_NAME.test(draft.name)) {
     errors.push(error('name', 'name-format'));
-  } else if (RESERVED_NAMES.includes(draft.name)) {
-    errors.push(error('name', 'name-reserved', { name: draft.name }));
   } else if (names.has(draft.name)) {
     errors.push(error('name', 'duplicate', { name: draft.name }));
   }

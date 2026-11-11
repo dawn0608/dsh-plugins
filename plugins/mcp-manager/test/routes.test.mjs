@@ -157,3 +157,11 @@ test('the browser only uses the relative connection route, including on failures
     ['api/mcp-manager', 'POST', 'same-origin', '1'],
   ]);
 });
+
+test('rejects cross-client removal even if a caller supplies a bridge', async () => {
+  let called = false;
+  const isolated = createApi({ store: { ...fakeStore(), deleteShared() { called = true; return { ok: true }; } }, log() {} });
+  const response = await isolated({ method: 'POST', headers: { 'content-type': 'application/json', 'x-dsh-mcp-manager': '1' }, body: JSON.stringify({ action: 'deleteShared', name: 'fixture' }) });
+  assert.equal(response.status, 400);
+  assert.equal(called, false);
+});

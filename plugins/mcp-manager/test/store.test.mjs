@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 import test from 'node:test';
 import { withProfileLock } from '../src/atomic.js';
 import { PatchError } from '../src/errors.js';
@@ -34,20 +34,20 @@ function conflict(error) {
 }
 
 test('resolves the profile patch from the environment and explicit config', () => {
-  assert.deepEqual(resolveProfile({ env: { DSH_PROFILE_DIR: '/tmp/profile', DSH_PROFILE: 'desktop' } }), {
-    dir: '/tmp/profile',
-    patchPath: '/tmp/profile/cordis.patch.yml',
+  assert.deepEqual(resolveProfile({ env: { DSH_PROFILE_DIR: join(tmpdir(), 'profile'), DSH_PROFILE: 'desktop' } }), {
+    dir: join(tmpdir(), 'profile'),
+    patchPath: join(tmpdir(), 'profile', 'cordis.patch.yml'),
     profile: 'desktop',
   });
   assert.equal(
-    resolveProfile({ env: { DSH_HOME: '/tmp/home', DSH_PROFILE: 'web' } }).patchPath,
-    '/tmp/home/profiles/web/cordis.patch.yml',
+    resolveProfile({ env: { DSH_HOME: join(tmpdir(), 'home'), DSH_PROFILE: 'web' } }).patchPath,
+    join(tmpdir(), 'home', 'profiles', 'web', 'cordis.patch.yml'),
   );
   assert.throws(() => resolveProfile({ env: {} }), error => error.code === 'profile-unavailable');
   assert.throws(() => resolveProfile({ env: {}, patchPath: 'relative.yml' }), error => error.code === 'profile-unavailable');
 });
 
-const HOST_PROFILE = { name: 'web-isolated', dir: '/tmp/host-profile', patchPath: '/tmp/host-profile/patch.yml' };
+const HOST_PROFILE = { name: 'web-isolated', dir: join(tmpdir(), 'host-profile'), patchPath: join(tmpdir(), 'host-profile', 'patch.yml') };
 
 test('uses the host profile context when the CLI supplies no profile environment or argument', t => {
   t.mock.property(process, 'argv', ['node', 'dsh', 'web']);
@@ -59,15 +59,15 @@ test('uses the host profile context when the CLI supplies no profile environment
 });
 
 test('prefers the explicit patch path over host context and host context over environment', () => {
-  const env = { DSH_PROFILE_DIR: '/tmp/env-profile', DSH_PROFILE: 'env-profile' };
+  const env = { DSH_PROFILE_DIR: join(tmpdir(), 'env-profile'), DSH_PROFILE: 'env-profile' };
   assert.deepEqual(resolveProfile({ env, profileContext: HOST_PROFILE }), {
     dir: HOST_PROFILE.dir,
     patchPath: HOST_PROFILE.patchPath,
     profile: HOST_PROFILE.name,
   });
-  assert.deepEqual(resolveProfile({ env, profileContext: HOST_PROFILE, patchPath: '/tmp/custom/patch.yml' }), {
-    dir: '/tmp/custom',
-    patchPath: '/tmp/custom/patch.yml',
+  assert.deepEqual(resolveProfile({ env, profileContext: HOST_PROFILE, patchPath: join(tmpdir(), 'custom', 'patch.yml') }), {
+    dir: join(tmpdir(), 'custom'),
+    patchPath: join(tmpdir(), 'custom', 'patch.yml'),
     profile: 'env-profile',
   });
   assert.throws(
@@ -77,7 +77,7 @@ test('prefers the explicit patch path over host context and host context over en
   assert.equal(resolveProfile({
     env,
     profileContext: { ...HOST_PROFILE, patchPath: 'relative.yml' },
-  }).patchPath, '/tmp/env-profile/cordis.patch.yml');
+  }).patchPath, join(tmpdir(), 'env-profile', 'cordis.patch.yml'));
 });
 
 test('finds the profile directory the desktop launcher passes as an argument', () => {
@@ -89,7 +89,7 @@ test('finds the profile directory the desktop launcher passes as an argument', (
     assert.deepEqual(resolveProfile({ env: {} }), {
       dir: space.dir,
       patchPath: join(space.dir, 'cordis.patch.yml'),
-      profile: space.dir.split('/').at(-1),
+      profile: basename(space.dir),
     });
   } finally {
     process.argv = original;
@@ -162,7 +162,7 @@ test('adds, edits, disables and deletes through the lock-protected store', async
         transport: 'stdio',
         enabled: true,
         command: '/opt/homebrew/opt/node@24/bin/node',
-        args: ['/tmp/echo.mjs'],
+        args: [join(tmpdir(), 'echo.mjs')],
         env: [{ key: 'PANEL_TOKEN', mode: 'ref', variable: 'PANEL_TEST_TOKEN' }],
       },
     });
@@ -182,7 +182,7 @@ test('adds, edits, disables and deletes through the lock-protected store', async
         transport: 'stdio',
         enabled: true,
         command: '/opt/homebrew/opt/node@24/bin/node',
-        args: ['/tmp/echo.mjs', '--edited'],
+        args: [join(tmpdir(), 'echo.mjs'), '--edited'],
         env: [{ key: 'PANEL_TOKEN', mode: 'ref', variable: 'PANEL_TEST_TOKEN' }],
       },
     });
@@ -273,7 +273,7 @@ test('reports a busy profile and a broken YAML document', async () => {
 test('stateFromText counts tools through the supplied reader', () => {
   const state = stateFromText(FIXTURE, {
     profile: 'desktop',
-    patchPath: '/tmp/cordis.patch.yml',
+    patchPath: join(tmpdir(), 'cordis.patch.yml'),
     countTools: name => (name === 'docs' ? 7 : null),
   });
   assert.equal(state.servers[0].tools, 7);
@@ -308,4 +308,21 @@ test('locks the host profile directory even when the patch file has a different 
     await assert.rejects(store.setEnabled({ id: target.id, rowHash: target.rowHash, enabled: false }), { code: 'locked' });
   });
   assert.equal(readFileSync(patchPath, 'utf8'), FIXTURE);
+});
+
+test('local toggles leave other applications’ configuration byte-for-byte unchanged', async t => {
+  const space = profile();
+  t.after(space.cleanup);
+  const otherFiles = ['.claude.json', '.codex/config.toml', '.claude/settings.json'];
+  for (const file of otherFiles) {
+    const path = join(space.dir, file);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, `unrelated ${file}\n`);
+  }
+  const original = otherFiles.map(file => readFileSync(join(space.dir, file)));
+  const [row] = (await space.store.readState()).servers;
+  await space.store.setEnabled({ id: row.id, rowHash: row.rowHash, enabled: false });
+  assert.equal(typeof space.store.deleteShared, 'undefined');
+  assert.ok((await space.store.readState()).servers.every(row => !('sharedRemovable' in row)));
+  for (const [index, file] of otherFiles.entries()) assert.deepEqual(readFileSync(join(space.dir, file)), original[index]);
 });

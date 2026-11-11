@@ -46,7 +46,7 @@ function CatalogRows({ skills, query, translate: t, busy, savingId, store, openD
               }, skill.name),
               skill.shadowed && h(Tag, { className: 'dshskill_badge' }, t('shadowed'))),
             descriptionId && h('span', { className: 'dshskill_description', id: descriptionId }, skill.description)),
-          typeof skill.enabled === 'boolean' && h(SkillToggle, { skill, busy, saving, store, translate: t, controls }));
+          skill.group === 'imported' && typeof skill.enabled === 'boolean' && h(SkillToggle, { skill, busy, saving, store, translate: t, controls }));
       })));
   }));
 }
@@ -65,7 +65,7 @@ function SkillDetail({ skill, titleRef, translate: t, busy, saving, back, openRe
   }, [skill.id, attempt]);
 
   const imported = skill.group === 'imported';
-  const canToggle = typeof skill.enabled === 'boolean';
+  const canToggle = skill.group === 'imported' && typeof skill.enabled === 'boolean';
   const origin = preview?.origin ?? skill.origin;
   const repository = origin === 'third-party' ? preview?.repository : undefined;
   const repositoryLabel = repository?.replace(/^https:\/\/(?:github\.com\/)?/, '').replace(/\/$/, '');

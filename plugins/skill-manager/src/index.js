@@ -1,7 +1,6 @@
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createFetchHandler, createSkillManager, ROUTE } from './host.js';
-import { registerSharedPolicy } from './shared-sync.js';
 
 export const inject = ['agentPresets', 'connection', 'skills', 'workspaceRegistry'];
 
@@ -17,9 +16,6 @@ export function apply(ctx) {
   const manager = createSkillManager({
     home, agentsHome, skills: ctx.skills, workspaceRegistry: ctx.workspaceRegistry, agentPresets: ctx.agentPresets,
   });
-  if (typeof ctx.skills.registerProvider === 'function') {
-    ctx.effect(() => registerSharedPolicy(ctx.skills, home, agentsHome), 'skill-manager: shared invocation policy');
-  }
   ctx.effect(() => ctx.connection.fetch.register({
     path: ROUTE,
     methods: ['POST'],

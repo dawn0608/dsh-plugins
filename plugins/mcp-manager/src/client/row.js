@@ -1,7 +1,6 @@
 /** Service summaries and the available row actions. */
 
 import * as React from 'react';
-import { Button } from '../../../../src/client/host-controls.js';
 import { serverLabel, transportLabel } from './model.js';
 
 const h = React.createElement;
@@ -18,7 +17,7 @@ const READ_ONLY_KEYS = {
   'config-enabled': 'readOnlyConfigEnabled',
 };
 
-export function ServerRow({ server, translate, busy, saving, failure, Switch, Tag, onToggle, onRemove }) {
+export function ServerRow({ server, translate, busy, saving, failure, Switch, Tag, onToggle }) {
   const name = serverLabel(server, translate);
   const readOnlyText = server.editable ? null : translate(READ_ONLY_KEYS[server.readOnlyCode] || 'readOnlyConfig');
   const canToggle = server.editable && server.enabled !== null;
@@ -38,13 +37,6 @@ export function ServerRow({ server, translate, busy, saving, failure, Switch, Ta
       disabled: Boolean(busy),
       onChange: enabled => onToggle(server, enabled),
     }) : null,
-    server.sharedRemovable ? h(Button, {
-      className: 'dshmcp_remove',
-      size: 'sm',
-      'aria-label': translate('removeSharedLabel', { name }),
-      disabled: Boolean(busy),
-      onClick: () => onRemove(server),
-    }, translate('removeShared')) : null,
     saving ? h('p', { className: 'dshmcp_reason', role: 'status' }, translate('saving')) : null,
     failure ? h('p', { className: 'dshmcp_reason dshmcp_notice_error', role: 'alert' }, failure) : null,
     readOnlyText ? h('span', { className: 'dshmcp_reason' }, readOnlyText) : null,

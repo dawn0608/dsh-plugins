@@ -3,7 +3,6 @@
 import { createApi, createFetchHandler } from './routes.js';
 import { createStore, resolveProfile } from './store.js';
 import { logEvent } from './log.js';
-import { createSharedRemoval } from './shared-sync.js';
 
 const CHANNEL_PATH = '/api/mcp-manager';
 
@@ -34,8 +33,7 @@ export function apply(ctx, config) {
     }
   };
 
-  const removeShared = patchPath ? undefined : createSharedRemoval(config?.sharedSync);
-  const store = createStore({ profile, countTools, log: logEvent, removeShared });
+  const store = createStore({ profile, countTools, log: logEvent });
   const api = createApi({ store, log: logEvent });
 
   ctx.effect(() => ctx.connection.fetch.register({

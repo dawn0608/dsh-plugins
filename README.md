@@ -18,7 +18,7 @@
 dsh plugin --profile <profile> add @dawn0608/dsh-cost-overview
 ```
 
-使用 CLI 修改 Desktop profile 前请完全退出应用。费用概览的模型/API Key 配置、MCP 的配置范围和技能管理的可选同步，分别见插件说明。技能同步需显式安装，不随 npm 安装自动修改其他应用配置。
+使用 CLI 修改 Desktop profile 前请完全退出应用。费用概览的模型/API Key 配置、MCP 的配置范围和技能导入副本的本地管理，分别见插件说明。管理插件只操作 Harness，不修改其他应用配置。
 
 也可以从 [GitHub Releases](https://github.com/dawn0608/dsh-plugins/releases) 下载本插件的 `.tgz`，在 DSH 插件页（如支持本地包入口）或 CLI 安装。
 
@@ -46,14 +46,6 @@ npm run verify     # 插件构建、规范、测试，以及公共工具和模�
 `src/client/` 存放两个管理插件共用的必要宿主控件与文档样式，构建时内联进各插件；已发布包不依赖本仓库或宿主私有 Client 模块。来源与许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 插件源码、适用版本、计费口径和已知限制详见各自的 README；目录约定见 [AGENTS.md](AGENTS.md#插件结构)。
-
-完整验证还需要 Python 3.12+ 及 MCP 同步依赖；可复用已有虚拟环境，或在仓库创建开发环境：
-
-```bash
-python3 -m venv .venv-sync
-.venv-sync/bin/python -m pip install -r plugins/mcp-manager/src/sync/requirements.txt
-DSH_SYNC_PYTHON=.venv-sync/bin/python npm run verify
-```
 
 ## 新增插件
 

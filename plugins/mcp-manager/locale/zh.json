@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "MCP 管理",
-    "description": "在设置中查看和启停 MCP 服务，Desktop 可选择启用三端移除。",
+    "description": "在设置中查看和启停当前 Harness profile 的 MCP 服务。",
     "detail": "README.zh.md"
   }
 }
