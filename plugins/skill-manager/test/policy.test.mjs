@@ -187,3 +187,15 @@ test('providers with different or excluded user roots do not resurrect disabled 
   await custom.ctx.plugin(filesystem, { dshHome: f.home, agentsHome: f.agentsHome, watch: false, providerName: 'custom-filesystem' }).ready;
   assert.equal(isUserInvocable(await custom.ctx.get('skills').get('shared', { scope: key })), true);
 });
+
+test('native providers started without an explicit config receive the local policy', async t => {
+  const f = await fixture(t);
+  const key = {};
+  const preset = createScope(f.ctx, key);
+  await preset.ctx.plugin({
+    name: 'skill-filesystem', inject: ['skills'],
+    apply: child => filesystem.apply(child, { dshHome: f.home, agentsHome: f.agentsHome, watch: false }),
+  }).ready;
+  await f.toggle('shared', false);
+  assert.equal(isUserInvocable(await f.ctx.skills.get('shared', { scope: key })), false);
+});

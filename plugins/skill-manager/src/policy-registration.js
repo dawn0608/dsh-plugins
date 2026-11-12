@@ -20,11 +20,12 @@ export function registerLocalPolicy(ctx, policy, { home, agentsHome }) {
       registrations.delete(fiber);
       return;
     }
-    if (registrations.has(fiber) || fiber.config.includeDefaultRoots === false
-      || (fiber.config.providerName ?? 'filesystem') !== 'filesystem') return;
+    const config = fiber.config ?? {};
+    if (registrations.has(fiber) || config.includeDefaultRoots === false
+      || (config.providerName ?? 'filesystem') !== 'filesystem') return;
     const roots = {
-      'user-dsh': join(resolveHome(fiber.config.dshHome, home), 'skills'),
-      'user-agents': join(resolveHome(fiber.config.agentsHome, agentsHome), 'skills'),
+      'user-dsh': join(resolveHome(config.dshHome, home), 'skills'),
+      'user-agents': join(resolveHome(config.agentsHome, agentsHome), 'skills'),
     };
     const dispose = fiber.ctx.skills.registerProvider(control => policy.provider(control, `${PROVIDER}:${fiber.uid}`, roots));
     registrations.set(fiber, dispose);
