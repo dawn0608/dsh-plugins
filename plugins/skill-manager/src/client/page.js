@@ -5,19 +5,7 @@ import { createTranslator } from './i18n.js';
 
 const GROUPS = ['builtin', 'self', 'third-party'];
 
-function SkillToggle({ skill, busy, saving, store, translate: t, controls }) {
-  const { StateDot, Switch } = controls;
-  return h('span', { className: 'dshskill_toggle' },
-    h('span', { className: 'dshskill_toggleProgress', role: 'status' },
-      h('span', { className: 'dshskill_progressAnnouncement' }, saving ? t('saving') : ''),
-      saving && h(StateDot, { state: 'ongoing' })),
-    h(Switch, {
-      checked: skill.enabled, label: t('switchLabel', { name: skill.name }), disabled: busy,
-      onChange: enabled => { void store.mutate({ action: 'setEnabled', id: skill.id, enabled }); },
-    }));
-}
-
-function CatalogRows({ skills, query, translate: t, busy, savingId, store, openDetail, controls }) {
+function CatalogRows({ skills, query, translate: t, openDetail, controls }) {
   const { SkillEmblem } = controls;
   const headingId = useId();
   const term = query.trim().toLocaleLowerCase();
@@ -33,7 +21,6 @@ function CatalogRows({ skills, query, translate: t, busy, savingId, store, openD
       h('h2', { id }, t(group)),
       h('ul', { className: 'dshskill_rows' }, entries.map(skill => {
         const descriptionId = skill.description ? headingId + '-' + skill.id : undefined;
-        const saving = savingId === skill.id;
         return h('li', { key: skill.id, className: 'dshskill_row' },
           h('span', { className: 'dshskill_icon' }, h(SkillEmblem, { size: 24 })),
           h('div', { className: 'dshskill_rowText' },
@@ -43,13 +30,12 @@ function CatalogRows({ skills, query, translate: t, busy, savingId, store, openD
                 'aria-label': t('openDetail', { name: skill.name }), 'aria-describedby': descriptionId,
                 onClick: () => openDetail(skill),
               }, skill.name)),
-            descriptionId && h('span', { className: 'dshskill_description', id: descriptionId }, skill.description)),
-          skill.canToggle && typeof skill.enabled === 'boolean' && h(SkillToggle, { skill, busy, saving, store, translate: t, controls }));
+            descriptionId && h('span', { className: 'dshskill_description', id: descriptionId }, skill.description)));
       })));
   }));
 }
 
-function SkillDetail({ skill, titleRef, translate: t, busy, saving, back, controls, store }) {
+function SkillDetail({ skill, titleRef, translate: t, back, controls }) {
   const { BackIcon, SkillDocument, SkillEmblem, Tag } = controls;
   const [preview, setPreview] = useState(null);
   const [attempt, setAttempt] = useState(0);
@@ -62,7 +48,6 @@ function SkillDetail({ skill, titleRef, translate: t, busy, saving, back, contro
     return () => pending.abort();
   }, [skill.id, attempt]);
 
-  const canToggle = skill.canToggle && typeof skill.enabled === 'boolean';
   const origin = preview?.origin ?? skill.origin;
   const repository = origin === 'third-party' ? preview?.repository : undefined;
   const repositoryLabel = repository?.replace(/^https:\/\/(?:github\.com\/)?/, '').replace(/\/$/, '');
@@ -72,9 +57,7 @@ function SkillDetail({ skill, titleRef, translate: t, busy, saving, back, contro
       h('button', { type: 'button', className: 'dshskill_back', 'aria-label': t('back'), onClick: back },
         h(BackIcon, { className: 'dshskill_backIcon', 'aria-hidden': true }), h('span', null, t('title'))),
       h('div', { className: 'dshskill_detailHead' },
-        h('span', { className: 'dshskill_icon', 'aria-hidden': true }, h(SkillEmblem, { branded: true, size: 36 })),
-        canToggle && h('div', { className: 'dshskill_detailActions' },
-          h(SkillToggle, { skill, busy, saving, store, translate: t, controls })))),
+        h('span', { className: 'dshskill_icon', 'aria-hidden': true }, h(SkillEmblem, { branded: true, size: 36 })))),
     h('div', { className: 'dshskill_detailMain' },
       h('div', { className: 'dshskill_detailTitleRow' },
         h('h1', { ref: titleRef, tabIndex: -1, title: skill.name }, skill.name),
@@ -130,16 +113,15 @@ export function createPage(locale, controls, createStore = createCatalog) {
     function openDetail(skill) {
       returnTo.current = { id: skill.id, scrollTop: pageRef.current.scrollTop };
       setDetail(skill);
-      store.clearMutationError();
     }
 
-    const { skills, busy, savingId, listError, mutationError } = state;
+    const { skills, listError } = state;
     const currentSkill = detail && (skills?.find(skill => skill.id === detail.id) ?? detail);
     return h('div', { className: 'dshskill_page', 'data-detail': currentSkill ? '' : undefined, ref: pageRef },
       h('div', { className: 'dshskill_content' },
         currentSkill
           ? h(SkillDetail, {
-              skill: currentSkill, titleRef, translate: t, busy, saving: savingId === currentSkill.id, controls, store,
+              skill: currentSkill, titleRef, translate: t, controls,
               back: () => setDetail(null),
             })
           : h('div', { className: 'dshskill_catalog' },
@@ -153,7 +135,6 @@ export function createPage(locale, controls, createStore = createCatalog) {
             listError && h('p', { role: 'alert', className: 'dshskill_error' }, t(listError)),
             skills === null
               ? !listError && h('p', { role: 'status', className: 'dshskill_muted' }, t('loading'))
-              : h(CatalogRows, { skills, query, translate: t, busy, savingId, store, openDetail, controls })),
-        mutationError && h('p', { role: 'alert', className: 'dshskill_error' }, t(mutationError))));
+              : h(CatalogRows, { skills, query, translate: t, openDetail, controls }))));
   };
 }

@@ -4,10 +4,9 @@ import { request, SkillError } from './api.js';
 export function createCatalog(send = request) {
   const listeners = new Set();
   let snapshot = {
-    skills: null, listError: null, mutationError: null, busy: false, savingId: null, revision: null,
+    skills: null, listError: null,
   };
   let reading;
-  let writing;
   let stopPolling;
   let trailing = false;
   let stopped = false;
@@ -25,7 +24,7 @@ export function createCatalog(send = request) {
 
   async function refresh() {
     if (stopped) return;
-    if (snapshot.busy || reading) { trailing = true; return; }
+    if (reading) { trailing = true; return; }
     cancelRefresh();
     const pending = new AbortController();
     reading = pending;
@@ -38,9 +37,9 @@ export function createCatalog(send = request) {
       }
       if (result.complete) {
         hasCompleteCatalog = true;
-        publish({ skills: result.skills, revision: result.revision, listError: null });
+        publish({ skills: result.skills, listError: null });
       } else if (!hasCompleteCatalog) {
-        publish({ skills: result.skills, revision: result.revision, listError: 'incomplete' });
+        publish({ skills: result.skills, listError: 'incomplete' });
       } else {
         publish({ listError: 'incomplete' });
       }
@@ -54,34 +53,6 @@ export function createCatalog(send = request) {
     }
   }
 
-  async function mutate(action) {
-    if (snapshot.busy || stopped) return false;
-    cancelRefresh();
-    const pending = new AbortController();
-    writing = pending;
-    publish({ busy: true, savingId: action.action === 'setEnabled' ? action.id : null, mutationError: null });
-    try {
-      await send({ ...action, revision: snapshot.revision }, AbortSignal.any([pending.signal, AbortSignal.timeout(30000)]));
-      if (writing !== pending || stopped) return false;
-      writing = undefined;
-      let { skills } = snapshot;
-      if (skills && action.action === 'setEnabled') {
-        skills = skills.map(skill => skill.id === action.id ? { ...skill, enabled: action.enabled } : skill);
-      }
-      publish({ skills, busy: false, savingId: null });
-      trailing = false;
-      void refresh();
-      return true;
-    } catch (error) {
-      if (writing !== pending || stopped) return false;
-      writing = undefined;
-      publish({ mutationError: error.code ?? 'unavailable', busy: false, savingId: null });
-      trailing = false;
-      void refresh();
-      return false;
-    }
-  }
-
   return {
     getSnapshot: () => snapshot,
     subscribe(listener) {
@@ -89,10 +60,6 @@ export function createCatalog(send = request) {
       return () => { listeners.delete(listener); };
     },
     refresh,
-    mutate,
-    clearMutationError() {
-      if (snapshot.mutationError) publish({ mutationError: null });
-    },
     start() {
       if (stopPolling) return;
       stopped = false;
@@ -104,9 +71,6 @@ export function createCatalog(send = request) {
       stopPolling = undefined;
       trailing = false;
       cancelRefresh();
-      writing?.abort();
-      writing = undefined;
-      snapshot = { ...snapshot, busy: false, savingId: null };
     },
   };
 }

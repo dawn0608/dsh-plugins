@@ -36,6 +36,6 @@ test('each plugin locale points to its own packaged detail document', () => {
 });
 
 test('format interpolates named placeholders and leaves unknown ones', () => {
-  assert.equal(translateFrom(DICTS.zh, 'switchLabel', { name: 'example' }), '启用 example');
-  assert.match(translateFrom(DICTS.en, 'switchLabel', {}), /\{name\}/);
+  assert.equal(translateFrom(DICTS.zh, 'openDetail', { name: 'example' }), '查看 example');
+  assert.match(translateFrom(DICTS.en, 'openDetail', {}), /\{name\}/);
 });

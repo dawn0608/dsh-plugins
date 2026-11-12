@@ -5,12 +5,12 @@ import { createCatalog } from '../src/client/catalog.js';
 
 const skill = {
   id: 'id-alpha', name: 'alpha', description: 'A skill', origin: 'third-party',
-  source: 'user-agents', enabled: false, canToggle: true,
+  source: 'user-agents',
 };
-const catalog = (skills = [skill], complete = true) => ({ skills, complete, revision: 0 });
+const catalog = (skills = [skill], complete = true) => ({ skills, complete });
 
 test('only posts JSON to the authenticated relative route and preserves a typed Host error', async () => {
-  const body = { action: 'setEnabled', id: skill.id, enabled: true };
+  const body = { action: 'detail', id: skill.id };
   let calls = 0;
   await assert.rejects(request(body, undefined, async (url, options) => {
     calls += 1;
@@ -58,33 +58,6 @@ test('shows available global skills when the first catalog is incomplete', async
   assert.equal(store.getSnapshot().listError, null);
 });
 
-test('a refresh started before a write cannot overwrite its resulting state', async () => {
-  let resolveStale;
-  let staleSignal;
-  let reads = 0;
-  const store = createCatalog(async (body, signal) => {
-    if (body.action === 'setEnabled') {
-      assert.deepEqual(body, { action: 'setEnabled', id: skill.id, enabled: true, revision: 0 });
-      return {};
-    }
-    reads += 1;
-    if (reads === 2) {
-      staleSignal = signal;
-      return new Promise(resolve => { resolveStale = resolve; });
-    }
-    if (reads === 3) return catalog([], false);
-    return catalog();
-  });
-  await store.refresh();
-  const stale = store.refresh();
-  assert.equal(await store.mutate({ action: 'setEnabled', id: skill.id, enabled: true }), true);
-  assert.equal(staleSignal.aborted, true);
-  resolveStale(catalog());
-  await stale;
-  assert.equal(store.getSnapshot().skills[0].enabled, true);
-  assert.equal(store.getSnapshot().listError, 'incomplete');
-});
-
 test('stopping the mounted controller aborts its read and ignores a late reply', async () => {
   let complete;
   let readSignal;
@@ -101,51 +74,46 @@ test('stopping the mounted controller aborts its read and ignores a late reply',
   assert.equal(store.getSnapshot().skills, null);
 });
 
-test('stopping aborts a pending mutation and ignores its result after remount', async t => {
+test('a previous mount cannot overwrite a new catalog after cancellation', async t => {
   let finish;
-  let writeSignal;
-  const store = createCatalog((body, signal) => {
-    if (body.action === 'setEnabled') {
-      writeSignal = signal;
-      return new Promise(resolve => { finish = resolve; });
-    }
-    return Promise.resolve(catalog());
+  let reads = 0;
+  const newer = { ...skill, description: 'Refreshed skill' };
+  const store = createCatalog(async () => {
+    if (++reads === 1) return new Promise(resolve => { finish = resolve; });
+    return catalog([newer]);
   });
   t.after(() => store.stop());
-  await store.refresh();
-  const writing = store.mutate({ action: 'setEnabled', id: skill.id, enabled: true });
+  store.start();
   store.stop();
-  assert.equal(writeSignal.aborted, true);
   store.start();
   await new Promise(resolve => setImmediate(resolve));
-  assert.equal(store.getSnapshot().busy, false);
-  finish({});
-  assert.equal(await writing, false);
-  assert.equal(store.getSnapshot().skills[0].enabled, false);
-  assert.equal(store.getSnapshot().mutationError, null);
+  finish(catalog());
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(store.getSnapshot().skills, [newer]);
 });
 
-test('coalesces overlapping refreshes into one trailing read and recovers after an uncertain write', async () => {
+test('coalesces overlapping refreshes into one trailing read and recovers after a failed read', async () => {
   let finish;
   let reads = 0;
   const store = createCatalog(async body => {
-    if (body.action === 'setEnabled') throw new Error('response lost after commit');
+    assert.deepEqual(body, { action: 'list' });
     reads++;
     if (reads === 1) return new Promise(resolve => { finish = resolve; });
-    return catalog([{ ...skill, enabled: true }]);
+    if (reads === 3) throw new Error('connection lost');
+    return catalog();
   });
   const initial = store.refresh();
   await Promise.all([store.refresh(), store.refresh(), store.refresh()]);
   assert.equal(reads, 1);
-  finish(catalog());
+  finish(catalog([], false));
   await initial;
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(reads, 2);
-  assert.equal(await store.mutate({ action: 'setEnabled', id: skill.id, enabled: true }), false);
-  await new Promise(resolve => setImmediate(resolve));
-  assert.equal(reads, 3);
-  assert.equal(store.getSnapshot().busy, false);
-  assert.equal(store.getSnapshot().skills[0].enabled, true);
+  assert.equal(store.getSnapshot().listError, null);
+  await store.refresh();
+  assert.equal(store.getSnapshot().listError, 'unavailable');
+  await store.refresh();
+  assert.deepEqual(store.getSnapshot(), { skills: [skill], listError: null });
   store.stop();
 });
 

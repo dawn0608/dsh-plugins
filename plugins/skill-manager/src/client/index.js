@@ -1,7 +1,7 @@
 import { createElement as h } from 'react';
 import {
   IconChevronDownOutlineRegular, IconSearchOutlineRegular,
-  Input, StateDot, Switch, Tag,
+  Input, Tag,
 } from '../../../../src/client/host-controls.js';
 import { DetailDocument, detailDocumentState, useDetailDocumentLabels } from '../../../../src/client/host-document.js';
 import controlsCss from '../../../../src/client/host-controls.css';
@@ -53,6 +53,6 @@ export function apply(ctx) {
     name: 'main', key: 'skill-manager', locale: NS,
   }, createPage(ctx.locale, {
     BackIcon: IconChevronDownOutlineRegular, Input, SearchIcon: IconSearchOutlineRegular,
-    SkillDocument, SkillEmblem, StateDot, Switch, Tag,
+    SkillDocument, SkillEmblem, Tag,
   })));
 }

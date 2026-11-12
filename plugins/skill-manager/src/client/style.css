@@ -198,38 +198,6 @@ html[data-platform='darwin'] .dshskill_page {
   line-height: 18px;
 }
 
-.dshskill_toggle {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: 8px;
-}
-
-.dshskill_row .dshskill_toggle {
-  position: relative;
-  z-index: 1;
-}
-
-.dshskill_toggleProgress {
-  display: inline-flex;
-  width: 14px;
-  height: 14px;
-}
-
-.dshskill_toggleProgress > svg {
-  width: 100%;
-  height: 100%;
-}
-
-.dshskill_progressAnnouncement {
-  position: absolute;
-  clip-path: inset(50%);
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  white-space: nowrap;
-}
-
 .dshskill_error {
   color: var(--dsw-alias-state-error-primary);
 }
@@ -270,12 +238,6 @@ html[data-platform='darwin'] .dshskill_page {
   justify-content: space-between;
   gap: 12px;
   margin-top: 32px;
-}
-
-.dshskill_detailActions {
-  display: flex;
-  align-items: center;
-  gap: 16px;
 }
 
 .dshskill_detailMain {
