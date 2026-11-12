@@ -20,7 +20,10 @@ export function skillId(skill) {
 
 export function createLocalPolicy({ home, agentsHome, readSettings, updateSettings, readRecords = () => readSettings().disabledSkills }) {
   const roots = { 'user-dsh': join(home, 'skills'), 'user-agents': join(agentsHome, 'skills') };
-  let invalidate = () => {};
+  const providers = new Set();
+  const invalidators = new Set();
+  const invalidate = () => { for (const callback of invalidators) callback(); };
+  const manageable = skill => skill.provider === 'filesystem' || providers.has(skill.provider);
 
   async function identity(skill) {
     if (!Object.hasOwn(RANKS, skill.source) || typeof skill.path !== 'string' || !isAbsolute(skill.path)) return;
@@ -53,7 +56,7 @@ export function createLocalPolicy({ home, agentsHome, readSettings, updateSettin
   return {
     state: readSettings,
     async describe(skill, settings = readSettings()) {
-      const record = [PROVIDER, 'filesystem'].includes(skill.provider) ? await identity(skill) : undefined;
+      const record = manageable(skill) ? await identity(skill) : undefined;
       return {
         id: skillId(record ?? skill),
         canToggle: Boolean(record && settings.writable),
@@ -62,7 +65,7 @@ export function createLocalPolicy({ home, agentsHome, readSettings, updateSettin
     },
     revision: () => readSettings().revision,
     async setEnabled(skill, id, enabled, revision, signal) {
-      const record = [PROVIDER, 'filesystem'].includes(skill.provider) ? await identity(skill) : undefined;
+      const record = manageable(skill) ? await identity(skill) : undefined;
       if (!record) throw new ManagerError('forbidden');
       if (skillId(record) !== id) throw new ManagerError('conflict');
       const settings = readSettings();
@@ -79,19 +82,34 @@ export function createLocalPolicy({ home, agentsHome, readSettings, updateSettin
       } finally { invalidate(); }
     },
     invalidate: () => invalidate(),
-    provider(control) {
-      invalidate = control.invalidate;
+    provider(control, name = PROVIDER, providerRoots = roots) {
+      providers.add(name);
+      invalidators.add(control.invalidate);
+      control.signal?.addEventListener('abort', () => {
+        providers.delete(name);
+        invalidators.delete(control.invalidate);
+      }, { once: true });
+      const load = async (record, signal) => {
+        try {
+          const [actual, expected] = await Promise.all([
+            realpath(providerRoots[record.source]), realpath(roots[record.source]),
+          ]);
+          if (normalizeSkillPath(actual) !== normalizeSkillPath(expected)) return;
+        } catch { return; }
+        const skill = await definition(record, signal);
+        return skill && { ...skill, provider: name };
+      };
       return {
-        name: PROVIDER,
+        name,
         async list({ signal }) {
           const candidates = [];
           for (const record of readRecords()) {
-            const skill = await definition(record, signal);
+            const skill = await load(record, signal);
             if (skill) candidates.push({ ...skill, rank: RANKS[record.source], locator: record });
           }
           return candidates;
         },
-        get: (candidate, { signal }) => definition(candidate.locator, signal),
+        get: (candidate, { signal }) => load(candidate.locator, signal),
       };
     },
   };

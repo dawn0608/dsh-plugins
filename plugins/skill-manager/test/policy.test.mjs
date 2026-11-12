@@ -5,8 +5,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Context } from '@deepseek-ai/cordis';
 import SkillRegistry, { isModelInvocable, isUserInvocable } from '@deepseek-ai/dsh-skill';
+import { createScope } from '@deepseek-ai/dsh-scope';
 import * as filesystem from '@deepseek-ai/dsh-skill-filesystem';
 import { createLocalPolicy, normalizeSkillPath } from '../src/policy.js';
+import { registerLocalPolicy } from '../src/policy-registration.js';
 import { createSkillManager } from '../src/host.js';
 
 const markdown = (name, flags = '') => `---\nname: ${name}\ndescription: Test skill\n${flags}---\n# Body\n`;
@@ -31,7 +33,8 @@ async function fixture(t) {
       state = { ...state, disabledSkills: records, revision: revision + 1 };
     },
   });
-  ctx.skills.registerProvider(control => policy.provider(control));
+  const owner = ctx.plugin({ inject: ['skills'], apply: child => registerLocalPolicy(child, policy, { home, agentsHome }) });
+  await owner.ready;
   const manager = createSkillManager({ agentsHome, skills: ctx.skills, policy,
     agentPresets: { acquireScope: async () => ({ key: undefined, async [Symbol.asyncDispose]() {} }) },
   });
@@ -40,7 +43,7 @@ async function fixture(t) {
     const row = list.skills.find(row => row.name === name);
     await manager({ action: 'setEnabled', id: row.id, enabled, revision: list.revision });
   };
-  return { base, home, agentsHome, ctx, files, manager, policy, toggle, state: () => state };
+  return { base, home, agentsHome, ctx, files, manager, policy, toggle, owner, state: () => state };
 }
 
 test('real native registry disables both user roots, retains preview and restores original invocation rules', async t => {
@@ -116,6 +119,10 @@ test('native skill tool, model catalog and slash invocation all honor the local 
   let tool;
   const hooks = [];
   const agent = { session: { surface: { nodes: [] }, seq: 0 } };
+  const presetKey = {};
+  const preset = createScope(f.ctx, presetKey);
+  await preset.ctx.plugin(filesystem, { dshHome: f.home, agentsHome: f.agentsHome, watch: false }).ready;
+  createScope(f.ctx, agent, { parent: presetKey });
   apply({ skills: f.ctx.skills, workingDirectory: { ensure: async () => undefined },
     tools: { register(value) { tool = value; }, get() { return tool; } },
     on(event, callback) { if (event === 'agent/pre-step') hooks.push(callback); },
@@ -125,11 +132,58 @@ test('native skill tool, model catalog and slash invocation all honor the local 
   const step = { agent, signal, messages };
   const next = async () => ({ kind: 'continue', messages: [] });
   await f.toggle('shared', false);
-  await assert.rejects(tool.execute({ name: 'shared' }, { signal }), /not available for model invocation/);
+  await assert.rejects(tool.execute({ name: 'shared' }, { signal, agent }), /not available for model invocation/);
   assert.equal((await hooks[0](step, next)).messages.length, 0);
   assert.equal((await hooks[1](step, next)).messages.length, 0);
   await f.toggle('shared', true);
-  assert.equal((await tool.execute({ name: 'shared' }, { signal })).name, 'shared');
+  assert.equal((await tool.execute({ name: 'shared' }, { signal, agent })).name, 'shared');
   assert.equal((await hooks[0](step, next)).messages[0].source.kind, 'skill-invocation');
   assert.deepEqual((await hooks[1](step, next)).messages[0].source.entries.map(row => row.name), ['shared']);
+});
+
+test('late and isolated preset providers retain native precedence and clean up on either owner disposal', async t => {
+  const f = await fixture(t);
+  await f.toggle('shared', false);
+  const key = {};
+  const preset = createScope(f.ctx.isolate('skills'), key);
+  await preset.ctx.plugin(SkillRegistry).ready;
+  let native = preset.ctx.plugin(filesystem, { dshHome: f.home, agentsHome: f.agentsHome, watch: false });
+  await native.ready;
+  const lookup = { scope: key };
+  assert.equal(isUserInvocable(await preset.ctx.get('skills').get('shared', lookup)), false);
+  await f.toggle('shared', true);
+  assert.equal(isUserInvocable(await preset.ctx.get('skills').get('shared', lookup)), true);
+  await f.toggle('shared', false);
+  const project = join(f.base, 'scoped-project');
+  await mkdir(join(project, '.agents', 'skills', 'shared'), { recursive: true });
+  await writeFile(join(project, '.agents', 'skills', 'shared', 'SKILL.md'), markdown('shared'));
+  assert.equal(isUserInvocable(await preset.ctx.get('skills').get('shared', { ...lookup, cwd: project })), true);
+  await native.dispose();
+  assert.equal(await preset.ctx.get('skills').get('shared', lookup), undefined);
+  native = preset.ctx.plugin(filesystem, { dshHome: f.home, agentsHome: f.agentsHome, watch: false });
+  await native.ready;
+  assert.equal(isUserInvocable(await preset.ctx.get('skills').get('shared', lookup)), false);
+  await f.owner.dispose();
+  assert.equal(isUserInvocable(await preset.ctx.get('skills').get('shared', lookup)), true);
+  // No retained observer can attach to providers created after manager unload.
+  await native.dispose();
+  await preset.ctx.plugin(filesystem, { dshHome: f.home, agentsHome: f.agentsHome, watch: false }).ready;
+  assert.equal(isUserInvocable(await preset.ctx.get('skills').get('shared', lookup)), true);
+});
+
+test('providers with different or excluded user roots do not resurrect disabled skills', async t => {
+  const f = await fixture(t);
+  await f.toggle('shared', false);
+  for (const config of [{ includeDefaultRoots: false }, { agentsHome: join(f.base, 'other-agents') }]) {
+    const key = {};
+    const preset = createScope(f.ctx.isolate('skills'), key);
+    await preset.ctx.plugin(SkillRegistry).ready;
+    await preset.ctx.plugin(filesystem, { dshHome: f.home, agentsHome: f.agentsHome, watch: false, ...config }).ready;
+    assert.equal(await preset.ctx.get('skills').get('shared', { scope: key }), undefined);
+  }
+  const key = {};
+  const custom = createScope(f.ctx.isolate('skills'), key);
+  await custom.ctx.plugin(SkillRegistry).ready;
+  await custom.ctx.plugin(filesystem, { dshHome: f.home, agentsHome: f.agentsHome, watch: false, providerName: 'custom-filesystem' }).ready;
+  assert.equal(isUserInvocable(await custom.ctx.get('skills').get('shared', { scope: key })), true);
 });

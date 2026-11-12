@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { Context } from '@deepseek-ai/cordis';
 import Loader from '@deepseek-ai/cordis-plugin-loader';
 import SkillRegistry from '@deepseek-ai/dsh-skill';
+import { createScope } from '@deepseek-ai/dsh-scope';
 import * as filesystem from '@deepseek-ai/dsh-skill-filesystem';
 import Settings from '@deepseek-ai/dsh-settings';
 import ConfigEditor from '@deepseek-ai/dsh-config-editor';
@@ -36,13 +37,17 @@ test('native Settings persists profile-only switches, rejects stale writes and r
   const profile = { name: 'test', dir, patchPath, installAnchor: dir, cwd: base, home, startedBundles: [], overlays: [] };
   async function boot(targetProfile = profile) {
     const ctx = new Context();
+    const scope = {};
     let handler;
     ctx.provide('profileContext', targetProfile);
-    ctx.provide('agentPresets', { acquireScope: async () => ({ key: undefined, async [Symbol.asyncDispose]() {} }) });
+    ctx.provide('agentPresets', { acquireScope: async () => ({ key: scope, async [Symbol.asyncDispose]() {} }) });
     ctx.provide('connection', { fetch: { register(route) { handler = route.fetch; return () => {}; } } });
     await ctx.plugin(Loader).ready;
     await ctx.plugin(SkillRegistry).ready;
     await ctx.plugin(filesystem, { dshHome: home, agentsHome: agents, watch: false }).ready;
+    // Desktop presets discover skills in their own layer, above host providers.
+    const preset = createScope(ctx, scope);
+    await preset.ctx.plugin(filesystem, { dshHome: home, agentsHome: agents, watch: false }).ready;
     await ctx.plugin(ConfigEditor).ready;
     await ctx.plugin(Settings).ready;
     ctx.loader.builtins['test-manager'] = manager;
@@ -55,7 +60,7 @@ test('native Settings persists profile-only switches, rejects stale writes and r
       }));
       return { status: response.status, ...await response.json() };
     };
-    return { ctx, call };
+    return { ctx, call, scope };
   }
   // Two live Harness profiles share skill files but must not share enablement.
   const otherDir = join(home, 'profiles', 'other');
@@ -79,6 +84,7 @@ test('native Settings persists profile-only switches, rejects stale writes and r
   assert.equal((await first.call(action)).ok, true);
   assert.match(await readFile(patchPath, 'utf8'), /disabledSkills:/);
   assert.equal((await first.ctx.skills.get('sample')).invocation.userInvocable, false);
+  assert.equal((await first.ctx.skills.get('sample', { scope: first.scope })).invocation.userInvocable, false);
   assert.equal((await other.ctx.skills.get('sample')).invocation.userInvocable, true);
   assert.equal((await other.call({ action: 'list' })).value.skills[0].enabled, true);
   assert.equal((await first.call({ ...action, enabled: true })).status, 409);
@@ -97,6 +103,7 @@ test('native Settings persists profile-only switches, rejects stale writes and r
   const after = (await second.call({ action: 'list' })).value;
   assert.equal(after.skills[0].enabled, false);
   assert.equal((await second.ctx.skills.get('sample')).invocation.modelInvocable, false);
+  assert.equal((await second.ctx.skills.get('sample', { scope: second.scope })).invocation.modelInvocable, false);
   assert.equal((await second.call({ ...action, enabled: true, revision: after.revision })).ok, true);
   assert.equal((await second.ctx.skills.get('sample')).invocation.userInvocable, true);
   assert.deepEqual(await Promise.all(protectedPaths.map(path => readFile(path))), protectedBytes);

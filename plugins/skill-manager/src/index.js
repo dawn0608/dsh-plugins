@@ -1,8 +1,9 @@
 import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import z from '@deepseek-ai/schemastery';
 import { createFetchHandler, createSkillManager, ROUTE } from './host.js';
 import { createLocalPolicy } from './policy.js';
+import { registerLocalPolicy, resolveHome } from './policy-registration.js';
 
 export const inject = ['agentPresets', 'connection', 'skills', 'settings', 'configEditor'];
 export const Config = z.object({
@@ -11,15 +12,9 @@ export const Config = z.object({
   })).default([]).volatile(),
 });
 
-function resolveHome(configured, fallback) {
-  return configured?.trim() ? resolve(
-    configured === '~' ? homedir() : /^~[/\\]/.test(configured) ? join(homedir(), configured.slice(2)) : configured,
-  ) : join(homedir(), fallback);
-}
-
 export function apply(ctx, config) {
-  const home = resolveHome(process.env.DSH_HOME, '.dsh');
-  const agentsHome = resolveHome(process.env.DSH_AGENTS_HOME, '.agents');
+  const home = resolveHome(process.env.DSH_HOME, join(homedir(), '.dsh'));
+  const agentsHome = resolveHome(process.env.DSH_AGENTS_HOME, join(homedir(), '.agents'));
   const descriptor = () => {
     const entry = ctx.configEditor.entries().find(entry => entry.fiber?.ctx.fiber === ctx.fiber);
     return ctx.settings.describe().find(row => row.ns === entry?.options.id);
@@ -37,7 +32,7 @@ export function apply(ctx, config) {
     updateSettings: (disabledSkills, revision) => ctx.settings.update(descriptor()?.ns, { disabledSkills }, revision),
   });
   ctx.effect(() => ctx.settings.configure({ auto: false }, ctx.fiber), 'skill-manager: settings');
-  ctx.skills.registerProvider(control => policy.provider(control));
+  registerLocalPolicy(ctx, policy, { home, agentsHome });
   ctx.on('loader/volatile-update', () => policy.invalidate());
   const manager = createSkillManager({ agentsHome, skills: ctx.skills, agentPresets: ctx.agentPresets, policy });
   ctx.effect(() => ctx.connection.fetch.register({
