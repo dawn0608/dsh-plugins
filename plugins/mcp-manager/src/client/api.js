@@ -40,9 +40,9 @@ export async function request(input) {
       const result = await fetchImpl(CONNECTION_PATH, {
         method, headers, body, cache: 'no-store', credentials: 'same-origin', signal,
       });
+      if (result.status === 401 || result.status === 403) throw new ApiError('unauthorized', result.status);
       const payload = await result.json().catch(() => undefined);
       if (isResult(payload)) return { status: result.status, payload };
-      if (result.status === 401 || result.status === 403) throw new ApiError('unauthorized', result.status);
       throw new ApiError('network', result.status);
     })();
     // The host fetch bridge may ignore cancellation while waiting for a reply.

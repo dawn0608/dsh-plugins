@@ -119,7 +119,7 @@ export function DetailDocument({ state, labels, onRetry }) {
     h(Document, { markdown: state.markdown, labels: labels.markdown }));
   else if (state.status === 'error') body = h('div', { className: 'dshdoc_detail_failure' },
     h('p', { className: 'dshdoc_detail_error', role: 'alert' }, h(StateDot, { state: 'error' }), state.message),
-    h(Button, { variant: 'outline', size: 'sm', onClick: onRetry }, labels.retry));
+    h(Button, { onClick: onRetry }, labels.retry));
   else body = h('div', { className: 'dshdoc_detail_skeleton', role: 'status', 'aria-label': labels.loading, 'aria-busy': true },
     ...['long', 'long', 'short'].map((width, index) => h('span', { key: index, className: `dshdoc_detail_bar dshdoc_detail_${width}` })));
   return h('section', { className: 'dshdoc_detail_section', 'data-detail-document': '' }, body);

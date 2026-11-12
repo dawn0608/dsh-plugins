@@ -17,7 +17,7 @@ test('native controls preserve input attributes and do not create a nested butto
   assert.match(html, /<span[^>]*><input[^>]*placeholder="Search"/);
   assert.match(html, /aria-label="Skills"/);
   assert.match(html, /value="test"/);
-  const button = renderToStaticMarkup(h(Button, { variant: 'outline', size: 'sm', disabled: true }, 'Remove'));
+  const button = renderToStaticMarkup(h(Button, { disabled: true }, 'Retry'));
   assert.equal((button.match(/<button/g) || []).length, 1);
   assert.match(button, /disabled=""/);
   assert.match(renderToStaticMarkup(h(Tag, { tone: 'warning' }, 'Read only')), /data-tone="warning"/);

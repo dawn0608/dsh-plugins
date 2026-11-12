@@ -238,3 +238,13 @@ test('coalesces concurrent reads and aborts manual reads on cleanup', async () =
   await pending;
   assert.equal(hanging.getSnapshot().state, null);
 });
+
+
+test('authentication denial with a JSON envelope remains an authorization error', async () => {
+  for (const status of [401, 403]) {
+    const store = createController({ fetchImpl: async () => Response.json({ ok: false, code: 'forbidden' }, { status }) });
+    await store.load();
+    assert.equal(store.getSnapshot().error.code, 'unauthorized');
+    store.dispose();
+  }
+});

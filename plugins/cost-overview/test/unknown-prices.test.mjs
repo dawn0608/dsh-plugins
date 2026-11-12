@@ -47,3 +47,11 @@ test('invalid rows never contribute prices and known-only totals remain complete
   assert.equal(value.knownSubtotal, 2);
   assert.equal(value.pricingStatus, 'complete');
 });
+
+
+test('recognizes the explicitly documented API aliases without matching suffixes', () => {
+  for (const name of ['deepseek-v4-flash', 'deepseek-v4-flash-vision-exp']) {
+    assert.equal(resolveModel(name, table).key, 'deepseek-flash');
+    assert.equal(resolveModel(name + '-custom', table).unknown, true);
+  }
+});

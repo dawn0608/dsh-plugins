@@ -120,3 +120,17 @@ test('retries quickly until the first success and after a failed refresh', () =>
   assert.equal(pricingTtl({ at: 1, error: 'network' }), PRICING_RETRY_MS);
   assert.equal(pricingTtl({ at: 0, error: 'parse' }), PRICING_RETRY_MS);
 });
+
+
+test('does not mistake a similarly named model column for a supported price row', () => {
+  for (const name of ['deepseek-flash-lite', 'custom-deepseek-flash', 'deepseek-flash/custom']) {
+    const rows = structuredClone(officialRows);
+    rows[0][1] = name;
+    assert.equal(parsePricing(html(rows)), undefined, name);
+  }
+  const rows = structuredClone(officialRows);
+  rows[0] = ['模型', 'deepseek-flash-lite', 'deepseek-flash (1)', 'deepseek-v4-pro'];
+  for (const cells of rows.slice(1)) cells.splice(cells.length - 2, 0, '100元');
+  for (const index of [2, 4, 6]) rows[index][1] = '200元';
+  assert.deepEqual(parsePricing(html(rows)).table, expectedTable);
+});

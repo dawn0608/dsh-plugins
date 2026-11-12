@@ -73,8 +73,9 @@ export function parsePricing(html) {
   const rows = [...String(html).matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].map(match => cellsOf(match[1]));
   if (rows.length === 0) return undefined;
 
-  const header = rows.find(cells => cells.some(cell => /deepseek-flash/i.test(cell))
-    && cells.some(cell => /deepseek-v4-pro/i.test(cell)));
+  // Only remove a numeric footnote, never an arbitrary model-name suffix.
+  const modelId = cell => cell.toLowerCase().replace(/\s*\(\d+\)$/, '').trim();
+  const header = rows.find(cells => MODEL_IDS.every(id => cells.slice(1).some(cell => modelId(cell) === id)));
   if (header === undefined) return undefined;
 
   // The first header cell is the row label (`模型`); every following cell is a
@@ -84,8 +85,9 @@ export function parsePricing(html) {
   if (modelColumns.length < MODEL_IDS.length) return undefined;
   const columnOf = new Map();
   for (const id of MODEL_IDS) {
-    const index = modelColumns.findIndex(cell => cell.toLowerCase().includes(id));
-    if (index < 0 || [...columnOf.values()].includes(index)) return undefined;
+    const matches = modelColumns.flatMap((cell, index) => modelId(cell) === id ? [index] : []);
+    if (matches.length !== 1) return undefined;
+    const [index] = matches;
     columnOf.set(id, index);
   }
 

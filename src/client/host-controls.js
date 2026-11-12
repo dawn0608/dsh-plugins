@@ -15,7 +15,7 @@ export function Switch({ checked, onChange, label, disabled = false, title, clas
   }, h('span', { className: css('switch', 'thumb') }));
 }
 
-export function Tag({ tone = 'outline', className, children }) {
+export function Tag({ tone = 'neutral', className, children }) {
   return h('span', { className: classes(css('tag', 'tag'), className), 'data-tone': tone }, children);
 }
 
@@ -25,10 +25,10 @@ export const Input = forwardRef(function Input({ icon, className, ...rest }, ref
     h('input', { ref, className: css('input', 'input'), ...rest }));
 });
 
-export const Button = forwardRef(function Button({ variant = 'ghost', size = 'md', icon, className, children, ...rest }, ref) {
+export const Button = forwardRef(function Button({ className, children, ...rest }, ref) {
   return h('button', {
-    ref, type: 'button', className: classes(css('button', 'button'), css('button', variant), css('button', size), className), ...rest,
-  }, icon != null ? h('span', { className: css('button', 'icon') }, icon) : null, children);
+    ref, type: 'button', className: classes(css('button', 'button'), css('button', 'outline'), css('button', 'sm'), className), ...rest,
+  }, children);
 });
 
 export function StateDot({ state, size, className }) {
@@ -52,9 +52,7 @@ const productIcon = glyph => ({ size = 16, className }) => h('svg', {
 }, h('use', { href: `#dsw-icon-${glyph}-regular` }));
 export const IconChevronDownOutlineRegular = productIcon('chevron-down-outline');
 export const IconSearchOutlineRegular = productIcon('search-outline');
-export const IconTrashOutlineRegular = productIcon('trash-outline');
 export const IconCopyOutlineRegular = productIcon('copy-outline');
 export const IconCheckOutlineRegular = productIcon('check-outline');
 export const IconWrapFillRegular = productIcon('wrap-fill');
 export const IconNowrapFillRegular = productIcon('nowrap-fill');
-export const IconCloseOutlineRegular = productIcon('close-outline');

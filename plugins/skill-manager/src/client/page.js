@@ -74,7 +74,7 @@ function SkillDetail({ skill, titleRef, translate: t, busy, saving, back, contro
       h('div', { className: 'dshskill_detailHead' },
         h('span', { className: 'dshskill_icon', 'aria-hidden': true }, h(SkillEmblem, { branded: true, size: 36 })),
         canToggle && h('div', { className: 'dshskill_detailActions' },
-          canToggle && h(SkillToggle, { skill, busy, saving, store, translate: t, controls })))),
+          h(SkillToggle, { skill, busy, saving, store, translate: t, controls })))),
     h('div', { className: 'dshskill_detailMain' },
       h('div', { className: 'dshskill_detailTitleRow' },
         h('h1', { ref: titleRef, tabIndex: -1, title: skill.name }, skill.name),
@@ -154,7 +154,6 @@ export function createPage(locale, controls, createStore = createCatalog) {
             skills === null
               ? !listError && h('p', { role: 'status', className: 'dshskill_muted' }, t('loading'))
               : h(CatalogRows, { skills, query, translate: t, busy, savingId, store, openDetail, controls })),
-        busy && !savingId && h('p', { role: 'status', className: 'dshskill_muted' }, t('saving')),
         mutationError && h('p', { role: 'alert', className: 'dshskill_error' }, t(mutationError))));
   };
 }

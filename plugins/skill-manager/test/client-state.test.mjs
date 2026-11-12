@@ -4,8 +4,8 @@ import { request } from '../src/client/api.js';
 import { createCatalog } from '../src/client/catalog.js';
 
 const skill = {
-  id: 'id-alpha', name: 'alpha', description: 'A skill', group: 'imported',
-  source: 'profile', enabled: false, shadowed: false,
+  id: 'id-alpha', name: 'alpha', description: 'A skill', origin: 'third-party',
+  source: 'user-agents', enabled: false, canToggle: true,
 };
 const catalog = (skills = [skill], complete = true) => ({ skills, complete, revision: 0 });
 
@@ -154,4 +154,12 @@ test('aborting a carrier that ignores cancellation still ends the request', asyn
   const pending = request({ action: 'list' }, controller.signal, () => new Promise(() => {}));
   controller.abort();
   await assert.rejects(pending, { code: 'unavailable' });
+});
+
+
+test('authentication status takes precedence over a JSON error envelope', async () => {
+  for (const status of [401, 403]) {
+    await assert.rejects(request({ action: 'list' }, undefined, async () =>
+      Response.json({ ok: false, code: 'internal' }, { status })), { code: 'forbidden' });
+  }
 });

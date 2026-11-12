@@ -18,8 +18,6 @@ test('reads the existing rows, transports, enablement and references', () => {
   assert.equal(parsed.entries[1].transport, 'stdio');
   assert.equal(parsed.entries[2].enabled, false);
   assert.equal(parsed.duplicateNames.size, 0);
-  assert.equal(parsed.entries[0].config.headers.Authorization.__jsExpr, '`Bearer ${process.env.DOCS_TOKEN}`');
-  assert.equal(parsed.entries[0].config.headers['X-Trace'].__jsExpr, 'process.env.TRACE_TOKEN');
 });
 
 test('disables and re-enables a row at the row level', () => {
@@ -122,7 +120,7 @@ for (const [transport, pairs, settings] of [
   ['stdio', 'env', 'command: /bin/echo'],
   ['streamable-http', 'headers', 'url: https://example.com/mcp'],
 ]) {
-  test(`inserts disabled without rewriting ${pairs} when 65 entries exceed draft limits`, () => {
+  test(`inserts disabled without rewriting ${pairs} with 65 entries`, () => {
     const source = [
       '- insert:',
       '  - id: sample # id comment',

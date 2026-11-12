@@ -34,3 +34,25 @@ test('only the connection route is registered and serves GET and HEAD', async t 
   assert.equal(head.status, 200);
   assert.equal(await head.text(), '');
 });
+
+test('disposing the host cancels upstream price and balance reads', async t => {
+  const signals = [];
+  t.mock.method(globalThis, 'fetch', (_url, { signal }) => new Promise((_, reject) => {
+    signals.push(signal);
+    signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+  }));
+  const disposers = [];
+  let route;
+  apply({
+    get: name => name === 'credentials' ? { resolve: async () => ({ value: 'test-key' }) } : undefined,
+    effect: register => { const dispose = register(); if (typeof dispose === 'function') disposers.push(dispose); },
+    connection: { fetch: { register(value) { route = value; return () => {}; } } },
+  });
+  const pending = route.fetch(new Request('http://localhost/api/cost-overview/state'));
+  t.after(() => pending);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(signals.length, 2);
+  for (const dispose of disposers.reverse()) dispose();
+  assert.ok(signals.every(signal => signal.aborted));
+  await pending;
+});

@@ -3,7 +3,7 @@
 ## 功能
 
 - 当前会话产生 token 后，在输入框下方的内置统计旁显示费用和余额。
-- 按 [DeepSeek 官方价格表](https://api-docs.deepseek.com/zh-cn/quick_start/pricing/) 计算会话费用。未知模型或缺少有效单价时保留用量与请求次数，金额显示「无法计价」。混合会话显示已知部分小计并标注费用不完整。
+- 按 [DeepSeek 官方价格表](https://api-docs.deepseek.com/zh-cn/quick_start/pricing/) 按明确的模型 ID 及官方别名计算会话费用。未知模型或缺少有效单价时保留用量与请求次数，金额显示「无法计价」。混合会话显示已知部分小计并标注费用不完整。
 - 宿主使用已配置的 DeepSeek API Key 读取账户余额。点击统计按钮，可查看模型请求、网页请求、账户余额和赠送余额。
 
 ## 安装

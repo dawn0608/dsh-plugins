@@ -22,7 +22,7 @@ To install from source, run `npm ci` and `npm run build` from the repository roo
 
 Switches affect only the current Harness profile; they do not propagate to Codex or Claude Code. To add or change server settings, give your AI assistant the provider's setup instructions and ask it to update the profile's `cordis.patch.yml`.
 
-The plugin normally uses the active profile's name, directory, and patch path from the Harness host. When the host does not supply this information, the plugin checks `DSH_PROFILE_DIR`, then `DSH_HOME/profiles/<DSH_PROFILE>` when both variables are set, and finally an absolute launcher argument pointing to a directory with a profile manifest and patch file. The panel reports when it cannot locate or read the patch. An explicit absolute `patchPath` takes precedence over all these sources.
+The plugin normally uses the active profile's directory and patch path from the Harness host. When the host does not supply this information, the plugin checks `DSH_PROFILE_DIR`, then `DSH_HOME/profiles/<DSH_PROFILE>` when both variables are set, and finally an absolute launcher argument pointing to a directory with a profile manifest and patch file. The panel reports when it cannot locate or read the patch. An explicit absolute `patchPath` takes precedence over all these sources.
 
 ```yaml
 - id: mcp-manager
@@ -43,9 +43,9 @@ headers:
 ## Requirements and limitations
 
 - DSH `>=0.2.2-rc.1 <0.3.0` and Node.js 24 or later for local development.
-- The enablement switch manages only the current profile’s user patch. Other applications manage their own MCP configuration.
+- Switches manage the selected Harness patch: the current profile by default, or an explicit `patchPath`. Other applications manage their own MCP configuration.
 - No Python, Codex, Claude Code, or background service is required.
-- Bundle-provided rows and other profiles are outside the panel's scope.
+- Bundle-provided rows and configuration outside the selected patch are outside the panel's scope.
 - To toggle a row, it must be in a top-level `insert` list with a unique ID and either no `disabled` field or a boolean value. Rows the panel cannot safely toggle are read-only. Duplicate server names are flagged separately.
 - The settings page uses the authenticated Harness connection. The list response includes server summaries and omits configuration fields such as URLs, command arguments, environment variables, and headers.
 

@@ -43,6 +43,14 @@ test('rejects Chinese details pointing at English or an unpackaged document', ()
   assert.match(result.stderr, /meta.detail/);
 }));
 
+test('rejects a README whose bilingual section structure has drifted', () => fixture(async (root, plugin) => {
+  const file = join(plugin, 'README.zh.md');
+  await writeFile(file, (await readFile(file, 'utf8')).replace('## 使用与配置', '## 其他说明'));
+  const result = run('check-plugin.mjs', root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /five bilingual README sections/);
+}));
+
 test('rejects runtime imports of internal Client components', () => fixture(async (root, plugin) => {
   await writeFile(join(plugin, 'lib/client.js'), 'window.__ModuleLoader__.load({ id: "@dawn0608/dsh-example", factory: (require) => require("@deepseek-ai/dsh-client-ui-primitives") });');
   const result = run('check-plugin.mjs', root);

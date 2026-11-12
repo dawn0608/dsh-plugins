@@ -11,10 +11,7 @@
 import { createHash } from 'node:crypto';
 import { isDeepStrictEqual } from 'node:util';
 import { parseDocument, LineCounter, isMap, isSeq } from 'yaml';
-const SERVER_NAME = /^[A-Za-z0-9_-]{1,32}$/;
 import { PatchError } from './errors.js';
-
-export { PatchError };
 
 /** Package name of the MCP client rows this module manages. */
 export const MCP_CLIENT = '@deepseek-ai/dsh-mcp-client';
@@ -81,9 +78,8 @@ function rowSpan(parsed, text, node) {
   if (!/^\s*-\s+$/.test(prefix)) {
     // The key is not on the dash line; fall back to the key's own line.
     const fallback = lineStartOf(text, node.range[0]);
-    return { start: fallback, end: node.range[2], dashIndent: -1 };
+    return { start: fallback, end: node.range[2] };
   }
-  const dashIndent = prefix.indexOf('-');
   let end = node.range[2];
   if (end < text.length) {
     const position = parsed.lineCounter.linePos(end);
@@ -92,11 +88,7 @@ function rowSpan(parsed, text, node) {
   }
   // Skip the newline that terminates the row's last content line.
   if (end > start && text[end - 1] !== '\n' && text[end] === '\n') end += 1;
-  return { start, end, dashIndent };
-}
-
-function blockStartOf(parsed, text, block) {
-  return lineStartOf(text, block.range[0]);
+  return { start, end };
 }
 
 function sha256(value) {
@@ -129,18 +121,14 @@ export function readPatch(text) {
   const parsed = parse(text);
   const { doc } = parsed;
   const entries = [];
-  const warnings = [];
   const blocks = [];
   const topIds = new Set();
 
-  doc.contents.items.forEach((blockNode, index) => {
+  doc.contents.items.forEach(blockNode => {
     const value = clean(blockNode.toJSON());
     if (value && typeof value === 'object' && typeof value.id === 'string') topIds.add(value.id);
     blocks.push({
-      index,
-      node: blockNode,
       value,
-      start: blockStartOf(parsed, text, blockNode),
       insertNode: isMap(blockNode) ? blockNode.get('insert') : undefined,
       keys: value && typeof value === 'object' && !Array.isArray(value) ? Object.keys(value) : [],
     });
@@ -165,10 +153,7 @@ export function readPatch(text) {
         readOnlyCode: 'not-insert',
         blockIndex,
         rowIndex: null,
-        span: { start: block.start, end: block.start, dashIndent: 0 },
-        raw: '',
         rowHash: '',
-        config: {},
       });
       return;
     }
@@ -200,10 +185,7 @@ export function readPatch(text) {
         readOnlyCode: null,
         blockIndex,
         rowIndex,
-        span,
-        raw: text.slice(span.start, span.end),
         rowHash: sha256(text.slice(span.start, span.end)),
-        config,
       };
       if (!shapeOk) {
         entry.editable = false;
@@ -228,8 +210,6 @@ export function readPatch(text) {
       if (name === undefined) {
         entry.editable = false;
         entry.readOnlyCode = 'missing-name';
-      } else if (!SERVER_NAME.test(name)) {
-        warnings.push({ code: 'unsupported-name', name });
       }
       if (entry.editable) {
         try {
@@ -251,13 +231,9 @@ export function readPatch(text) {
 
   return {
     doc,
-    parsed,
     blocks,
     entries,
-    warnings,
-    names: [...nameCounts.keys()],
     duplicateNames: new Set([...nameCounts].filter(([, count]) => count > 1).map(([name]) => name)),
-    topIds,
   };
 }
 

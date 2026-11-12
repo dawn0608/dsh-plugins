@@ -24,10 +24,11 @@ export async function request(body, signal, fetchImpl = globalThis.fetch) {
         headers: { accept: 'application/json', 'content-type': 'application/json', 'x-dsh-skill-manager': '1' },
         cache: 'no-store', credentials: 'same-origin', body: JSON.stringify(body), signal,
       });
+      if ([401, 403].includes(response.status)) throw new SkillError('forbidden');
       const result = await response.json().catch(() => null);
       if (result?.ok === false && HOST_ERRORS.has(result.code)) throw new SkillError(result.code);
       if (response.ok && result?.ok === true) return result.value;
-      throw new SkillError([401, 403].includes(response.status) ? 'forbidden' : 'unavailable');
+      throw new SkillError('unavailable');
     })();
     return await (aborted ? Promise.race([read, aborted]) : read);
   } catch (error) {

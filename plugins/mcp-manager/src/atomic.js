@@ -17,7 +17,6 @@ import {
   readFileSync,
   readSync,
   renameSync,
-  statSync,
   unlinkSync,
   writeSync,
 } from 'node:fs';
@@ -38,7 +37,7 @@ function described(error) {
 
 /**
  * Read the patch with the checks every writer relies on.
- * @returns {{text: string, bytes: Buffer, mode: number}}
+ * @returns {{text: string, mode: number}}
  */
 export function readProfilePatch(path) {
   let stats;
@@ -50,8 +49,7 @@ export function readProfilePatch(path) {
   if (!stats.isFile()) throw new PatchError('profile-unavailable', { reason: 'not-regular' });
   if (stats.size > MAX_PATCH_BYTES) throw new PatchError('profile-unavailable', { reason: 'too-large' });
   try {
-    const bytes = readFileSync(path);
-    return { text: bytes.toString('utf8'), bytes, mode: stats.mode & 0o777 };
+    return { text: readFileSync(path, 'utf8'), mode: stats.mode & 0o777 };
   } catch (error) {
     throw new PatchError('profile-unavailable', { reason: described(error) || 'unreadable' });
   }
@@ -249,14 +247,5 @@ function replace(source, target) {
       const code = described(error);
       if (!['EACCES', 'EBUSY', 'EPERM'].includes(code) || Date.now() >= deadline) throw error;
     }
-  }
-}
-
-/** Size of the patch for diagnostics; never throws for a missing file. */
-export function statPatch(path) {
-  try {
-    return statSync(path);
-  } catch {
-    return undefined;
   }
 }

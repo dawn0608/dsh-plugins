@@ -7,7 +7,7 @@
  */
 
 import { readFileSync, statSync } from 'node:fs';
-import { basename, dirname, isAbsolute, join } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 import { readProfilePatch, withProfileLock, writeProfilePatch } from './atomic.js';
 import { PatchError } from './errors.js';
 import { logEvent } from './log.js';
@@ -25,7 +25,7 @@ function isProfileDirectory(dir) {
   }
 }
 
-/** Compatibility fallback for launchers that pass the profile directory as an argument. */
+/** Read the profile directory supplied by the launcher. */
 function launcherProfileDirectory(env) {
   if (typeof env.DSH_PROFILE_DIR === 'string' && isProfileDirectory(env.DSH_PROFILE_DIR)) {
     return env.DSH_PROFILE_DIR;
@@ -38,23 +38,21 @@ function launcherProfileDirectory(env) {
 }
 
 /**
- * Resolve the explicit override, the active host profile, or a legacy launch hint.
+ * Resolve the explicit override, the active host profile, or launcher settings.
  * @param {{env?: NodeJS.ProcessEnv, patchPath?: unknown,
- *   profileContext?: {dir?: unknown, patchPath?: unknown, name?: unknown}}} [options]
+ *   profileContext?: {dir?: unknown, patchPath?: unknown}}} [options]
  */
 export function resolveProfile(options = {}) {
   const env = options.env || process.env;
   if (typeof options.patchPath === 'string' && options.patchPath !== '') {
     if (!isAbsolute(options.patchPath)) throw new PatchError('profile-unavailable', { reason: 'relative-path' });
     const dir = dirname(options.patchPath);
-    const profile = typeof env.DSH_PROFILE === 'string' && env.DSH_PROFILE !== '' ? env.DSH_PROFILE : basename(dir);
-    return { dir, patchPath: options.patchPath, profile };
+    return { dir, patchPath: options.patchPath };
   }
   const context = options.profileContext;
   if (context && typeof context.dir === 'string' && isAbsolute(context.dir)
-    && typeof context.patchPath === 'string' && isAbsolute(context.patchPath)
-    && typeof context.name === 'string' && context.name !== '') {
-    return { dir: context.dir, patchPath: context.patchPath, profile: context.name };
+    && typeof context.patchPath === 'string' && isAbsolute(context.patchPath)) {
+    return { dir: context.dir, patchPath: context.patchPath };
   }
   let dir;
   if (typeof env.DSH_PROFILE_DIR === 'string' && env.DSH_PROFILE_DIR !== '') {
@@ -65,8 +63,7 @@ export function resolveProfile(options = {}) {
     dir = launcherProfileDirectory(env);
   }
   if (dir === undefined) throw new PatchError('profile-unavailable', { reason: 'no-profile' });
-  const profile = typeof env.DSH_PROFILE === 'string' && env.DSH_PROFILE !== '' ? env.DSH_PROFILE : basename(dir);
-  return { dir, patchPath: join(dir, PATCH_NAME), profile };
+  return { dir, patchPath: join(dir, PATCH_NAME) };
 }
 
 function toServer(entry, duplicateNames) {
@@ -115,7 +112,7 @@ function requireTarget(parsed, request) {
 }
 
 /**
- * @param {{profile: () => {dir: string, patchPath: string, profile: string}, log?: typeof logEvent}} options
+ * @param {{profile: () => {dir: string, patchPath: string}, log?: typeof logEvent}} options
  */
 export function createStore(options) {
   const log = typeof options.log === 'function' ? options.log : logEvent;

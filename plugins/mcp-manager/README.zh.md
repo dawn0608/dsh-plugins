@@ -22,7 +22,7 @@ dsh plugin --profile <profile> add @dawn0608/dsh-mcp-manager
 
 开关仅启停当前 Harness profile 的服务，不同步到 Codex 或 Claude Code。新增服务或修改连接设置时，可把提供方的安装说明交给 AI，让它更新该 profile 的 `cordis.patch.yml`。
 
-插件通常使用 Harness 宿主提供的当前 profile 名称、目录和补丁路径。若宿主未提供这些信息，插件依次检查 `DSH_PROFILE_DIR`、在 `DSH_HOME` 和 `DSH_PROFILE` 均设置时使用的 `DSH_HOME/profiles/<DSH_PROFILE>`，以及启动参数中包含 profile 清单和补丁文件的绝对目录。无法定位或读取补丁时，面板会提示 profile 不可用。显式配置的绝对路径 `patchPath` 优先于这些来源。
+插件通常使用 Harness 宿主提供的当前 profile 目录和补丁路径。若宿主未提供这些信息，插件依次检查 `DSH_PROFILE_DIR`、在 `DSH_HOME` 和 `DSH_PROFILE` 均设置时使用的 `DSH_HOME/profiles/<DSH_PROFILE>`，以及启动参数中包含 profile 清单和补丁文件的绝对目录。无法定位或读取补丁时，面板会提示 profile 不可用。显式配置的绝对路径 `patchPath` 优先于这些来源。
 
 ```yaml
 - id: mcp-manager
@@ -43,9 +43,9 @@ headers:
 ## 环境要求与限制
 
 - 适用 DSH `>=0.2.2-rc.1 <0.3.0`。本地开发需要 Node.js 24 或更高版本。
-- 启停开关仅管理当前 profile 的用户补丁文件；其他应用自行管理各自的 MCP 配置。
+- 启停开关管理所选 Harness 补丁文件，默认使用当前 profile，也可通过 `patchPath` 显式指定；其他应用自行管理各自的 MCP 配置。
 - 不需要 Python、Codex、Claude Code 或后台服务。
-- bundle 自带条目及其他 profile 不在面板的管理范围内。
+- bundle 自带条目及所选补丁之外的配置不在面板的管理范围内。
 - 可启停的条目必须位于顶层 `insert` 列表，ID 唯一，且 `disabled` 字段省略或为布尔值。无法安全启停的条目显示为只读。重名服务会单独标记。
 - 设置页通过 Harness 的认证连接读取数据。列表响应只包含服务摘要，不含 URL、命令参数、环境变量或请求头等配置字段。
 

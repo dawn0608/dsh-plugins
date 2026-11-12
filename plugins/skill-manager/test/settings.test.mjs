@@ -34,10 +34,10 @@ test('native Settings persists profile-only switches, rejects stale writes and r
   await writeFile(join(base, 'base.yml'), '[]\n');
   await writeFile(patchPath, '- insert:\n  - id: skill-manager\n    name: cordis:test-manager\n');
   const profile = { name: 'test', dir, patchPath, installAnchor: dir, cwd: base, home, startedBundles: [], overlays: [] };
-  async function boot() {
+  async function boot(targetProfile = profile) {
     const ctx = new Context();
     let handler;
-    ctx.provide('profileContext', profile);
+    ctx.provide('profileContext', targetProfile);
     ctx.provide('agentPresets', { acquireScope: async () => ({ key: undefined, async [Symbol.asyncDispose]() {} }) });
     ctx.provide('connection', { fetch: { register(route) { handler = route.fetch; return () => {}; } } });
     await ctx.plugin(Loader).ready;
@@ -46,7 +46,7 @@ test('native Settings persists profile-only switches, rejects stale writes and r
     await ctx.plugin(ConfigEditor).ready;
     await ctx.plugin(Settings).ready;
     ctx.loader.builtins['test-manager'] = manager;
-    await mountRootInclude(ctx, join(base, 'base.yml'), readProfilePatches('dsh', profile));
+    await mountRootInclude(ctx, join(base, 'base.yml'), readProfilePatches('dsh', targetProfile));
     await ctx.loader.await();
     assert.ok(handler, 'plugin registered authenticated route');
     const call = async body => {
@@ -57,6 +57,20 @@ test('native Settings persists profile-only switches, rejects stale writes and r
     };
     return { ctx, call };
   }
+  // Two live Harness profiles share skill files but must not share enablement.
+  const otherDir = join(home, 'profiles', 'other');
+  await mkdir(otherDir, { recursive: true });
+  await writeFile(join(otherDir, 'package.json'), await readFile(join(dir, 'package.json')));
+  const otherPatch = join(otherDir, 'cordis.patch.yml');
+  await writeFile(otherPatch, await readFile(patchPath));
+  const other = await boot({ ...profile, name: 'other', dir: otherDir, patchPath: otherPatch, installAnchor: otherDir });
+  t.after(() => other.ctx.fiber.dispose());
+  const protectedPaths = [skillFile, otherPatch, join(base, '.codex', 'config.toml'), join(base, '.claude', 'settings.json')];
+  for (const path of protectedPaths.slice(2)) {
+    await mkdir(join(path, '..'), { recursive: true });
+    await writeFile(path, 'unrelated client configuration\n');
+  }
+  const protectedBytes = await Promise.all(protectedPaths.map(path => readFile(path)));
   const first = await boot();
   t.after(() => first.ctx.fiber.dispose());
   const list = (await first.call({ action: 'list' })).value;
@@ -65,6 +79,8 @@ test('native Settings persists profile-only switches, rejects stale writes and r
   assert.equal((await first.call(action)).ok, true);
   assert.match(await readFile(patchPath, 'utf8'), /disabledSkills:/);
   assert.equal((await first.ctx.skills.get('sample')).invocation.userInvocable, false);
+  assert.equal((await other.ctx.skills.get('sample')).invocation.userInvocable, true);
+  assert.equal((await other.call({ action: 'list' })).value.skills[0].enabled, true);
   assert.equal((await first.call({ ...action, enabled: true })).status, 409);
   assert.equal(await readFile(skillFile, 'utf8'), original);
   // An external profile edit is reconciled before native revision validation.
@@ -83,4 +99,5 @@ test('native Settings persists profile-only switches, rejects stale writes and r
   assert.equal((await second.ctx.skills.get('sample')).invocation.modelInvocable, false);
   assert.equal((await second.call({ ...action, enabled: true, revision: after.revision })).ok, true);
   assert.equal((await second.ctx.skills.get('sample')).invocation.userInvocable, true);
+  assert.deepEqual(await Promise.all(protectedPaths.map(path => readFile(path))), protectedBytes);
 });

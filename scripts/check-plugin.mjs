@@ -99,6 +99,13 @@ for (const dirName of plugins) {
     const detail = meta?.detail ?? 'README.md';
     const expectedDetail = lang === 'zh' ? 'README.zh.md' : 'README.md';
     check(detail === expectedDetail && pkg.files?.includes(detail) && existsSync(join(dir, detail)), dirName, `locale/${lang}.json meta.detail must resolve to packaged ${expectedDetail}`);
+    if (existsSync(join(dir, expectedDetail))) {
+      const headings = [...readFileSync(join(dir, expectedDetail), 'utf8').matchAll(/^## (.+)$/gm)].map(match => match[1].trim());
+      const expected = lang === 'zh'
+        ? ['功能', '安装', '使用与配置', '环境要求与限制', '开发']
+        : ['Features', 'Installation', 'Usage and configuration', 'Requirements and limitations', 'Development'];
+      check(JSON.stringify(headings) === JSON.stringify(expected), dirName, `${expectedDetail} must use the five bilingual README sections`);
+    }
   }
 
   const dictionaries = join(dir, 'src/client/i18n.js');
@@ -146,6 +153,7 @@ function inspectRuntime(dir) {
   }
 }
 inspectRuntime(join(root, 'scripts'));
+inspectRuntime(join(root, 'src'));
 for (const name of plugins) inspectRuntime(join(pluginsDir, name, 'src'));
 
 if (failures.length > 0) {

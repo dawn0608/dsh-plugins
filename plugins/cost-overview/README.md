@@ -3,7 +3,7 @@
 ## Features
 
 - Adds a cost and balance pill beside the built-in composer statistics after the current session records tokens.
-- Uses the [official DeepSeek price table](https://api-docs.deepseek.com/zh-cn/quick_start/pricing/) to calculate session costs. Unknown IDs and models without valid prices retain usage and request counts but show “Price unavailable”. Mixed sessions show a known subtotal and an incomplete-cost notice.
+- Uses the [official DeepSeek price table](https://api-docs.deepseek.com/zh-cn/quick_start/pricing/) to calculate session costs for explicit model IDs and documented aliases. Unknown IDs and models without valid prices retain usage and request counts but show “Price unavailable”. Mixed sessions show a known subtotal and an incomplete-cost notice.
 - Reads the account balance on the host with your configured DeepSeek API key. The pill opens a breakdown of model requests, web requests, account balance, and any granted balance.
 
 ## Installation

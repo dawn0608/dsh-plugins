@@ -231,8 +231,7 @@ function Icon(props) {
 
 /**
  * Whether another client module already occupies this plugin's slot cell.
- * A package renamed while the Client stayed open can leave the old module
- * loaded; skipping the duplicate keeps this module's activation from failing.
+ * Duplicate package aliases must not register the same composer entry twice.
  */
 function slotOccupied(ctx, name, id) {
   try {

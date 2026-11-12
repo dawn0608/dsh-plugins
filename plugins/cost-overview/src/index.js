@@ -28,6 +28,8 @@ const CONFIG_CACHE_MS = 30000;
 export const inject = ['connection'];
 
 export function apply(ctx) {
+  const lifecycle = new AbortController();
+  ctx.effect(() => () => lifecycle.abort(), 'cost-overview: upstream requests');
   /** The only price table in play: `table` stays undefined until the page parses. */
   let pricing = {
     table: undefined,
@@ -51,7 +53,7 @@ export function apply(ctx) {
     const ttl = pricingTtl(pricing);
     if (now - pricingAttemptAt < ttl) return undefined;
     pricingAttemptAt = now;
-    pricingInflight = readPricingPage()
+    pricingInflight = readPricingPage(lifecycle.signal)
       .then(parsed => {
         if (parsed === undefined) {
           pricing = { ...pricing, error: 'parse' };
@@ -134,7 +136,7 @@ export function apply(ctx) {
           'user-agent': USER_AGENT,
         },
         redirect: 'error',
-        signal: controller.signal,
+        signal: AbortSignal.any([controller.signal, lifecycle.signal]),
       });
       if (response.status === 401 || response.status === 403) return { ok: false, reason: 'unauthorized' };
       if (!response.ok) return { ok: false, reason: `http-${response.status}` };
@@ -281,14 +283,14 @@ export function apply(ctx) {
 }
 
 /** Fetch and parse the official pricing page; `undefined` when it is unusable. */
-async function readPricingPage() {
+async function readPricingPage(lifecycleSignal) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 6000);
   try {
     const response = await fetch(DOCS_URL, {
       headers: { accept: 'text/html,application/xhtml+xml', 'user-agent': USER_AGENT },
       redirect: 'follow',
-      signal: controller.signal,
+      signal: AbortSignal.any([controller.signal, lifecycleSignal]),
     });
     if (!response.ok) return undefined;
     return parsePricing(await response.text());

@@ -11,6 +11,8 @@
 const MODEL_IDS = new Map([
   ['deepseek-flash', 'deepseek-flash'],
   ['deepseek-v4.1-flash', 'deepseek-flash'],
+  ['deepseek-v4-flash', 'deepseek-flash'],
+  ['deepseek-v4-flash-vision-exp', 'deepseek-flash'],
   ['deepseek-v4-pro', 'deepseek-v4-pro'],
 ]);
 

@@ -66,11 +66,6 @@ html[data-platform='darwin'] .dshskill_page {
   gap: 16px;
 }
 
-.dshskill_header > div {
-  min-width: 0;
-  max-width: 100%;
-}
-
 @media (hover: hover) {
   .dshskill_row:hover { background: var(--skill-hover); }
 }

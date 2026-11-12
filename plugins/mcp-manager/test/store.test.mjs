@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, dirname, join } from 'node:path';
+import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { withProfileLock } from '../src/atomic.js';
 import { PatchError } from '../src/errors.js';
@@ -13,7 +13,7 @@ function profile() {
   const dir = mkdtempSync(join(tmpdir(), 'mcp-manager-store-'));
   const patchPath = join(dir, 'cordis.patch.yml');
   writeFileSync(patchPath, FIXTURE, { mode: 0o600 });
-  const create = () => ({ dir, patchPath, profile: 'desktop' });
+  const create = () => ({ dir, patchPath });
   const store = createStore({
     profile: create,
     lockTimeoutMs: 50,
@@ -36,7 +36,6 @@ test('resolves the profile patch from the environment and explicit config', () =
   assert.deepEqual(resolveProfile({ env: { DSH_PROFILE_DIR: join(tmpdir(), 'profile'), DSH_PROFILE: 'desktop' } }), {
     dir: join(tmpdir(), 'profile'),
     patchPath: join(tmpdir(), 'profile', 'cordis.patch.yml'),
-    profile: 'desktop',
   });
   assert.equal(
     resolveProfile({ env: { DSH_HOME: join(tmpdir(), 'home'), DSH_PROFILE: 'web' } }).patchPath,
@@ -53,7 +52,6 @@ test('uses the host profile context when the CLI supplies no profile environment
   assert.deepEqual(resolveProfile({ env: {}, profileContext: HOST_PROFILE }), {
     dir: HOST_PROFILE.dir,
     patchPath: HOST_PROFILE.patchPath,
-    profile: HOST_PROFILE.name,
   });
 });
 
@@ -62,12 +60,10 @@ test('prefers the explicit patch path over host context and host context over en
   assert.deepEqual(resolveProfile({ env, profileContext: HOST_PROFILE }), {
     dir: HOST_PROFILE.dir,
     patchPath: HOST_PROFILE.patchPath,
-    profile: HOST_PROFILE.name,
   });
   assert.deepEqual(resolveProfile({ env, profileContext: HOST_PROFILE, patchPath: join(tmpdir(), 'custom', 'patch.yml') }), {
     dir: join(tmpdir(), 'custom'),
     patchPath: join(tmpdir(), 'custom', 'patch.yml'),
-    profile: 'env-profile',
   });
   assert.throws(
     () => resolveProfile({ env, profileContext: HOST_PROFILE, patchPath: 'relative.yml' }),
@@ -88,7 +84,6 @@ test('finds the profile directory the desktop launcher passes as an argument', (
     assert.deepEqual(resolveProfile({ env: {} }), {
       dir: space.dir,
       patchPath: join(space.dir, 'cordis.patch.yml'),
-      profile: basename(space.dir),
     });
   } finally {
     process.argv = original;
@@ -130,7 +125,7 @@ test('locks the host profile directory even when the patch file has a different 
   mkdirSync(folder);
   writeFileSync(patchPath, FIXTURE);
   const store = createStore({
-    profile: () => ({ dir: space.dir, patchPath, profile: 'isolated' }),
+    profile: () => ({ dir: space.dir, patchPath }),
     lockTimeoutMs: 1,
     log: () => {},
   });
