@@ -84,3 +84,11 @@ test('the built client contributes a matching sidebar and main entry owned by th
 test('the client dictionaries cover the same UI keys in both languages', () => {
   assert.deepEqual(Object.keys(DICTS.zh).sort(), Object.keys(DICTS.en).sort());
 });
+
+test('published runtime and source maps contain no skill controls or policy implementation', () => {
+  for (const file of ['index.js', 'index.js.map', 'client.js', 'client.js.map']) {
+    const source = readFileSync(new URL(`../lib/${file}`, import.meta.url), 'utf8');
+    const forbidden = /disabledSkills|setEnabled|skill-manager-local-policy|dshskill_toggle|dshui_switch|policy-registration/;
+    assert.equal(forbidden.exec(source)?.[0] ?? null, null, file);
+  }
+});

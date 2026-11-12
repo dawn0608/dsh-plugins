@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createElement as h } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { Button, Input, Switch, Tag } from '../../src/client/host-controls.js';
+import { Button, Input, Tag } from '../../src/client/host-controls.js';
+import { Switch } from '../../src/client/host-switch.js';
 
 test('the local switch retains the native accessible state and disables writes', () => {
   const html = renderToStaticMarkup(h(Switch, { checked: true, disabled: true, label: 'MCP', onChange() {} }));

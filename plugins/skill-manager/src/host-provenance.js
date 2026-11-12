@@ -1,7 +1,7 @@
 import { constants } from 'node:fs';
 import { lstat, open, realpath } from 'node:fs/promises';
 import { isAbsolute, join, relative, sep } from 'node:path';
-import { isRecord } from './skill-file.js';
+import { isRecord } from './skill.js';
 
 const MAX_PROVENANCE_BYTES = 1024 * 1024;
 

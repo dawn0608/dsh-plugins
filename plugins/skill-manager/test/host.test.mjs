@@ -1,20 +1,18 @@
 import assert from 'node:assert/strict';
-import { lstat, mkdir, mkdtemp, readFile, readlink, realpath, rm, symlink, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { createLocalPolicy } from '../src/policy.js';
+import { normalizeSkillPath, skillId } from '../src/skill.js';
 
 async function host(t, catalog = {}) {
   const base = await mkdtemp(join(await realpath(tmpdir()), 'dsh-skill-manager-'));
   t.after(() => rm(base, { recursive: true, force: true }));
-  const home = join(base, 'home');
   const agentsHome = join(base, 'agents');
-  const workspace = { id: 'registered', title: 'Workspace', path: join(base, 'workspace') };
   const scope = {};
   const leases = [];
   const options = {
-    home, agentsHome,
+    agentsHome,
     agentPresets: {
       async acquireScope() {
         const lease = { key: scope, released: false, async [Symbol.asyncDispose]() { this.released = true; } };
@@ -27,15 +25,9 @@ async function host(t, catalog = {}) {
       async get() { return undefined; },
       ...catalog,
     },
-    workspaceRegistry: {
-      list: () => [workspace],
-      get: id => id === workspace.id ? workspace : undefined,
-    },
   };
   const { createSkillManager } = await import('../src/host.js');
-  const policy = createLocalPolicy({ home, agentsHome, readSettings: () => ({ disabledSkills: [], revision: 0, writable: true }), updateSettings: async () => {} });
-  const create = () => createSkillManager({ ...options, policy });
-  return { base, home, agentsHome, workspace, scope, leases, create, request: create() };
+  return { base, agentsHome, scope, leases, request: createSkillManager(options) };
 }
 
 const skillText = '---\nname: sample\ndescription: Sample skill\n---\n# Instructions\n';
@@ -141,19 +133,14 @@ test('releases the preset lease if the Harness catalog is unavailable', async t 
 test('registers only the authenticated streaming route and bounds JSON requests', async () => {
   const { apply, inject } = await import('../src/index.js');
   const routes = [];
-  const { Config } = await import('../src/index.js');
   apply({
-    on() {},
-    settings: { configure: () => () => {}, describe: () => [], writable: false },
-    configEditor: { entries: () => [] },
-    registry: { values: () => [] },
     skills: { async snapshot() { return { skills: [], complete: true }; } },
     agentPresets: { acquireScope: async () => ({ key: {}, async [Symbol.asyncDispose]() {} }) },
     effect: callback => callback(),
     connection: { fetch: { register: route => { routes.push(route); } } },
     get webServer() { assert.fail('unauthenticated HTTP route'); },
-  }, Config({}));
-  assert.deepEqual(inject.toSorted(), ['agentPresets', 'configEditor', 'connection', 'settings', 'skills']);
+  });
+  assert.deepEqual(inject.toSorted(), ['agentPresets', 'connection', 'skills']);
   assert.equal(routes.length, 1);
   const route = routes[0];
   assert.equal(route.path, '/api/skill-manager');
@@ -173,7 +160,7 @@ test('registers only the authenticated streaming route and bounds JSON requests'
     status: 400, result: { ok: false, code: 'invalid' },
   });
   assert.deepEqual(await call({ headers, body: JSON.stringify({ action: 'list' }) }), {
-    status: 200, result: { ok: true, value: { skills: [], complete: true, revision: -1 } },
+    status: 200, result: { ok: true, value: { skills: [], complete: true } },
   });
   assert.deepEqual(await call({ headers: { ...headers, 'content-length': '13000000' } }), {
     status: 413, result: { ok: false, code: 'too-large' },
@@ -187,4 +174,12 @@ test('registers only the authenticated streaming route and bounds JSON requests'
   assert.deepEqual(await call({ headers, body: stream, duplex: 'half' }), {
     status: 413, result: { ok: false, code: 'too-large' },
   });
+});
+
+test('Windows device paths and case preserve detail identity without filesystem reads', () => {
+  assert.equal(normalizeSkillPath(String.raw`\\?\C:\Users\Name\skills\one\SKILL.md`, 'win32'),
+    normalizeSkillPath('c:/users/name/skills/one/SKILL.md', 'win32'));
+  const skill = { name: 'one', source: 'user-agents', path: '/missing/one/SKILL.md' };
+  assert.equal(skillId(skill), skillId({ ...skill, description: 'updated' }));
+  assert.notEqual(skillId(skill), skillId({ ...skill, source: 'project-agents' }));
 });

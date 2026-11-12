@@ -4,7 +4,9 @@
  */
 
 import * as React from 'react';
-import { Switch, Tag } from '../../../../src/client/host-controls.js';
+import { Tag } from '../../../../src/client/host-controls.js';
+import { Switch } from '../../../../src/client/host-switch.js';
+import switchCss from '../../../../src/client/host-switch.css';
 import controlsCss from '../../../../src/client/host-controls.css';
 import mcpEmblem from '../../icon.svg';
 import { createTranslator, registerLocale } from './i18n.js';
@@ -30,7 +32,7 @@ export function apply(ctx) {
   ctx.effect(() => {
     const tag = document.createElement('style');
     tag.dataset.plugin = '@dawn0608/dsh-mcp-manager';
-    tag.textContent = `${controlsCss}\n${css}`;
+    tag.textContent = `${controlsCss}\n${switchCss}\n${css}`;
     document.head.appendChild(tag);
     return () => {
       tag.remove();

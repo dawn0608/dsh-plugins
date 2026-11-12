@@ -25,7 +25,6 @@ export function createCatalog(send = request) {
   async function refresh() {
     if (stopped) return;
     if (reading) { trailing = true; return; }
-    cancelRefresh();
     const pending = new AbortController();
     reading = pending;
     try {

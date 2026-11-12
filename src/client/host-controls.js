@@ -7,14 +7,6 @@ import { createElement as h, forwardRef } from 'react';
 const classes = (...values) => values.filter(Boolean).join(' ');
 const css = (control, name) => `dshui_${control}_${name}`;
 
-export function Switch({ checked, onChange, label, disabled = false, title, className }) {
-  return h('button', {
-    type: 'button', role: 'switch', 'aria-checked': checked, 'aria-label': label,
-    title, disabled, className: classes(css('switch', 'switch'), className),
-    onClick: () => { if (!disabled) onChange(!checked); },
-  }, h('span', { className: css('switch', 'thumb') }));
-}
-
 export function Tag({ tone = 'neutral', className, children }) {
   return h('span', { className: classes(css('tag', 'tag'), className), 'data-tone': tone }, children);
 }

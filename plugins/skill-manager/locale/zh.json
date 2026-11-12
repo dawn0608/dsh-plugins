@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "技能管理",
-    "description": "搜索和预览全局技能，用户技能开关仅影响当前 Harness profile。",
+    "description": "搜索和预览全局技能，阅读 Markdown 并查看原仓库。",
     "detail": "README.zh.md"
   }
 }

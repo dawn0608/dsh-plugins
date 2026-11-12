@@ -16,19 +16,15 @@ dsh plugin --profile <profile> add @dawn0608/dsh-skill-manager
 
 ## 使用与配置
 
-- 开关仅控制当前 profile 中 `~/.agents/skills` 和 Harness 用户技能目录的技能。停用后仍可预览，但模型和 `/技能名` 均无法调用；开启后恢复技能自身的 frontmatter 规则。
-- 原生 Settings 服务将 `disabledSkills` 保存到当前 profile 的插件配置，记录绑定来源、规范化文件路径和名称。改名或移动后视为新条目，不修改技能原件或其他应用配置。
-- `DSH_HOME` 和 `DSH_AGENTS_HOME` 默认分别为 `~/.dsh` 和 `~/.agents`，支持绝对路径与 `~/`。
-- 共享技能来源读取 `$DSH_AGENTS_HOME/skills/.provenance.json`。键为 `my-skill/SKILL.md` 等相对路径，`origin` 为 `self` 或 `third-party`；可选的不含凭据的 HTTPS `repository` 提供原仓库链接。来源未确认的技能归入第三方。
-- 打开页面、恢复可见和操作完成后立即刷新，前台每 15 秒检查一次。
+- 按名称或描述搜索，打开技能查看详情。列表使用 Harness 原生全局技能目录及来源优先级。
+- 共享技能来源读取 `$DSH_AGENTS_HOME/skills/.provenance.json`；`DSH_AGENTS_HOME` 默认为 `~/.agents`，支持绝对路径与 `~/`。键为 `my-skill/SKILL.md` 等相对路径，`origin` 为 `self` 或 `third-party`；可选的不含凭据的 HTTPS `repository` 提供原仓库链接。来源未确认的技能归入第三方。
+- 打开页面、恢复可见时立即刷新，前台每 15 秒检查一次。
 
 ## 环境要求与限制
 
 - 要求 Harness `>=0.2.2-rc.1 <0.3.0` 和 Node.js 24 或更高版本，不依赖其他 AI 工具或后台服务。
-- 内置、插件自带、项目及自定义 provider 技能不提供开关。保留宿主来源优先级，同名项目技能不受影响。
-- 仅两个用户根目录内的原生文件技能可启停。配置冲突时需刷新后重试。插件不导入、卸载、复制或同步技能。
-- 开关即时影响调用权限；宿主缓存的 `/` 候选列表可能需重启应用刷新。
+- 插件仅供浏览，技能加载与调用遵循 Harness 原生规则和技能自身的 frontmatter，不修改技能或应用配置。
 
 ## 开发
 
-在仓库根目录运行 `npm test -w @dawn0608/dsh-skill-manager`，或运行 `npm run verify` 验证全部插件。测试使用隔离文件及原生技能注册表、Settings 和 ConfigEditor 服务。
+在仓库根目录运行 `npm test -w @dawn0608/dsh-skill-manager`，或运行 `npm run verify` 验证全部插件。测试使用隔离文件及原生 Harness 服务。

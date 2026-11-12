@@ -1,17 +1,17 @@
-import { isRecord, ManagerError } from './skill-file.js';
+import { isRecord, ManagerError, skillId } from './skill.js';
 import { readProvenance } from './host-provenance.js';
 
 export const ROUTE = '/api/skill-manager';
 const MAX_REQUEST_BYTES = 16 * 1024;
 const ACTION_FIELDS = new Map([
-  ['list', []], ['detail', ['id']], ['setEnabled', ['id', 'enabled', 'revision']],
+  ['list', []], ['detail', ['id']],
 ]);
 
 function skillProvenance(skill, provenance) {
   return skill.source === 'bundled' ? { origin: 'builtin' } : provenance(skill);
 }
 
-export function createSkillManager({ agentsHome, skills, agentPresets, policy }) {
+export function createSkillManager({ agentsHome, skills, agentPresets }) {
   async function scoped(signal, operation) {
     let lease;
     try { lease = await agentPresets.acquireScope(); }
@@ -27,14 +27,6 @@ export function createSkillManager({ agentsHome, skills, agentPresets, policy })
     catch { throw new ManagerError('unavailable'); }
   }
 
-  async function rows(options, settings) {
-    const catalog = await snapshot(options);
-    const entries = await Promise.all(catalog.skills.map(async skill => ({
-      skill, ...await policy.describe(skill, settings),
-    })));
-    return { entries, complete: catalog.complete };
-  }
-
   return async (payload, signal) => {
     if (!isRecord(payload)) throw new ManagerError('invalid');
     const fields = ACTION_FIELDS.get(payload.action);
@@ -44,32 +36,22 @@ export function createSkillManager({ agentsHome, skills, agentPresets, policy })
     if (payload.action !== 'list' && (typeof payload.id !== 'string' || !/^[a-f0-9]{64}$/.test(payload.id))) {
       throw new ManagerError('invalid');
     }
-    if (payload.action === 'setEnabled' && (typeof payload.enabled !== 'boolean' || !Number.isSafeInteger(payload.revision))) {
-      throw new ManagerError('invalid');
-    }
     return scoped(signal, async options => {
-      const settings = policy.state();
-      const revision = settings.revision;
-      const { entries, complete } = await rows(options, settings);
+      const { skills: entries, complete } = await snapshot(options);
       if (payload.action === 'list') {
         const provenance = await readProvenance(agentsHome);
         return {
-          skills: entries.map(({ skill, ...row }) => ({
-            ...row, name: skill.name, description: skill.description,
+          skills: entries.map(skill => ({
+            id: skillId(skill), name: skill.name, description: skill.description,
             source: skill.source, ...skillProvenance(skill, provenance),
           })),
-          complete: complete && revision === policy.revision(), revision,
+          complete,
         };
       }
-      const entry = entries.find(entry => entry.id === payload.id);
+      const entry = entries.find(skill => skillId(skill) === payload.id);
       if (!entry) throw new ManagerError(complete ? 'not-found' : 'incomplete');
-      if (payload.action === 'setEnabled') {
-        if (!complete) throw new ManagerError('incomplete');
-        await policy.setEnabled(entry.skill, payload.id, payload.enabled, payload.revision, signal);
-        return null;
-      }
-      const actual = await skills.get(entry.skill.name, options);
-      if (!actual || (await policy.describe(actual)).id !== payload.id) throw new ManagerError('conflict');
+      const actual = await skills.get(entry.name, options);
+      if (!actual || skillId(actual) !== payload.id) throw new ManagerError('conflict');
       return { body: actual.content, ...skillProvenance(actual, await readProvenance(agentsHome)) };
     });
   };
