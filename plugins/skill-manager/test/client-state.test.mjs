@@ -7,10 +7,10 @@ const skill = {
   id: 'id-alpha', name: 'alpha', description: 'A skill', group: 'imported',
   source: 'profile', enabled: false, shadowed: false,
 };
-const catalog = (skills = [skill], complete = true) => ({ skills, complete });
+const catalog = (skills = [skill], complete = true) => ({ skills, complete, revision: 0 });
 
 test('only posts JSON to the authenticated relative route and preserves a typed Host error', async () => {
-  const body = { action: 'setEnabled', workspaceId: null, id: skill.id, enabled: true };
+  const body = { action: 'setEnabled', id: skill.id, enabled: true };
   let calls = 0;
   await assert.rejects(request(body, undefined, async (url, options) => {
     calls += 1;
@@ -45,7 +45,7 @@ test('shows available global skills when the first catalog is incomplete', async
   const partial = { ...skill, name: 'partially discovered' };
   const replies = [catalog([partial], false), catalog()];
   const store = createCatalog(async body => {
-    assert.deepEqual(body, { action: 'list', workspaceId: null });
+    assert.deepEqual(body, { action: 'list' });
     return replies.shift();
   });
 
@@ -64,7 +64,7 @@ test('a refresh started before a write cannot overwrite its resulting state', as
   let reads = 0;
   const store = createCatalog(async (body, signal) => {
     if (body.action === 'setEnabled') {
-      assert.deepEqual(body, { action: 'setEnabled', workspaceId: null, id: skill.id, enabled: true });
+      assert.deepEqual(body, { action: 'setEnabled', id: skill.id, enabled: true, revision: 0 });
       return {};
     }
     reads += 1;
@@ -123,4 +123,35 @@ test('stopping aborts a pending mutation and ignores its result after remount', 
   assert.equal(await writing, false);
   assert.equal(store.getSnapshot().skills[0].enabled, false);
   assert.equal(store.getSnapshot().mutationError, null);
+});
+
+test('coalesces overlapping refreshes into one trailing read and recovers after an uncertain write', async () => {
+  let finish;
+  let reads = 0;
+  const store = createCatalog(async body => {
+    if (body.action === 'setEnabled') throw new Error('response lost after commit');
+    reads++;
+    if (reads === 1) return new Promise(resolve => { finish = resolve; });
+    return catalog([{ ...skill, enabled: true }]);
+  });
+  const initial = store.refresh();
+  await Promise.all([store.refresh(), store.refresh(), store.refresh()]);
+  assert.equal(reads, 1);
+  finish(catalog());
+  await initial;
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(reads, 2);
+  assert.equal(await store.mutate({ action: 'setEnabled', id: skill.id, enabled: true }), false);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(reads, 3);
+  assert.equal(store.getSnapshot().busy, false);
+  assert.equal(store.getSnapshot().skills[0].enabled, true);
+  store.stop();
+});
+
+test('aborting a carrier that ignores cancellation still ends the request', async () => {
+  const controller = new AbortController();
+  const pending = request({ action: 'list' }, controller.signal, () => new Promise(() => {}));
+  controller.abort();
+  await assert.rejects(pending, { code: 'unavailable' });
 });

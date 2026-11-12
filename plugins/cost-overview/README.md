@@ -3,7 +3,7 @@
 ## Features
 
 - Adds a cost and balance pill beside the built-in composer statistics after the current session records tokens.
-- Uses the [official DeepSeek price table](https://api-docs.deepseek.com/zh-cn/quick_start/pricing/) to calculate session costs. Unknown model IDs keep their own rows, use the Flash rate, and mark the affected amounts as estimates.
+- Uses the [official DeepSeek price table](https://api-docs.deepseek.com/zh-cn/quick_start/pricing/) to calculate session costs. Unknown IDs and models without valid prices retain usage and request counts but show “Price unavailable”. Mixed sessions show a known subtotal and an incomplete-cost notice.
 - Reads the account balance on the host with your configured DeepSeek API key. The pill opens a breakdown of model requests, web requests, account balance, and any granted balance.
 
 ## Installation
@@ -18,7 +18,7 @@ dsh plugin --profile <profile> add @dawn0608/dsh-cost-overview
 
 Click the pill to open the breakdown. Press Escape, click outside the panel, or click the pill again to close it. Each model gets a separate row when a session uses several models. If a read fails after the session has recorded tokens, the pill remains available with a placeholder and the panel explains the error.
 
-The client reads through the authenticated connection when the session or token counts change, when you open the panel, every five minutes, and when the tab becomes visible. The host caches balance reads for one minute.
+The client reads through the authenticated connection when the session or token counts change, when you open the panel, every five minutes while visible, and when the tab becomes visible. The host caches balance reads for one minute.
 
 Balance settings come from the host's `llm-deepseek` route. The `apiKeyEnv` setting names the key to resolve through the host credential service or launch environment. The `baseURL` setting supplies the endpoint for `GET <baseURL>/user/balance`. The launch-environment fallbacks are `COST_OVERVIEW_API_KEY_ENV` and `DEEPSEEK_BASE_URL`, which default to `DEEPSEEK_API_KEY` and `https://api.deepseek.com`.
 

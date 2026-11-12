@@ -16,7 +16,6 @@ function profile() {
   const create = () => ({ dir, patchPath, profile: 'desktop' });
   const store = createStore({
     profile: create,
-    countTools: name => (name === 'docs' ? 2 : name === 'local' ? 1 : 0),
     lockTimeoutMs: 50,
     log: () => {},
   });
@@ -102,182 +101,14 @@ test('reads the patch as an actionable state without configuration details', asy
   try {
     const state = await space.store.readState();
     assert.equal(state.ok, true);
-    assert.equal(state.profile, 'desktop');
-    assert.equal(state.patchPath, space.patchPath);
-    assert.match(state.revision, /^[a-f0-9]{64}$/);
     assert.deepEqual(state.servers.map(server => server.name), ['docs', 'local', 'off']);
-    assert.equal(state.servers[0].tools, 2);
     assert.equal(state.servers[2].enabled, false);
-    assert.equal(state.servers[0].deletable, true);
     assert.ok(state.servers.every(server => !Object.hasOwn(server, 'config')));
     assert.doesNotMatch(JSON.stringify(state), /docs\.example\.com|DOCS_TOKEN|JAVA_HOME|\/usr\/bin\/env/);
     assert.equal(typeof state.servers[0].rowHash, 'string');
-    assert.deepEqual(state.warnings, []);
   } finally {
     space.cleanup();
   }
-});
-
-test('keeps a literal secret on an unrelated save without exposing it in the response', async () => {
-  const space = profile();
-  try {
-    writeFileSync(space.patchPath, FIXTURE.replace("        X-Trace: !!js 'process.env.TRACE_TOKEN'", '        X-Api-Key: "plain-text-secret"'), { mode: 0o600 });
-    const state = await space.store.readState();
-    const docs = state.servers.find(server => server.name === 'docs');
-    assert.ok(!JSON.stringify(state).includes('plain-text-secret'));
-
-    const saved = await space.store.save({
-      action: 'save',
-      mode: 'edit',
-      id: docs.id,
-      name: docs.name,
-      rowHash: docs.rowHash,
-      draft: {
-        name: 'docs',
-        transport: 'streamable-http',
-        enabled: true,
-        url: 'https://docs2.example.com/mcp',
-        headers: [
-          { key: 'Authorization', mode: 'ref', variable: 'DOCS_TOKEN', prefix: 'Bearer ' },
-          { key: 'X-Api-Key', mode: 'keep' },
-        ],
-      },
-    });
-    assert.ok(saved.servers.every(server => !Object.hasOwn(server, 'config')));
-    assert.ok(space.text().includes('https://docs2.example.com/mcp'));
-    assert.ok(space.text().includes('plain-text-secret'));
-  } finally {
-    space.cleanup();
-  }
-});
-
-test('adds, edits, disables and deletes through the lock-protected store', async () => {
-  const space = profile();
-  try {
-    const added = await space.store.save({
-      action: 'save',
-      mode: 'add',
-      draft: {
-        name: 'panel-test',
-        transport: 'stdio',
-        enabled: true,
-        command: '/opt/homebrew/opt/node@24/bin/node',
-        args: [join(tmpdir(), 'echo.mjs')],
-        env: [{ key: 'PANEL_TOKEN', mode: 'ref', variable: 'PANEL_TEST_TOKEN' }],
-      },
-    });
-    const created = added.servers.find(server => server.name === 'panel-test');
-    assert.ok(created);
-    assert.equal(created.tools, 0);
-    assert.match(space.text(), /PANEL_TOKEN: !!js 'process\.env\.PANEL_TEST_TOKEN'/);
-
-    const edited = await space.store.save({
-      action: 'save',
-      mode: 'edit',
-      id: created.id,
-      name: created.name,
-      rowHash: created.rowHash,
-      draft: {
-        name: 'panel-test',
-        transport: 'stdio',
-        enabled: true,
-        command: '/opt/homebrew/opt/node@24/bin/node',
-        args: [join(tmpdir(), 'echo.mjs'), '--edited'],
-        env: [{ key: 'PANEL_TOKEN', mode: 'ref', variable: 'PANEL_TEST_TOKEN' }],
-      },
-    });
-    assert.match(space.text(), /- "--edited"/);
-
-    const current = edited.servers.find(server => server.name === 'panel-test');
-    const disabled = await space.store.setEnabled({
-      action: 'setEnabled',
-      id: current.id,
-      name: current.name,
-      rowHash: current.rowHash,
-      enabled: false,
-    });
-    assert.equal(disabled.servers.find(server => server.name === 'panel-test').enabled, false);
-
-    const off = disabled.servers.find(server => server.name === 'panel-test');
-    const deleted = await space.store.remove({
-      action: 'delete',
-      id: off.id,
-      name: off.name,
-      rowHash: off.rowHash,
-    });
-    assert.ok(!deleted.servers.some(server => server.name === 'panel-test'));
-    assert.equal(space.text(), FIXTURE);
-  } finally {
-    space.cleanup();
-  }
-});
-
-test('rejects a stale row fingerprint without touching the file', async () => {
-  const space = profile();
-  try {
-    const state = await space.store.readState();
-    const docs = state.servers.find(server => server.name === 'docs');
-    writeFileSync(space.patchPath, space.text().replace('serverName: docs', 'serverName: docs'), { mode: 0o600 });
-    await assert.rejects(space.store.save({
-      action: 'save',
-      mode: 'edit',
-      id: docs.id,
-      name: docs.name,
-      rowHash: 'stale',
-      draft: { name: 'docs', transport: 'streamable-http', enabled: true, url: 'https://x.example.com/mcp', headers: [] },
-    }), conflict);
-    assert.equal(space.text(), FIXTURE);
-  } finally {
-    space.cleanup();
-  }
-});
-
-test('rejects a duplicate add and reports field errors', async () => {
-  const space = profile();
-  try {
-    await assert.rejects(space.store.save({
-      action: 'save',
-      mode: 'add',
-      draft: { name: 'docs', transport: 'stdio', enabled: true, command: '/bin/echo' },
-    }), error => error.name === 'DraftError' && error.errors.some(item => item.code === 'duplicate'));
-    assert.equal(space.text(), FIXTURE);
-  } finally {
-    space.cleanup();
-  }
-});
-
-test('reports a busy profile and a broken YAML document', async () => {
-  const space = profile();
-  try {
-    let release;
-    const gate = new Promise(resolve => {
-      release = resolve;
-    });
-    const held = withProfileLock(space.dir, () => gate);
-    await new Promise(resolve => setTimeout(resolve, 20));
-    await assert.rejects(space.store.save({
-      action: 'save',
-      mode: 'add',
-      draft: { name: 'blocked', transport: 'stdio', enabled: true, command: '/bin/echo' },
-    }), error => error.code === 'locked');
-    release();
-    await held;
-
-    writeFileSync(space.patchPath, '- id: [unclosed\n', { mode: 0o600 });
-    await assert.rejects(space.store.readState(), error => error.code === 'parse-failed');
-  } finally {
-    space.cleanup();
-  }
-});
-
-test('stateFromText counts tools through the supplied reader', () => {
-  const state = stateFromText(FIXTURE, {
-    profile: 'desktop',
-    patchPath: join(tmpdir(), 'cordis.patch.yml'),
-    countTools: name => (name === 'docs' ? 7 : null),
-  });
-  assert.equal(state.servers[0].tools, 7);
-  assert.equal(state.servers[1].tools, null);
 });
 
 test('a toggle to the existing value leaves the patch file untouched', async t => {
@@ -287,7 +118,7 @@ test('a toggle to the existing value leaves the patch file untouched', async t =
   const inode = statSync(space.patchPath, { bigint: true }).ino;
   const [docs] = before.servers;
   const after = await space.store.setEnabled({ action: 'setEnabled', id: docs.id, rowHash: docs.rowHash, enabled: true });
-  assert.equal(after.revision, before.revision);
+  assert.deepEqual(after, before);
   assert.equal(statSync(space.patchPath, { bigint: true }).ino, inode);
 });
 

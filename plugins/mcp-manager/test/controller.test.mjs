@@ -84,7 +84,7 @@ test('setEnabled posts the toggle and updates the state', async () => {
   let finishWrite;
   const response = new Promise(resolve => { finishWrite = resolve; });
   const fake = fakeFetch((url, init) => {
-    body = JSON.parse(init.body);
+    if (init.method === 'POST') body = JSON.parse(init.body);
     return response;
   });
   const controller = createController({ fetchImpl: fake.fetchImpl });
@@ -106,7 +106,8 @@ test('an older refresh cannot undo a confirmed toggle', async () => {
   let release;
   const refresh = new Promise(resolve => { release = resolve; });
   const updated = { ...STATE, servers: [{ ...STATE.servers[0], enabled: false }] };
-  const fake = fakeFetch((url, init) => init.method === 'GET' ? refresh : reply(200, updated));
+  let reads = 0;
+  const fake = fakeFetch((url, init) => init.method === 'GET' && reads++ === 0 ? refresh : reply(200, updated));
   const controller = createController({ fetchImpl: fake.fetchImpl });
   const pending = controller.load();
   const result = await controller.setEnabled(STATE.servers[0], false);
@@ -118,7 +119,7 @@ test('an older refresh cannot undo a confirmed toggle', async () => {
 });
 
 test('automatically reloads changed configuration, recovers from errors, and stops on cleanup', async t => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval'] });
   const settle = () => new Promise(resolve => setImmediate(resolve));
   let result = reply(200, STATE);
   const fake = fakeFetch(() => result);
@@ -131,14 +132,14 @@ test('automatically reloads changed configuration, recovers from errors, and sto
   assert.equal(fake.calls.length, 1);
 
   result = reply(500, { ok: false, code: 'internal' });
-  t.mock.timers.tick(2000);
+  t.mock.timers.tick(15000);
   await settle();
   assert.equal(controller.getSnapshot().error.code, 'internal');
   assert.equal(controller.getSnapshot().state, STATE);
 
   const updated = { ...STATE, servers: [...STATE.servers, { ...STATE.servers[0], id: 'two', name: 'added' }] };
   result = reply(200, updated);
-  t.mock.timers.tick(2000);
+  t.mock.timers.tick(15000);
   await settle();
   assert.equal(controller.getSnapshot().error, null);
   assert.equal(controller.getSnapshot().state.servers[1].name, 'added');
@@ -175,7 +176,7 @@ test('reconciles authoritative state after a network failure before releasing bu
 });
 
 test('times out a hung write, aborts fetch, reloads and ignores the late response', async t => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
+  t.mock.timers.enable({ apis: ['setTimeout', 'setInterval'] });
   let late;
   const response = new Promise(resolve => { late = resolve; });
   const authoritative = { ...STATE, revision: 'authoritative' };
@@ -210,4 +211,30 @@ test('stopping the controller aborts a write without publishing its late respons
   assert.deepEqual(await pending, { ok: false, code: 'aborted' });
   await new Promise(resolve => setImmediate(resolve));
   assert.equal(controller.getSnapshot().state.revision, 'authoritative');
+});
+
+test('coalesces concurrent reads and aborts manual reads on cleanup', async () => {
+  let finish;
+  let reads = 0;
+  let signal;
+  const controller = createController({ fetchImpl: async (_, init) => {
+    reads++;
+    signal = init.signal;
+    if (reads === 1) return new Promise(resolve => { finish = resolve; });
+    return reply(200, STATE);
+  } });
+  const initial = controller.load();
+  await Promise.all([controller.load(), controller.load()]);
+  assert.equal(reads, 1);
+  finish(reply(200, STATE));
+  await initial;
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(reads, 2);
+  controller.dispose();
+  const hanging = createController({ fetchImpl: async (_, init) => { signal = init.signal; return new Promise(() => {}); } });
+  const pending = hanging.load();
+  hanging.stop();
+  assert.equal(signal.aborted, true);
+  await pending;
+  assert.equal(hanging.getSnapshot().state, null);
 });

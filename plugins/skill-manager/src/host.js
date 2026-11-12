@@ -1,191 +1,77 @@
-import { isAbsolute, join, normalize } from 'node:path';
-import { isManagedName, isRecord, isSkillName, ManagerError, MANAGED_ID, validateBundle } from './host-bundle.js';
+import { isRecord, ManagerError } from './skill-file.js';
 import { readProvenance } from './host-provenance.js';
-import { createSkillStore } from './host-store.js';
 
 export const ROUTE = '/api/skill-manager';
-const MAX_REQUEST_BYTES = 12 * 1024 * 1024;
+const MAX_REQUEST_BYTES = 16 * 1024;
 const ACTION_FIELDS = new Map([
-  ['list', []],
-  ['detail', ['id']],
-  ['inspect', ['files']],
-  ['import', ['files', 'expectedName']],
-  ['setEnabled', ['id', 'enabled']],
-  ['remove', ['id']],
+  ['list', []], ['detail', ['id']], ['setEnabled', ['id', 'enabled', 'revision']],
 ]);
-const SOURCES = new Map([
-  ['project-dsh', 'workspace'],
-  ['project-agents', 'workspace'],
-  ['custom', 'local'],
-  ['user-dsh', 'local'],
-  ['user-agents', 'local'],
-  ['bundled', 'builtin'],
-  ['runtime', 'local'],
-]);
-
-function workspaceOptions(registry, id, signal) {
-  if (id === undefined || id === null) return { cwd: undefined, signal };
-  if (typeof id !== 'string' || id.length === 0 || id.length > 256 || /[/\\\p{Cc}]/u.test(id)) {
-    throw new ManagerError('invalid');
-  }
-  const workspace = registry.get(id);
-  if (!workspace) throw new ManagerError('not-found');
-  if (typeof workspace.path !== 'string' || !isAbsolute(workspace.path)) throw new ManagerError('unavailable');
-  return { cwd: workspace.path, signal };
-}
-
-function parseId(id) {
-  if (typeof id !== 'string') throw new ManagerError('invalid');
-  const [kind, name, installId, extra] = id.split(':');
-  if (kind === 'managed' && extra === undefined && isManagedName(name) &&
-      installId !== undefined && MANAGED_ID.test(installId)) return { kind, name, installId };
-  if (kind === 'catalog' && installId === undefined && isSkillName(name)) return { kind, name };
-  throw new ManagerError('invalid');
-}
 
 function skillProvenance(skill, provenance) {
   return skill.source === 'bundled' ? { origin: 'builtin' } : provenance(skill);
 }
 
-function catalogRow(skill, provenance) {
-  const origin = skillProvenance(skill, provenance)?.origin;
-  return {
-    id: `catalog:${skill.name}`,
-    name: skill.name,
-    description: skill.description,
-    group: SOURCES.get(skill.source) ?? 'local',
-    source: SOURCES.has(skill.source) ? skill.source : 'other',
-    enabled: null,
-    shadowed: false,
-    ...(origin && { origin }),
-  };
-}
-
-function matchesManaged(skill, managed) {
-  if (!skill || skill.source !== 'user-dsh' || typeof skill.path !== 'string') return false;
-  if (!managed.enabled && !managed.activeMissing) return false;
-  const path = normalize(skill.path);
-  return path === managed.resolvedFile || path === join(managed.bundle, 'SKILL.md') ||
-    path === join(managed.active, 'SKILL.md');
-}
-
-export function createSkillManager({ home, agentsHome, skills, workspaceRegistry, agentPresets }) {
-  const store = createSkillStore(home);
-
-  async function scoped(options, operation) {
+export function createSkillManager({ agentsHome, skills, agentPresets, policy }) {
+  async function scoped(signal, operation) {
     let lease;
+    try { lease = await agentPresets.acquireScope(); }
+    catch { throw new ManagerError('unavailable'); }
     try {
-      lease = await agentPresets.acquireScope();
-    } catch {
-      throw new ManagerError('unavailable');
-    }
-    try {
-      options.signal?.throwIfAborted();
-      return await operation({ ...options, scope: lease.key });
-    } finally {
-      await lease[Symbol.asyncDispose]();
-    }
+      signal?.throwIfAborted();
+      return await operation({ signal, scope: lease.key });
+    } finally { await lease[Symbol.asyncDispose](); }
   }
 
   async function snapshot(options) {
-    try {
-      return await skills.snapshot(options);
-    } catch {
-      throw new ManagerError('unavailable');
-    }
+    try { return await skills.snapshot(options); }
+    catch { throw new ManagerError('unavailable'); }
   }
 
-  async function load(name, options) {
-    try {
-      return await skills.get(name, options);
-    } catch {
-      throw new ManagerError('unavailable');
-    }
-  }
-
-  async function list(options) {
-    const workspaces = workspaceRegistry.list().map(({ id, title }) => ({ id, title }));
-    const [catalog, provenance] = await Promise.all([
-      snapshot(options), readProvenance(agentsHome),
-    ]);
-    const managed = store.list();
-    const byName = new Map(catalog.skills.map(skill => [skill.name, skill]));
-    const rows = [];
-    for (const skill of managed.skills) {
-      const match = byName.get(skill.name);
-      const ownWinner = matchesManaged(match, skill);
-      if (ownWinner) byName.delete(skill.name);
-      rows.push({
-        id: `managed:${skill.name}:${skill.id}`,
-        name: skill.name,
-        description: skill.description,
-        group: 'imported',
-        source: 'managed',
-        enabled: skill.enabled,
-        shadowed: skill.enabled && Boolean(match) && !ownWinner,
-      });
-    }
-    rows.push(...[...byName.values()].map(skill => catalogRow(skill, provenance)));
-    rows.sort((left, right) => left.name.localeCompare(right.name) || Number(right.group === 'imported') - Number(left.group === 'imported'));
-    return {
-      skills: rows, workspaces, complete: catalog.complete && managed.complete,
-    };
-  }
-
-  async function detail(id, options) {
-    const { kind, name, installId } = parseId(id);
-    if (kind === 'managed') {
-      const managed = store.read(name, installId);
-      if (managed.enabled) {
-        const actual = await load(name, options);
-        if (matchesManaged(actual, managed)) return { body: actual.content };
-      }
-      return { body: managed.body };
-    }
-    const [actual, provenance] = await Promise.all([load(name, options), readProvenance(agentsHome)]);
-    if (actual) return { body: actual.content, ...skillProvenance(actual, provenance) };
-    throw new ManagerError((await snapshot(options)).complete ? 'not-found' : 'incomplete');
+  async function rows(options, settings) {
+    const catalog = await snapshot(options);
+    const entries = await Promise.all(catalog.skills.map(async skill => ({
+      skill, ...await policy.describe(skill, settings),
+    })));
+    return { entries, complete: catalog.complete };
   }
 
   return async (payload, signal) => {
     if (!isRecord(payload)) throw new ManagerError('invalid');
-    const { action, workspaceId } = payload;
-    const fields = ACTION_FIELDS.get(action);
-    if (!fields || Object.keys(payload).some(key => key !== 'action' && key !== 'workspaceId' && !fields.includes(key))) {
+    const fields = ACTION_FIELDS.get(payload.action);
+    if (!fields || Object.keys(payload).some(key => key !== 'action' && !fields.includes(key))) {
       throw new ManagerError('invalid');
     }
-    const options = workspaceOptions(workspaceRegistry, workspaceId, signal);
-    switch (action) {
-      case 'list': return scoped(options, list);
-      case 'detail': return scoped(options, scopedOptions => detail(payload.id, scopedOptions));
-      case 'inspect': {
-        const { name, description } = validateBundle(payload.files);
-        return { name, description };
-      }
-      case 'import': {
-        const skill = validateBundle(payload.files);
-        if (skill.name !== payload.expectedName) throw new ManagerError('invalid');
-        const catalog = await scoped({ cwd: undefined, signal }, snapshot);
-        if (!catalog.complete) throw new ManagerError('incomplete');
-        if (catalog.skills.some(entry => entry.name === skill.name)) throw new ManagerError('duplicate');
-        signal?.throwIfAborted();
-        store.install(skill);
-        return null;
-      }
-      case 'setEnabled':
-      case 'remove': {
-        const { kind, name, installId } = parseId(payload.id);
-        if (kind !== 'managed') throw new ManagerError('forbidden');
-        signal?.throwIfAborted();
-        if (action === 'setEnabled') {
-          if (typeof payload.enabled !== 'boolean') throw new ManagerError('invalid');
-          store.setEnabled(name, installId, payload.enabled);
-        } else {
-          store.remove(name, installId);
-        }
-        return null;
-      }
+    if (payload.action !== 'list' && (typeof payload.id !== 'string' || !/^[a-f0-9]{64}$/.test(payload.id))) {
+      throw new ManagerError('invalid');
     }
+    if (payload.action === 'setEnabled' && (typeof payload.enabled !== 'boolean' || !Number.isSafeInteger(payload.revision))) {
+      throw new ManagerError('invalid');
+    }
+    return scoped(signal, async options => {
+      const settings = policy.state();
+      const revision = settings.revision;
+      const { entries, complete } = await rows(options, settings);
+      if (payload.action === 'list') {
+        const provenance = await readProvenance(agentsHome);
+        return {
+          skills: entries.map(({ skill, ...row }) => ({
+            ...row, name: skill.name, description: skill.description,
+            source: skill.source, ...skillProvenance(skill, provenance),
+          })),
+          complete: complete && revision === policy.revision(), revision,
+        };
+      }
+      const entry = entries.find(entry => entry.id === payload.id);
+      if (!entry) throw new ManagerError(complete ? 'not-found' : 'incomplete');
+      if (payload.action === 'setEnabled') {
+        if (!complete) throw new ManagerError('incomplete');
+        await policy.setEnabled(entry.skill, payload.id, payload.enabled, payload.revision, signal);
+        return null;
+      }
+      const actual = await skills.get(entry.skill.name, options);
+      if (!actual || (await policy.describe(actual)).id !== payload.id) throw new ManagerError('conflict');
+      return { body: actual.content, ...skillProvenance(actual, await readProvenance(agentsHome)) };
+    });
   };
 }
 
@@ -226,7 +112,7 @@ function response(status, envelope) {
 }
 
 const STATUS = new Map([
-  ['invalid', 400], ['forbidden', 403], ['not-found', 404], ['conflict', 409], ['duplicate', 409],
+  ['invalid', 400], ['forbidden', 403], ['not-found', 404], ['conflict', 409],
   ['too-large', 413], ['unavailable', 503], ['incomplete', 503],
 ]);
 

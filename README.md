@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | [费用概览](plugins/cost-overview/README.zh.md) | 在输入框下方查看当前会话的费用估算、模型明细和 DeepSeek API 账户余额 | `>=0.2.2-rc.1 <0.3.0` | `@dawn0608/dsh-cost-overview` |
 | [MCP 管理](plugins/mcp-manager/README.zh.md) | 在设置中查看当前 profile 的 STDIO 和 Streamable HTTP 服务，并启停可编辑条目 | `>=0.2.2-rc.1 <0.3.0` | `@dawn0608/dsh-mcp-manager` |
-| [技能管理](plugins/skill-manager/README.zh.md) | 在侧栏搜索全局技能、预览 Markdown，并启停或卸载已有的受管技能 | `>=0.2.2-rc.1 <0.3.0` | `@dawn0608/dsh-skill-manager` |
+| [技能管理](plugins/skill-manager/README.zh.md) | 搜索和预览全局技能，用户技能开关仅影响当前 Harness profile | `>=0.2.2-rc.1 <0.3.0` | `@dawn0608/dsh-skill-manager` |
 
 ## 安装
 
@@ -18,7 +18,7 @@
 dsh plugin --profile <profile> add @dawn0608/dsh-cost-overview
 ```
 
-使用 CLI 修改 Desktop profile 前请完全退出应用。费用概览的模型/API Key 配置、MCP 的配置范围和技能导入副本的本地管理，分别见插件说明。管理插件只操作 Harness，不修改其他应用配置。
+使用 CLI 修改 Desktop profile 前请完全退出应用。费用概览的模型/API Key 配置、MCP 的配置范围和技能的 profile 本地开关，分别见插件说明。管理插件只操作 Harness，不修改其他应用配置。
 
 也可以从 [GitHub Releases](https://github.com/dawn0608/dsh-plugins/releases) 下载本插件的 `.tgz`，在 DSH 插件页（如支持本地包入口）或 CLI 安装。
 

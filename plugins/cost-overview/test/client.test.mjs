@@ -228,9 +228,9 @@ function textOf(element) {
   return element && typeof element === 'object' ? textOf(element.children) : String(element ?? '');
 }
 
-function readyState({ models = [], unknownModels = [] } = {}) {
+function readyState({ models = [], unknownModels = [], pricingStatus = 'complete' } = {}) {
   return Response.json({
-    cost: { ok: true, total: 1.25, calls: 1, toolRequests: 0, models, unknownModels },
+    cost: { ok: true, total: pricingStatus === 'complete' ? 1.25 : null, knownSubtotal: 1.25, pricingStatus, calls: 1, toolRequests: 0, models, unknownModels },
     balance: { ok: true, wallets: [{ total: 100, currency: 'CNY' }] },
   });
 }
@@ -246,14 +246,14 @@ test('a failed channel read keeps the existing error pill available for a sessio
   assert.match(textOf(mounted.render().children[1]), /Cannot access session data/);
 });
 
-test('Flash fallback amounts are marked as estimates in the pill and breakdown in both languages', async t => {
-  for (const [language, marker] of [['en', /Est\. ¥1\.25/], ['zh', /估算 ¥1\.25/]]) {
+test('missing prices remain null and partial totals are labeled in both languages', async t => {
+  for (const [language, marker] of [['en', /Known subtotal ¥1\.25/], ['zh', /已知部分 ¥1\.25/]]) {
     const mounted = mountEntry(async () => readyState({
       models: [
-        { key: 'third-party/model', label: 'third-party/model', cost: 1.25, calls: 1 },
+        { key: 'third-party/model', label: 'third-party/model', cost: null, calls: 1 },
         { key: 'deepseek-flash', label: 'DeepSeek Flash', cost: 0, calls: 1 },
       ],
-      unknownModels: ['third-party/model'],
+      unknownModels: ['third-party/model'], pricingStatus: 'partial',
     }), { language });
     t.after(() => mounted.unmount());
     mounted.render();
@@ -263,7 +263,7 @@ test('Flash fallback amounts are marked as estimates in the pill and breakdown i
     tree.children[0].props.onClick();
     const panel = textOf(mounted.render().children[1]);
     assert.match(panel, marker);
-    assert.match(panel, new RegExp('third-party/model ' + marker.source));
+    assert.match(panel, new RegExp('third-party/model ' + (language === 'zh' ? '无法计价' : 'Price unavailable')));
     assert.match(panel, /DeepSeek Flash ¥0\.00/);
   }
 });

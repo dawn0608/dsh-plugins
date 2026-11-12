@@ -18,22 +18,7 @@ export function apply(ctx, config) {
     profileContext: patchPath ? undefined : ctx.get('profileContext'),
   });
 
-  const countTools = name => {
-    const tools = ctx.get('tools');
-    if (!tools || typeof tools.definitions !== 'function') return null;
-    try {
-      const prefix = `mcp__${name}__`;
-      let count = 0;
-      for (const definition of tools.definitions()) {
-        if (definition && typeof definition.name === 'string' && definition.name.startsWith(prefix)) count += 1;
-      }
-      return count;
-    } catch (error) {
-      return null;
-    }
-  };
-
-  const store = createStore({ profile, countTools, log: logEvent });
+  const store = createStore({ profile, log: logEvent });
   const api = createApi({ store, log: logEvent });
 
   ctx.effect(() => ctx.connection.fetch.register({

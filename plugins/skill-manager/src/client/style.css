@@ -203,13 +203,6 @@ html[data-platform='darwin'] .dshskill_page {
   line-height: 18px;
 }
 
-.dshskill_badge {
-  height: 18px;
-  padding: 0 7px;
-  font-size: 10px;
-  line-height: 1;
-}
-
 .dshskill_toggle {
   display: inline-flex;
   flex: none;
@@ -288,12 +281,6 @@ html[data-platform='darwin'] .dshskill_page {
   display: flex;
   align-items: center;
   gap: 16px;
-}
-
-.dshskill_detailActions .dshskill_detailUninstall {
-  color: var(--dsw-alias-state-error-primary);
-  --dsh-button-outline-color: color-mix(in srgb, var(--dsw-alias-state-error-primary) 30%, transparent);
-  --dsw-alias-interactive-bg-hover: color-mix(in srgb, var(--dsw-alias-state-error-primary) 8%, transparent);
 }
 
 .dshskill_detailMain {

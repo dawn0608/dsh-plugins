@@ -2,31 +2,32 @@
 
 ## Features
 
-Open **Skills** below **Plugins** in the DeepSeek Harness sidebar. Search the global catalog, inspect rendered `SKILL.md`, and see provenance or the original repository. Built-in, Self-authored, and Third-party groups use the existing Harness controls. This plugin does not add another management page.
+Open **Skills** below **Plugins** in the Harness sidebar to search Built-in, Self-authored and Third-party skills, preview Markdown, and open source repositories. Code blocks support copying and wrapping.
 
 ## Installation
 
-In Desktop, open **Plugins → Add plugin** and enter `@dawn0608/dsh-skill-manager`, or run this command for your profile.
+Enter `@dawn0608/dsh-skill-manager` in **Plugins → Add plugin**, or run:
 
 ```bash
 dsh plugin --profile <profile> add @dawn0608/dsh-skill-manager
 ```
 
-Upgrade through the Harness plugin manager and restart if prompted.
+Restart Harness if prompted. Fully quit Desktop before changing its profile through the CLI.
 
 ## Usage and configuration
 
-- Manage imported copies: use the switch to enable or disable a copy and the detail action to uninstall it. Bundles are stored under `$DSH_HOME/skill-manager/bundles`, activated in `$DSH_HOME/skills`.
-- Shared skill provenance lives in `$DSH_AGENTS_HOME/skills/.provenance.json` (default `~/.agents/skills/.provenance.json`). Keys are relative paths such as `my-skill/SKILL.md`; `origin` is `self` or `third-party`. An optional credential-free HTTPS `repository` is shown for third-party skills. Unconfirmed origins appear under Third-party.
-- Directory skills, including `~/.agents/skills`, are discovered and loaded by Harness. This plugin displays its catalog and details; only plugin-owned imported copies can be enabled, disabled, or uninstalled here.
-- `DSH_HOME` and `DSH_AGENTS_HOME` default to `~/.dsh` and `~/.agents`; absolute paths and `~/` are supported. The plugin does not manage other applications’ skills or configuration.
+- Switches control skills in `~/.agents/skills` and the Harness user skills directory for the current profile only. Disabled skills remain available for preview but cannot be called by the model or `/skill-name`. Enabling restores the skill's own frontmatter rules.
+- The native Settings service saves `disabledSkills` in the plugin's current-profile configuration, binding each record to its source, canonical file path and name. Renamed or moved skills are new entries. Skills and other applications' configurations are never modified.
+- `DSH_HOME` and `DSH_AGENTS_HOME` default to `~/.dsh` and `~/.agents`; absolute paths and `~/` are supported.
+- Shared skill provenance comes from `$DSH_AGENTS_HOME/skills/.provenance.json`. Keys are relative paths such as `my-skill/SKILL.md`; `origin` is `self` or `third-party`. An optional credential-free HTTPS `repository` supplies the source link. Unconfirmed origins appear under Third-party.
+- The list refreshes on opening, returning to the foreground and completing an action, with a 15-second foreground poll.
 
 ## Requirements and limitations
 
-- Requires DeepSeek Harness `>=0.2.2-rc.1 <0.3.0` and Node.js 24 or later.
-- Supports Windows, macOS, and Linux filesystem operations. Imported copies use directory junctions on Windows and directory symlinks elsewhere; no administrator privileges or Developer Mode are required.
-- No Python, Codex, Claude Code, or background service is required. Filesystem conflicts or files held open by another process may require resolving the conflict before retrying.
+- Requires Harness `>=0.2.2-rc.1 <0.3.0` and Node.js 24 or later. No other AI tools or background service are required.
+- Built-in, plugin-provided, project and custom-provider skills have no switch. Native source precedence is preserved; a same-name project skill is unaffected.
+- Only native filesystem skills within the two user roots can be toggled. Configuration conflicts require refreshing and retrying. The plugin does not import, uninstall, copy or synchronize skills.
 
 ## Development
 
-From the repository root, run `npm test -w @dawn0608/dsh-skill-manager` for the plugin tests and `npm run verify` for the full repository check.
+Run `npm test -w @dawn0608/dsh-skill-manager` from the repository root, or `npm run verify` for all plugins. Tests use isolated files and the native skill registry, Settings and ConfigEditor services.

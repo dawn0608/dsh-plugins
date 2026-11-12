@@ -3,7 +3,6 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
-import { DraftError } from '../src/errors.js';
 import { MAX_BODY_BYTES, createApi, createFetchHandler } from '../src/routes.js';
 import { apply, inject } from '../src/index.js';
 import { request } from '../src/client/api.js';
@@ -58,31 +57,6 @@ test('requires the marker header and JSON for writes', async () => {
   assert.equal(badJson.body.code, 'invalid-json');
 });
 
-test('dispatches save/delete/setEnabled and maps field errors', async () => {
-  const headers = { 'content-type': 'application/json', 'x-dsh-mcp-manager': '1' };
-  const save = await api({ method: 'POST', headers, body: JSON.stringify({ action: 'save', mode: 'add', draft: {} }) });
-  assert.equal(save.status, 200);
-  assert.equal(save.body.servers[0].name, 'saved');
-  const unknown = await api({ method: 'POST', headers, body: JSON.stringify({ action: 'other' }) });
-  assert.equal(unknown.status, 400);
-  assert.equal(unknown.body.code, 'invalid');
-  const badMode = await api({ method: 'POST', headers, body: JSON.stringify({ action: 'save', mode: 'x' }) });
-  assert.equal(badMode.status, 400);
-
-  const failing = createApi({
-    log: () => {},
-    store: {
-      ...fakeStore(),
-      async save() {
-        throw new DraftError([{ field: 'name', code: 'required' }]);
-      },
-    },
-  });
-  const invalid = await failing({ method: 'POST', headers, body: JSON.stringify({ action: 'save', mode: 'add', draft: {} }) });
-  assert.equal(invalid.status, 422);
-  assert.deepEqual(invalid.body.errors, [{ field: 'name', code: 'required' }]);
-});
-
 test('rejects an over-limit request body', async () => {
   const apiWithStore = createApi({ store: fakeStore(), log: () => {} });
   const headers = { 'content-type': 'application/json', 'x-dsh-mcp-manager': '1' };
@@ -126,8 +100,6 @@ test('the registered route reads the active host profile without profile environ
   const response = await route.fetch(new Request('http://localhost/api/mcp-manager'));
   assert.equal(response.status, 200);
   const state = await response.json();
-  assert.equal(state.profile, 'web-isolated');
-  assert.equal(state.patchPath, patchPath);
   assert.deepEqual(state.servers, []);
 });
 

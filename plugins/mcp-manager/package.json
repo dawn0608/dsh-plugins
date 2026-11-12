@@ -1,6 +1,6 @@
 {
   "name": "@dawn0608/dsh-mcp-manager",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "main": "./lib/index.js",
   "description": "View STDIO and Streamable HTTP servers for the current profile and toggle editable entries from Settings.",

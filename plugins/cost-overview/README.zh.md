@@ -3,7 +3,7 @@
 ## 功能
 
 - 当前会话产生 token 后，在输入框下方的内置统计旁显示费用和余额。
-- 按 [DeepSeek 官方价格表](https://api-docs.deepseek.com/zh-cn/quick_start/pricing/) 计算会话费用。未知模型保留自己的 ID 和明细行，按 Flash 价格估算，并在相关金额前标注「估算」。
+- 按 [DeepSeek 官方价格表](https://api-docs.deepseek.com/zh-cn/quick_start/pricing/) 计算会话费用。未知模型或缺少有效单价时保留用量与请求次数，金额显示「无法计价」。混合会话显示已知部分小计并标注费用不完整。
 - 宿主使用已配置的 DeepSeek API Key 读取账户余额。点击统计按钮，可查看模型请求、网页请求、账户余额和赠送余额。
 
 ## 安装
@@ -18,7 +18,7 @@ dsh plugin --profile <profile> add @dawn0608/dsh-cost-overview
 
 点击统计按钮打开明细。按 Escape、点击面板外部或再次点击按钮可关闭。一个会话使用多个模型时，每个模型单独显示一行。已有 token 的会话读取失败时，统计按钮仍可点击，金额显示为占位符，面板说明失败原因。
 
-客户端通过认证连接读取状态。切换会话、token 计数变化、打开面板、每五分钟以及标签页重新可见时会刷新。宿主将余额读取结果缓存一分钟。
+客户端通过认证连接读取状态。切换会话、token 计数变化、打开面板、前台每五分钟以及标签页重新可见时会刷新。宿主将余额读取结果缓存一分钟。
 
 余额配置来自宿主的 `llm-deepseek` 路由。宿主凭据服务或启动环境按 `apiKeyEnv` 解析 API Key，并按 `baseURL` 请求 `GET <baseURL>/user/balance`。启动环境的回退配置为 `COST_OVERVIEW_API_KEY_ENV` 和 `DEEPSEEK_BASE_URL`，默认分别是 `DEEPSEEK_API_KEY` 和 `https://api.deepseek.com`。
 

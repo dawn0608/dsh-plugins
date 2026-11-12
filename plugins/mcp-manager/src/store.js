@@ -6,13 +6,12 @@
  * read, builds the next text, and only then replaces the file atomically.
  */
 
-import { createHash } from 'node:crypto';
 import { readFileSync, statSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join } from 'node:path';
 import { readProfilePatch, withProfileLock, writeProfilePatch } from './atomic.js';
 import { PatchError } from './errors.js';
 import { logEvent } from './log.js';
-import { buildDelete, buildSave, buildSetEnabled, readPatch } from './patch.js';
+import { buildSetEnabled, readPatch } from './patch.js';
 
 const PATCH_NAME = 'cordis.patch.yml';
 
@@ -70,11 +69,7 @@ export function resolveProfile(options = {}) {
   return { dir, patchPath: join(dir, PATCH_NAME), profile };
 }
 
-function revisionOf(text) {
-  return createHash('sha256').update(text).digest('hex');
-}
-
-function toServer(entry, duplicateNames, countTools) {
+function toServer(entry, duplicateNames) {
   return {
     id: entry.id ?? null,
     name: entry.name ?? null,
@@ -83,25 +78,14 @@ function toServer(entry, duplicateNames, countTools) {
     editable: entry.editable,
     readOnlyCode: entry.readOnlyCode,
     rowHash: entry.rowHash || null,
-    deletable: entry.rowIndex !== null,
-    tools: entry.name ? countTools(entry.name) : null,
     duplicate: entry.name ? duplicateNames.has(entry.name) : false,
   };
 }
 
 /** Build the complete read model from one patch text. */
-export function stateFromText(text, { profile, patchPath, countTools, revision = revisionOf(text) }) {
+export function stateFromText(text) {
   const parsed = readPatch(text);
-  const warnings = [...parsed.warnings];
-  for (const name of parsed.duplicateNames) warnings.push({ code: 'duplicate-name', name });
-  return {
-    ok: true,
-    profile,
-    patchPath,
-    revision,
-    servers: parsed.entries.map(entry => toServer(entry, parsed.duplicateNames, countTools)),
-    warnings,
-  };
+  return { ok: true, servers: parsed.entries.map(entry => toServer(entry, parsed.duplicateNames)) };
 }
 
 function findEntry(parsed, request) {
@@ -131,16 +115,15 @@ function requireTarget(parsed, request) {
 }
 
 /**
- * @param {{profile: () => {dir: string, patchPath: string, profile: string}, countTools?: (name: string) => number | null, log?: typeof logEvent}} options
+ * @param {{profile: () => {dir: string, patchPath: string, profile: string}, log?: typeof logEvent}} options
  */
 export function createStore(options) {
-  const countTools = typeof options.countTools === 'function' ? options.countTools : () => null;
   const log = typeof options.log === 'function' ? options.log : logEvent;
   const lockOptions = Number.isFinite(options.lockTimeoutMs) ? { timeoutMs: options.lockTimeoutMs } : {};
 
   const readState = async (resolved = options.profile()) => {
-    const { text, bytes } = readProfilePatch(resolved.patchPath);
-    return stateFromText(text, { ...resolved, countTools, revision: revisionOf(bytes) });
+    const { text } = readProfilePatch(resolved.patchPath);
+    return stateFromText(text);
   };
 
   const mutate = async (request, operation, event) => {
@@ -158,7 +141,6 @@ export function createStore(options) {
       action: request.action,
       name: result?.name,
       id: result?.id,
-      transport: request.draft ? request.draft.transport : undefined,
       enabled: result?.enabled,
       durationMs: Date.now() - started,
     });
@@ -167,36 +149,6 @@ export function createStore(options) {
 
   return {
     readState,
-
-    async save(request) {
-      return mutate(request, fresh => {
-        const parsed = readPatch(fresh.text);
-        let target;
-        if (request.mode === 'edit') {
-          target = findEntry(parsed, request);
-          if (!target) throw new PatchError('not-found');
-          if (!target.editable) throw new PatchError('read-only', { code: target.readOnlyCode });
-          if (typeof request.rowHash !== 'string' || request.rowHash !== target.rowHash) {
-            throw new PatchError('conflict', { reason: 'row-changed' });
-          }
-        } else if (request.mode !== 'add') {
-          throw new PatchError('invalid', { reason: 'mode' });
-        }
-        return buildSave(fresh.text, target, request.draft);
-      }, 'saved');
-    },
-
-    async remove(request) {
-      return mutate(request, fresh => {
-        const parsed = readPatch(fresh.text);
-        const target = findEntry(parsed, request);
-        if (!target) throw new PatchError('not-found');
-        if (typeof request.rowHash !== 'string' || request.rowHash !== target.rowHash) {
-          throw new PatchError('conflict', { reason: 'row-changed' });
-        }
-        return buildDelete(fresh.text, target);
-      }, 'deleted');
-    },
 
     async setEnabled(request) {
       if (typeof request.enabled !== 'boolean') throw new PatchError('invalid', { reason: 'enabled' });

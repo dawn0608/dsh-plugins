@@ -8,11 +8,3 @@ export class PatchError extends Error {
     this.params = params;
   }
 }
-
-export class DraftError extends Error {
-  constructor(errors) {
-    super('invalid');
-    this.name = 'DraftError';
-    this.errors = errors;
-  }
-}

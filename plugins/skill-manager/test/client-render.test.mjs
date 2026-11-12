@@ -2,12 +2,11 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { RemoveDialog } from '../src/client/dialog.js';
 import { DICTS, translateFrom } from '../src/client/i18n.js';
 import { createPage } from '../src/client/page.js';
 
 const skills = [
-  { id: 'managed', name: 'managed-skill', description: 'Imported description', group: 'imported', source: 'profile', enabled: true, shadowed: false },
+  { id: 'managed', name: 'managed-skill', description: 'Imported description', canToggle: true, source: 'profile', enabled: true, shadowed: false },
   { id: 'local', name: 'local-skill', description: 'Local description', group: 'local', source: 'user-agents', enabled: null, shadowed: true, origin: 'self' },
   { id: 'builtin', name: 'builtin-skill', description: 'Built-in description', group: 'builtin', source: 'bundled', enabled: null, shadowed: false, origin: 'builtin' },
   { id: 'external', name: 'external-skill', description: 'Third-party description', group: 'local', source: 'user-agents', enabled: null, shadowed: false, origin: 'third-party' },
@@ -39,7 +38,7 @@ function render(language, patch = {}) {
   return renderToStaticMarkup(React.createElement(Page));
 }
 
-test('Skills shows localized controls and one independent switch for imported rows', () => {
+test('Skills shows localized controls and one independent switch for editable user rows', () => {
   for (const lang of ['zh', 'en']) {
     const html = render(lang);
     assert.match(html, new RegExp(`<h1[^>]*>${DICTS[lang].title}</h1>`));
@@ -48,7 +47,7 @@ test('Skills shows localized controls and one independent switch for imported ro
     assert.match(html, /<button[^>]*data-skill-id="managed"[^>]*aria-describedby="([^"]+)"[^>]*>managed-skill<\/button><\/div><span[^>]*id="\1">Imported description<\/span><\/div>.*?<button[^>]*role="switch"[^>]*aria-checked="true"/);
     assert.match(html, /builtin-skill.*local-skill.*managed-skill.*external-skill/);
     assert.doesNotMatch(html, /<a\b/);
-    assert.ok(html.includes(DICTS[lang].shadowed));
+    assert.doesNotMatch(html, /Shadowed|已被覆盖/);
   }
 });
 
@@ -58,7 +57,7 @@ test('an incomplete refresh shows its warning alongside the existing catalog', (
   assert.ok(html.includes('managed-skill'));
 });
 
-test('native directory skills never expose a switch, including stale policy responses', () => {
+test('non-editable skills never expose a switch', () => {
   const html = render('zh', { skills: [{ ...skills[1], enabled: false }, skills[2]] });
   assert.match(html, /local-skill/);
   assert.doesNotMatch(html, /role="switch"/);
@@ -72,13 +71,4 @@ test('the catalog has a minimal header and shows three ordered provenance groups
   assert.doesNotMatch(render('zh', { skills: [skills[0]] }), /内置技能|自建技能/);
   assert.doesNotMatch(english, /<select\b|Add skill|Browse and manage skills in Harness/);
   assert.doesNotMatch(chinese, /<select\b|添加技能|浏览和管理 Harness 中的技能/);
-});
-
-test('uninstall confirmation describes removing the imported copy from Harness', () => {
-  const html = renderToStaticMarkup(React.createElement(RemoveDialog, {
-    skill: skills[0],
-    translate: (key, params) => translateFrom(DICTS.en, key, params),
-  }));
-  assert.match(html, /Remove the imported copy of “managed-skill” from Harness\?/);
-  assert.match(html, /<button[^>]*data-initial-focus=""[^>]*>Cancel<\/button>/);
 });

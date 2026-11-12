@@ -7,52 +7,22 @@
  * testable and keeps the price table owned by `apply()`.
  */
 
-/** Model id whose price row is used when a route cannot be mapped to a known row. */
-export const DEFAULT_MODEL = 'deepseek-flash';
+/** Explicit aliases for price rows published by DeepSeek. */
+const MODEL_IDS = new Map([
+  ['deepseek-flash', 'deepseek-flash'],
+  ['deepseek-v4.1-flash', 'deepseek-flash'],
+  ['deepseek-v4-pro', 'deepseek-v4-pro'],
+]);
 
-/**
- * Resolve a logged model id to its published price row.
- *
- * Only DeepSeek ids enter the known mapping. A foreign or otherwise unknown id
- * keeps its own row and real name, but is priced with the Flash table so the
- * total is never silently dropped; `unknown` lets the payload report it.
- *
- * @param modelId - the model id recorded on the call.
- * @param table - the parsed official price table.
- * @returns the price row and display identity for the call.
- */
 export function resolveModel(modelId, table) {
   const raw = String(modelId || '');
-  const id = raw.toLowerCase();
-  const leaf = id.slice(id.lastIndexOf('/') + 1);
-  const deepseekId = leaf === 'deepseek' || leaf.startsWith('deepseek-');
-  const known = !deepseekId
-    ? undefined
-    : leaf.includes('pro')
-      ? 'deepseek-v4-pro'
-      : (leaf.includes('flash') || leaf.includes('chat') || leaf.includes('reasoner') ? DEFAULT_MODEL : undefined);
-
-  if (known === undefined) {
-    const fallback = table[DEFAULT_MODEL];
-    return {
-      key: raw === '' ? 'unknown' : raw,
-      label: raw === '' ? '' : raw,
-      hit: fallback.hit,
-      miss: fallback.miss,
-      output: fallback.output,
-      unknown: true,
-    };
-  }
-
-  const entry = table[known] || table[DEFAULT_MODEL];
-  return {
-    key: known,
-    label: entry.label,
-    hit: entry.hit,
-    miss: entry.miss,
-    output: entry.output,
-    unknown: false,
-  };
+  const id = raw.toLowerCase().replace(/^deepseek\//, '');
+  const key = MODEL_IDS.get(id);
+  const row = key && table?.[key];
+  const valid = row && ['hit', 'miss', 'output'].every(metric =>
+    Array.isArray(row[metric]) && row[metric].length === 2 && row[metric].every(value => Number.isFinite(value) && value >= 0));
+  if (!valid) return { key: raw || 'unknown', label: raw, hit: null, miss: null, output: null, unknown: true };
+  return { key, label: row.label, hit: row.hit, miss: row.miss, output: row.output, unknown: false };
 }
 
 /**
@@ -139,6 +109,7 @@ export function foldCost(events, table, toolPrices) {
   let toolCost = 0;
   let toolRequests = 0;
   let calls = 0;
+  let pricedCalls = 0;
 
   /** Price one provider-reported call and fold it into the Session totals. */
   const bill = (modelId, usage, time) => {
@@ -152,27 +123,29 @@ export function foldCost(events, table, toolPrices) {
     const cacheRead = count(usage.cacheReadTokens);
     const cacheWrite = count(usage.cacheWriteTokens);
     const output = count(usage.outputTokens);
-    const amount = (uncached * resolved.miss[index]
+    const amount = resolved.unknown ? null : (uncached * resolved.miss[index]
       + cacheRead * resolved.hit[index]
       + cacheWrite * resolved.miss[index]
       + output * resolved.output[index]) / 1e6;
 
-    modelCost += amount;
+    if (amount !== null) { modelCost += amount; pricedCalls += 1; }
     calls += 1;
     const entry = models.get(resolved.key) || {
       key: resolved.key,
       label: resolved.label,
-      prices: { hit: resolved.hit, miss: resolved.miss, output: resolved.output },
+      prices: resolved.unknown ? null : { hit: resolved.hit, miss: resolved.miss, output: resolved.output },
       calls: 0,
-      cost: 0,
-      peakCost: 0,
-      offpeakCost: 0,
+      cost: resolved.unknown ? null : 0,
+      peakCost: resolved.unknown ? null : 0,
+      offpeakCost: resolved.unknown ? null : 0,
       tokens: { uncached: 0, cacheRead: 0, cacheWrite: 0, output: 0 },
     };
     entry.calls += 1;
-    entry.cost += amount;
-    if (peak) entry.peakCost += amount;
-    else entry.offpeakCost += amount;
+    if (amount !== null) {
+      entry.cost += amount;
+      if (peak) entry.peakCost += amount;
+      else entry.offpeakCost += amount;
+    }
     entry.tokens.uncached += uncached;
     entry.tokens.cacheRead += cacheRead;
     entry.tokens.cacheWrite += cacheWrite;
@@ -243,8 +216,10 @@ export function foldCost(events, table, toolPrices) {
   }
 
   return {
-    total: modelCost + toolCost,
-    modelCost,
+    pricingStatus: unknownModels.size === 0 ? 'complete' : pricedCalls > 0 || toolRequests > 0 ? 'partial' : 'unpriced',
+    total: unknownModels.size === 0 ? modelCost + toolCost : null,
+    knownSubtotal: modelCost + toolCost,
+    modelCost: unknownModels.size === 0 ? modelCost : null,
     toolCost,
     toolRequests,
     calls,

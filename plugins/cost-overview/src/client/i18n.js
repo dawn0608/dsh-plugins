@@ -5,7 +5,9 @@ export const NS = 'costOverview';
 export const DICTS = {
   zh: {
     pillCost: '{amount}',
-    estimatedCost: '估算 {amount}',
+    partialCost: '已知部分 {amount}',
+    unpriced: '无法计价',
+    incompleteCost: '费用不完整',
     pillBalance: '余额 {amount}',
     pillBalanceUnknown: '余额 —',
     pillBalanceLoading: '余额 …',
@@ -39,7 +41,9 @@ export const DICTS = {
 // en is a real English dictionary. Keep its key set identical to zh.
 DICTS.en = {
   pillCost: '{amount}',
-  estimatedCost: 'Est. {amount}',
+  partialCost: 'Known subtotal {amount}',
+  unpriced: 'Price unavailable',
+  incompleteCost: 'Incomplete cost',
   pillBalance: 'Balance {amount}',
   pillBalanceUnknown: 'Balance —',
   pillBalanceLoading: 'Balance …',

@@ -4,7 +4,7 @@
  * Run after `npm run build`: the check reads the built `lib/` artifacts.
  */
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parseDocument } from 'yaml';
 
@@ -127,6 +127,26 @@ for (const dirName of plugins) {
   check(pkg.engines?.node === '>=24', dirName, 'engines.node must be >=24');
   check(listTestFiles(dir).length > 0, dirName, 'test/ has no *.test.mjs');
 }
+
+// Local script imports must point at a shipped/source entry, not a removed tool.
+function inspectRuntime(dir) {
+  if (!existsSync(dir)) return;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (['test', 'node_modules'].includes(entry.name)) continue;
+    const file = join(dir, entry.name);
+    if (entry.isDirectory()) { inspectRuntime(file); continue; }
+    if (!/\.(?:mjs|js)$/.test(entry.name)) continue;
+    const source = readFileSync(file, 'utf8');
+    for (const match of source.matchAll(/(?:from\s*|import\s*(?:\(\s*)?)["'](\.{1,2}\/[^"']+)["']/g)) {
+      check(existsSync(resolve(dirname(file), match[1])), file, `missing local import: ${match[1]}`);
+    }
+    // These removed entry points must not silently return through a build helper.
+    const removed = /sharedSync|deleteShared|dsh-skill-sync-install|skill-sync\.sock|sync-codex-mcp|mcp_sync\.py/;
+    check(file === join(root, 'scripts', 'check-plugin.mjs') || !removed.test(source), file, 'removed synchronization entry point');
+  }
+}
+inspectRuntime(join(root, 'scripts'));
+for (const name of plugins) inspectRuntime(join(pluginsDir, name, 'src'));
 
 if (failures.length > 0) {
   console.error(`plugin layout check failed (${failures.length}):`);

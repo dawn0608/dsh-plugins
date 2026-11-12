@@ -1,6 +1,6 @@
 /** Request validation and adapter for the authenticated connection channel. */
 
-import { DraftError, PatchError } from './errors.js';
+import { PatchError } from './errors.js';
 
 export const MAX_BODY_BYTES = 256 * 1024;
 
@@ -39,9 +39,6 @@ function statusOf(error) {
 }
 
 function mapError(error, log) {
-  if (error instanceof DraftError) {
-    return { status: 422, body: { ok: false, code: 'invalid', errors: error.errors, message: MESSAGES.invalid } };
-  }
   if (error instanceof PatchError) {
     log('failed', { code: error.code, field: error.params && error.params.field });
     return { status: statusOf(error), body: body(error.code, { params: error.params }) };
@@ -55,11 +52,6 @@ async function dispatch(payload, store) {
     throw new PatchError('invalid', { reason: 'body' });
   }
   switch (payload.action) {
-    case 'save':
-      if (payload.mode !== 'add' && payload.mode !== 'edit') throw new PatchError('invalid', { reason: 'mode' });
-      return store.save(payload);
-    case 'delete':
-      return store.remove(payload);
     case 'setEnabled':
       return store.setEnabled(payload);
     default:

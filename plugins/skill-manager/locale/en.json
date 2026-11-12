@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "Skill Management",
-    "description": "Search global skills, preview Markdown, and toggle or uninstall managed copies from the Harness sidebar.",
+    "description": "Search and preview global skills, with user skill switches affecting only the current Harness profile.",
     "detail": "README.md"
   }
 }

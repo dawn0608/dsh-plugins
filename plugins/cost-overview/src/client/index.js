@@ -1,3 +1,4 @@
+import { watchRefresh } from '../../../../src/client/refresh.js';
 /** Client half: the composer pill, its panel, and the slot registration. */
 import * as React from 'react';
 import * as ReactDOM from 'react-dom';
@@ -38,10 +39,10 @@ function createEntry(translate) {
   }
 
   function costLabel(amount, estimated) {
-    return translate(estimated ? 'estimatedCost' : 'pillCost', { amount: money(amount, '¥') });
+    return amount === null || !Number.isFinite(amount) ? translate('unpriced') : translate(estimated ? 'partialCost' : 'pillCost', { amount: money(amount, '¥') });
   }
 
-  function Panel({ cost, unknownModels, snapshot, position, panelRef }) {
+  function Panel({ cost, snapshot, position, panelRef }) {
     const ready = snapshot.status === 'ready';
     const wallet = ready ? snapshot.wallets[0] : undefined;
     const cells = [];
@@ -56,9 +57,8 @@ function createEntry(translate) {
       if (models.length > 1) {
         // One line per model, carrying both its cost and its request count.
         models.forEach((model, index) => {
-          const estimated = unknownModels.has(model.key) || (model.key === 'unknown' && unknownModels.has(''));
           push(`model-${index}`, index === 0 ? translate('modelLabel') : '',
-            `${modelLabel(model.label)} ${costLabel(model.cost, estimated)} · ${translate('callsValue', { count: countText(model.calls) })}`);
+            `${modelLabel(model.label)} ${costLabel(model.cost)} · ${translate('callsValue', { count: countText(model.calls) })}`);
         });
       } else {
         const selection = cost.selection;
@@ -68,6 +68,7 @@ function createEntry(translate) {
         }
         push('calls', translate('callsLabel'), translate('callsValue', { count: countText(cost.calls) }));
       }
+      if (cost.pricingStatus === 'partial') push('incomplete', translate('statusLabel'), translate('incompleteCost'));
       push('web', translate('webLabel'), translate('webValue', { count: countText(Number(cost.toolRequests) || 0) }));
     } else {
       push('state', translate('statusLabel'), reasonLabel(cost?.reason ?? snapshot.reason));
@@ -98,7 +99,7 @@ function createEntry(translate) {
           translate('costTitle'),
         ]),
         h('span', { key: 'value', className: 'dshco_titleValue' },
-          cost?.ok === true ? costLabel(Number(cost.total) || 0, unknownModels.size > 0) : '—'),
+          cost?.ok === true ? costLabel(cost.pricingStatus === 'partial' ? cost.knownSubtotal : cost.total, cost.pricingStatus === 'partial') : '—'),
       ]),
       h('div', { key: 'rule', className: 'dshco_rule', 'aria-hidden': true }),
       h('dl', { key: 'details', className: 'dshco_details' }, cells),
@@ -139,16 +140,7 @@ function createEntry(translate) {
 
     React.useEffect(() => {
       const store = storeRef.current;
-      store.refresh({ sessionId });
-      const timer = setInterval(() => store.refresh({ sessionId }), 300000);
-      const onVisible = () => {
-        if (document.visibilityState === 'visible') store.refresh({ sessionId });
-      };
-      document.addEventListener('visibilitychange', onVisible);
-      return () => {
-        clearInterval(timer);
-        document.removeEventListener('visibilitychange', onVisible);
-      };
+      return watchRefresh(() => store.refresh({ sessionId }), 300000);
     }, [sessionId]);
 
     React.useEffect(() => {
@@ -182,11 +174,10 @@ function createEntry(translate) {
 
     if (!visible) return null;
 
-    const unknownModels = new Set(Array.isArray(cost?.unknownModels) ? cost.unknownModels : []);
-    const costText = cost?.ok === true ? costLabel(Number(cost.total) || 0, unknownModels.size > 0) : '—';
+    const costText = cost?.ok === true ? costLabel(cost.pricingStatus === 'partial' ? cost.knownSubtotal : cost.total, cost.pricingStatus === 'partial') : '—';
     const label = `${costText} ${translate('pillSeparator')} ${balanceLabel(snapshot)}`;
 
-    const panelProps = { cost, unknownModels, snapshot, position, panelRef };
+    const panelProps = { cost, snapshot, position, panelRef };
     const panel = showPanel
       ? (typeof ReactDOM.createPortal === 'function'
         ? ReactDOM.createPortal(h(Panel, { ...panelProps, key: 'panel' }), document.body, 'panel')

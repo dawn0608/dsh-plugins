@@ -88,3 +88,16 @@ test('rejects source or secret files in the publication allowlist', () => fixtur
   assert.equal(result.status, 1);
   assert.match(result.stderr, /unexpected publication path/);
 }));
+
+test('rejects orphaned script imports and removed synchronization entry points', () => fixture(async root => {
+  await mkdir(join(root, 'scripts'));
+  const script = join(root, 'scripts', 'orphan.mjs');
+  await writeFile(script, "import '../plugins/example/lib/missing.js';\n");
+  let result = run('check-plugin.mjs', root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /missing local import/);
+  await writeFile(script, "const command = 'dsh-skill-sync-install';\n");
+  result = run('check-plugin.mjs', root);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /removed synchronization/);
+}));

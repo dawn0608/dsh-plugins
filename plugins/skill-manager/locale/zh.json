@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "技能管理",
-    "description": "在侧栏搜索全局技能、预览 Markdown，并启停或卸载已有的受管技能。",
+    "description": "搜索和预览全局技能，用户技能开关仅影响当前 Harness profile。",
     "detail": "README.zh.md"
   }
 }

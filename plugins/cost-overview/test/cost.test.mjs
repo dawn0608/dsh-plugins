@@ -164,9 +164,9 @@ test('falls back to the request header when a settled message has no model', () 
   assert.equal(result.models[0].key, 'deepseek-v4-pro');
 });
 
-test('keeps an unknown model id and prices it with the Flash table', () => {
+test('keeps unknown usage without inventing its price', () => {
   const result = foldCost([message('gpt-4o-pro', usage())], table, toolPrices);
-  close(result.total, 5.02);
+  assert.equal(result.total, null);
   assert.deepEqual(result.unknownModels, ['gpt-4o-pro']);
   assert.equal(result.models[0].key, 'gpt-4o-pro');
   assert.equal(result.models[0].label, 'gpt-4o-pro');
@@ -230,10 +230,10 @@ test('ignores events without provider usage', () => {
 test('resolves DeepSeek ids and leaves foreign ids unknown', () => {
   assert.equal(resolveModel('deepseek-flash', table).key, 'deepseek-flash');
   assert.equal(resolveModel('deepseek-v4-pro', table).key, 'deepseek-v4-pro');
-  assert.equal(resolveModel('deepseek-chat', table).key, 'deepseek-flash');
-  assert.equal(resolveModel('deepseek-reasoner', table).key, 'deepseek-flash');
+  assert.equal(resolveModel('deepseek-chat', table).unknown, true);
+  assert.equal(resolveModel('deepseek-reasoner', table).unknown, true);
   assert.equal(resolveModel('deepseek/deepseek-flash', table).key, 'deepseek-flash');
-  assert.equal(resolveModel('deepseek-v4-pro-0813', table).key, 'deepseek-v4-pro');
+  assert.equal(resolveModel('deepseek-v4-pro-0813', table).unknown, true);
 
   const custom = resolveModel('gpt-4o-pro', table);
   assert.equal(custom.key, 'gpt-4o-pro');

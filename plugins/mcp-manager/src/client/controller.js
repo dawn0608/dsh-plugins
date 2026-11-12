@@ -1,8 +1,9 @@
 /** Observable page state for the MCP configuration and its actions. */
 
+import { watchRefresh } from '../../../../src/client/refresh.js';
 import { ApiError, request } from './api.js';
 
-const POLL_DELAY_MS = 2000;
+const POLL_DELAY_MS = 15000;
 const READ_TIMEOUT_MS = 8000;
 const WRITE_TIMEOUT_MS = 8000;
 
@@ -29,7 +30,9 @@ export function createController(options = {}) {
   };
   const listeners = new Set();
   let generation = 0;
-  let pollTimer;
+  let stopPolling;
+  let reading;
+  let trailing = false;
   let polling;
   let activeWrite;
   let disposed = false;
@@ -58,9 +61,12 @@ export function createController(options = {}) {
 
   async function refresh(lifecycleSignal) {
     if (disposed) return;
+    reading?.abort();
+    const pending = new AbortController();
+    reading = pending;
     const current = ++generation;
     if (snapshot.status === 'idle') publish({ status: 'loading' });
-    const deadline = requestDeadline(READ_TIMEOUT_MS, lifecycleSignal);
+    const deadline = requestDeadline(READ_TIMEOUT_MS, lifecycleSignal ? AbortSignal.any([lifecycleSignal, pending.signal]) : pending.signal);
     try {
       const { payload } = await request({ method: 'GET', fetchImpl, signal: deadline.signal });
       if (current !== generation || disposed) return;
@@ -77,11 +83,16 @@ export function createController(options = {}) {
       publish({ status: snapshot.state === null ? 'error' : 'ready', error: failure(error) });
     } finally {
       deadline.clear();
+      if (reading === pending) {
+        reading = undefined;
+        if (trailing && !activeWrite) { trailing = false; void load(); }
+      }
     }
   }
 
   async function load(lifecycleSignal) {
-    if (!activeWrite) await refresh(lifecycleSignal);
+    if (activeWrite || reading) { trailing = true; return; }
+    await refresh(lifecycleSignal);
   }
 
   function start() {
@@ -89,12 +100,7 @@ export function createController(options = {}) {
     const session = new AbortController();
     polling = session;
 
-    async function poll() {
-      if (!snapshot.busy) await load(session.signal);
-      if (!session.signal.aborted) pollTimer = setTimeout(poll, POLL_DELAY_MS);
-    }
-
-    void poll();
+    stopPolling = watchRefresh(() => { void load(session.signal); }, POLL_DELAY_MS);
   }
 
   async function mutate(target, body) {
@@ -105,6 +111,8 @@ export function createController(options = {}) {
     const action = { id: target.id, name: target.name };
     // A GET that began before this write must not restore the old state.
     generation += 1;
+    reading?.abort();
+    reading = undefined;
     publish({ busy: true, action });
 
     const deadline = requestDeadline(writeTimeoutMs, operation.signal);
@@ -128,6 +136,8 @@ export function createController(options = {}) {
     if (!error) {
       activeWrite = undefined;
       publish({ busy: false, action: null, status: 'ready', state: payload, error: null });
+      trailing = false;
+      await load(operation.signal);
       return { ok: true };
     }
 
@@ -148,8 +158,11 @@ export function createController(options = {}) {
     generation += 1;
     polling?.abort();
     polling = undefined;
-    clearTimeout(pollTimer);
-    pollTimer = undefined;
+    stopPolling?.();
+    stopPolling = undefined;
+    trailing = false;
+    reading?.abort();
+    reading = undefined;
     if (activeWrite) {
       const operation = activeWrite;
       activeWrite = undefined;

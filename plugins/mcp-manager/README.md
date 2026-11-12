@@ -3,7 +3,7 @@
 ## Features
 
 - Shows the MCP servers in the current profile under **Settings → MCP Management**, with their names, transport, and enablement switches.
-- Supports local STDIO and remote Streamable HTTP. The list refreshes while the panel is open.
+- Supports local STDIO and remote Streamable HTTP. The list refreshes on opening, returning to the foreground and completing an action, with a 15-second foreground poll.
 - Toggles a server by changing only its row-level `disabled` field. The plugin locks the profile and replaces the patch atomically, preserving the other configuration, references, and comments.
 
 ## Installation
