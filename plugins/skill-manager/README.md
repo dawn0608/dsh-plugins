@@ -27,6 +27,7 @@ Restart Harness if prompted. Fully quit Desktop before changing its profile thro
 - Requires Harness `>=0.2.2-rc.1 <0.3.0` and Node.js 24 or later. No other AI tools or background service are required.
 - Built-in, plugin-provided, project and custom-provider skills have no switch. Native source precedence is preserved; a same-name project skill is unaffected.
 - Only native filesystem skills within the two user roots can be toggled. Configuration conflicts require refreshing and retrying. The plugin does not import, uninstall, copy or synchronize skills.
+- Switches immediately affect invocation permissions; the host's cached `/` suggestions may require an application restart to refresh.
 
 ## Development
 
