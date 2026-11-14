@@ -1,6 +1,6 @@
 {
   "name": "@dawn0608/dsh-skill-manager",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "type": "module",
   "main": "./lib/index.js",
   "description": "Search and preview global skills, render Markdown and open source repositories.",
