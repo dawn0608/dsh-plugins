@@ -1,4 +1,5 @@
 import { isRecord, ManagerError, skillId } from './skill.js';
+import { createShippedLookup } from './host-shipped.js';
 import { readProvenance } from './host-provenance.js';
 
 export const ROUTE = '/api/skill-manager';
@@ -7,11 +8,13 @@ const ACTION_FIELDS = new Map([
   ['list', []], ['detail', ['id']],
 ]);
 
-function skillProvenance(skill, provenance) {
-  return skill.source === 'bundled' ? { origin: 'builtin' } : provenance(skill);
+async function skillProvenance(skill, provenance, shipped) {
+  if (skill.source === 'bundled' || (await shipped(skill))) return { origin: 'builtin' };
+  return provenance(skill);
 }
 
 export function createSkillManager({ agentsHome, skills, agentPresets }) {
+  const shipped = createShippedLookup();
   async function scoped(signal, operation) {
     let lease;
     try { lease = await agentPresets.acquireScope(); }
@@ -41,10 +44,10 @@ export function createSkillManager({ agentsHome, skills, agentPresets }) {
       if (payload.action === 'list') {
         const provenance = await readProvenance(agentsHome);
         return {
-          skills: entries.map(skill => ({
+          skills: await Promise.all(entries.map(async skill => ({
             id: skillId(skill), name: skill.name, description: skill.description,
-            source: skill.source, ...skillProvenance(skill, provenance),
-          })),
+            source: skill.source, ...await skillProvenance(skill, provenance, shipped),
+          }))),
           complete,
         };
       }
@@ -52,7 +55,7 @@ export function createSkillManager({ agentsHome, skills, agentPresets }) {
       if (!entry) throw new ManagerError(complete ? 'not-found' : 'incomplete');
       const actual = await skills.get(entry.name, options);
       if (!actual || skillId(actual) !== payload.id) throw new ManagerError('conflict');
-      return { body: actual.content, ...skillProvenance(actual, await readProvenance(agentsHome)) };
+      return { body: actual.content, ...await skillProvenance(actual, await readProvenance(agentsHome), shipped) };
     });
   };
 }

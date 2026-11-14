@@ -118,6 +118,50 @@ test('does not read a provenance file linked outside the shared skills root', as
   assert.equal(state.skills[0].origin, undefined);
 });
 
+test('treats skills shipped inside an official Harness package as built in', async t => {
+  const entries = [];
+  const { base, request } = await host(t, {
+    async snapshot() { return { skills: entries, complete: true }; },
+    async get() { return { ...entries[0], content: 'Harness documentation body' }; },
+  });
+  const preset = join(base, 'installation', 'node_modules', '@deepseek-ai', 'dsh-agent-preset');
+  const path = join(preset, 'skills', 'dsh-doc', 'SKILL.md');
+  await mkdir(join(path, '..'), { recursive: true });
+  await writeFile(join(preset, 'package.json'), JSON.stringify({ name: '@deepseek-ai/dsh-agent-preset' }));
+  await writeFile(path, skillText);
+  entries.push({ name: 'dsh-doc', description: 'Harness documentation', source: 'custom', path });
+
+  const [row] = (await request({ action: 'list' })).skills;
+  assert.equal(row.origin, 'builtin');
+  assert.deepEqual(await request({ action: 'detail', id: row.id }), {
+    body: 'Harness documentation body', origin: 'builtin',
+  });
+});
+
+test('keeps custom skills outside official packages unconfirmed', async t => {
+  const entries = [];
+  const { base, request } = await host(t, {
+    async snapshot() { return { skills: entries, complete: true }; },
+    async get(name) { return { ...entries.find(skill => skill.name === name), content: 'Sample body' }; },
+  });
+  await writeFile(join(base, 'package.json'), JSON.stringify({ name: 'example-project' }));
+  const loose = join(base, 'custom', 'loose.md');
+  const thirdParty = join(base, 'vendor', 'toolkit', 'skills', 'sample', 'SKILL.md');
+  await mkdir(join(loose, '..'), { recursive: true });
+  await mkdir(join(thirdParty, '..'), { recursive: true });
+  await writeFile(loose, skillText);
+  await writeFile(thirdParty, skillText);
+  await writeFile(join(base, 'vendor', 'toolkit', 'package.json'), JSON.stringify({ name: '@example/toolkit' }));
+  entries.push({ name: 'loose', description: 'Custom root skill', source: 'custom', path: loose });
+  entries.push({ name: 'sample', description: 'Third-party package skill', source: 'custom', path: thirdParty });
+
+  const rows = (await request({ action: 'list' })).skills;
+  assert.deepEqual(rows.map(row => row.origin), [undefined, undefined]);
+  for (const row of rows) {
+    assert.deepEqual(await request({ action: 'detail', id: row.id }), { body: 'Sample body' });
+  }
+});
+
 test('releases the preset lease if the Harness catalog is unavailable', async t => {
   const { request, scope, leases } = await host(t, {
     async snapshot(options) {

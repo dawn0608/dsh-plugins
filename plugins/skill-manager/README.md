@@ -17,6 +17,7 @@ Restart Harness if prompted. Fully quit Desktop before changing its profile thro
 ## Usage and configuration
 
 - Search by name or description and open a skill to preview it. The list uses Harness's native global catalog and source precedence.
+- Skills shipped inside an official Harness package are built-in, such as `dsh-doc`, which preset compositions mount through `customSkillDirs`.
 - Shared skill provenance comes from `$DSH_AGENTS_HOME/skills/.provenance.json`; `DSH_AGENTS_HOME` defaults to `~/.agents` and supports absolute paths and `~/`. Keys are relative paths such as `my-skill/SKILL.md`; `origin` is `self` or `third-party`. An optional credential-free HTTPS `repository` supplies the source link. Unconfirmed origins appear under Third-party.
 - The list refreshes on opening and returning to the foreground, with a 15-second foreground poll.
 

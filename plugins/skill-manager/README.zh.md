@@ -17,6 +17,7 @@ dsh plugin --profile <profile> add @dawn0608/dsh-skill-manager
 ## 使用与配置
 
 - 按名称或描述搜索，打开技能查看详情。列表使用 Harness 原生全局技能目录及来源优先级。
+- 随 Harness 提供的官方包内的技能归入内置，例如预设组合通过 `customSkillDirs` 挂载的 `dsh-doc`。
 - 共享技能来源读取 `$DSH_AGENTS_HOME/skills/.provenance.json`；`DSH_AGENTS_HOME` 默认为 `~/.agents`，支持绝对路径与 `~/`。键为 `my-skill/SKILL.md` 等相对路径，`origin` 为 `self` 或 `third-party`；可选的不含凭据的 HTTPS `repository` 提供原仓库链接。来源未确认的技能归入第三方。
 - 打开页面、恢复可见时立即刷新，前台每 15 秒检查一次。
 
