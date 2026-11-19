@@ -4,6 +4,9 @@
 
 本仓库维护 DeepSeek Harness 插件。[根 README](README.md) 是安装、开发和发布流程的入口。单个插件的用法和限制写在其 README，跨插件的设计或迁移说明按需放入 `docs/`。
 
+- `docs/` 仅保留对后续开发有实际价值、与当前实现一致的架构设计、关键约束和操作文档；避免堆积临时计划、过程记录、重复说明及无效文档。
+- 优先更新或合并现有文档，不为每次任务新建文档；开发过程中发现过期、重复或无用内容时及时修正或清理，删除前确认没有有效引用或仍需保留的信息。
+
 ## 插件结构
 
 - 新增插件按[新增插件流程](README.md#新增插件)从 [templates/plugin](templates/plugin/) 起步。目录为 `plugins/<name>/`，包名为 `@dawn0608/dsh-<name>`，`cordis.patch.yml` 的 insert ID 使用短名 `<name>`。
